@@ -49,12 +49,10 @@ export default function DashboardLayout({ children }) {
 
       <aside className="hidden md:flex md:w-72 shrink-0 flex-col relative z-10 bg-white/10 backdrop-blur-xl border-r border-white/20 text-white">
         <div className="relative px-5 py-5 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <Image src="/logo-full.svg" alt="KLSB Logo" width={160} height={52} className="object-contain drop-shadow" />
+          <div className="flex items-center justify-center">
+            <Image src="/logo/KLSB_icon.png" alt="KLSB Logo" width={64} height={64} className="object-contain drop-shadow" />
           </div>
-          <p className="mt-3 text-xs uppercase tracking-wider text-white/70 flex items-center gap-2">
-            <span className="inline-block w-1.5 h-1.5 rotate-45 bg-yellow-400" /> Secure Access
-          </p>
+        
         </div>
 
         <nav className="p-4 grid gap-1 text-sm">

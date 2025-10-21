@@ -58,16 +58,15 @@ export default function Page() {
       >
        
 
-        <div className="flex flex-col items-center gap-3 mb-6">
+        <div className="flex flex-col items-center gap-3 mb-6 text-center">
           <Image
             src="/logo/KLSB_icon.png"
             alt="KLSB Icon"
             width={84}
             height={84}
             priority
-            className="object-contain"
+            className="object-contain mx-auto"
           />
-          
         </div>
 
         <h2

@@ -33,22 +33,22 @@ function emptyRow() {
 }
 
 function Row({ r, i, onChange, onEdit, onRemove }) {
-  // memoized row to avoid re-rendering all rows on every change
+  // Render read-only cells; editing happens via modal opened by Edit
   return (
     <tr key={i} className="border-t">
-      <td className="px-2 py-1">{r.BIL}</td>
-      <td className="px-2 py-1"><input className="w-full" value={r.STAFF_NAME ?? ""} onChange={(e) => onChange(i, "STAFF_NAME", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.POSITION ?? ""} onChange={(e) => onChange(i, "POSITION", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.STATUS ?? ""} onChange={(e) => onChange(i, "STATUS", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.LOCATION ?? ""} onChange={(e) => onChange(i, "LOCATION", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.PO_SO_No ?? ""} onChange={(e) => onChange(i, "PO_SO_No", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" type="date" value={r.START_DATE ?? ""} onChange={(e) => onChange(i, "START_DATE", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" type="date" value={r.END_DATE ?? ""} onChange={(e) => onChange(i, "END_DATE", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.EXTENSION_STATUS ?? ""} onChange={(e) => onChange(i, "EXTENSION_STATUS", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.Rate ?? ""} onChange={(e) => onChange(i, "Rate", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.NH ?? ""} onChange={(e) => onChange(i, "NH", e.target.value)} /></td>
-      <td className="px-2 py-1"><input className="w-full" value={r.OT ?? ""} onChange={(e) => onChange(i, "OT", e.target.value)} /></td>
-      <td className="px-2 py-1 flex gap-2">
+      <td className="px-2 py-2 align-top">{r.BIL}</td>
+      <td className="px-2 py-2 align-top">{r.STAFF_NAME ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.POSITION ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.STATUS ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.LOCATION ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.PO_SO_No ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.START_DATE ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.END_DATE ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.EXTENSION_STATUS ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.Rate ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.NH ?? "-"}</td>
+      <td className="px-2 py-2 align-top">{r.OT ?? "-"}</td>
+      <td className="px-2 py-2 align-top flex gap-2">
         <button onClick={() => onEdit(i)} className="text-blue-600">Edit</button>
         <button onClick={() => onRemove(i)} className="text-red-600">Remove</button>
       </td>
@@ -60,6 +60,10 @@ const MemoRow = memo(Row);
 
 export default function ManpowerTable({ initial = [] }) {
   const [rows, setRows] = useState(initial);
+  const [filter, setFilter] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRow());
   const [editingIndex, setEditingIndex] = useState(-1);
@@ -108,6 +112,42 @@ export default function ManpowerTable({ initial = [] }) {
     const ms = Date.parse(v);
     if (!Number.isNaN(ms)) return ms;
     return null;
+  }
+
+  function matchFilter(row, q, nameQ, positionQ, statusQ) {
+    // If any specific filter is provided, all provided filters must match.
+    try {
+      if (q) {
+        const s = String(q).trim().toLowerCase();
+        if (String(row.BIL ?? "").toLowerCase().includes(s)) return true;
+        if (String(row.STAFF_NAME ?? "").toLowerCase().includes(s)) return true;
+        if (String(row.POSITION ?? "").toLowerCase().includes(s)) return true;
+        if (String(row.LOCATION ?? "").toLowerCase().includes(s)) return true;
+        if (String(row.PO_SO_No ?? "").toLowerCase().includes(s)) return true;
+        // if general q is present and none matched, return false
+        return false;
+      }
+
+      if (nameQ) {
+        const s = String(nameQ).trim().toLowerCase();
+        if (!String(row.STAFF_NAME ?? "").toLowerCase().includes(s)) return false;
+      }
+
+      if (positionQ) {
+        const s = String(positionQ).trim().toLowerCase();
+        if (!String(row.POSITION ?? "").toLowerCase().includes(s)) return false;
+      }
+
+      if (statusQ) {
+        const s = String(statusQ).trim().toLowerCase();
+        if (!String(row.STATUS ?? "").toLowerCase().includes(s)) return false;
+      }
+
+      // passed all provided filters
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // Persist changes to server when rows change (debounce could be added)
@@ -296,8 +336,13 @@ export default function ManpowerTable({ initial = [] }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div className="text-sm text-[#0e2b57]/70">Records: {rows.length}</div>
-        <div>
+        <div className="text-sm text-[#0e2b57]/70">Records: {rows.filter(r => matchFilter(r, filter)).length} / {rows.length}</div>
+
+        <div className="flex items-center gap-3">
+          <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} placeholder="Name" className="px-2 py-1 border rounded text-sm" />
+          <input value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} placeholder="Position" className="px-2 py-1 border rounded text-sm" />
+          <input value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} placeholder="Status" className="px-2 py-1 border rounded text-sm" />
+          <button onClick={() => { setNameFilter(''); setPositionFilter(''); setStatusFilter(''); setFilter(''); }} className="px-3 py-1 border rounded text-sm">Clear</button>
           <button onClick={() => openAddForm()} className="px-3 py-1 rounded bg-yellow-400 text-white">Add row</button>
         </div>
       </div>
@@ -322,7 +367,7 @@ export default function ManpowerTable({ initial = [] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {rows.filter(r => matchFilter(r, filter, nameFilter, positionFilter, statusFilter)).map((r, i) => (
               <MemoRow key={r.id ?? i} r={r} i={i} onChange={update} onEdit={openEditForm} onRemove={remove} />
             ))}
           </tbody>

@@ -73,14 +73,42 @@ export default function ManpowerTable({ initial = [] }) {
         const res = await fetchWithAuth("/api/manpower");
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length) setRows(data);
+          if (Array.isArray(data) && data.length) setRows(sortOldestFirst(data));
         }
       } catch (e) {
         // fallback to initial
-        setRows(initial);
+        setRows(sortOldestFirst(initial));
       }
     })();
   }, []);
+
+  // Ensure oldest entries appear at the top and newest at the bottom.
+  function sortOldestFirst(list) {
+    if (!Array.isArray(list)) return list;
+    return list.slice().sort((a, b) => {
+      const aTs = parseTimestamp(a.updatedAt || a.createdAt || a.START_DATE || a.START_DATE || null);
+      const bTs = parseTimestamp(b.updatedAt || b.createdAt || b.START_DATE || b.START_DATE || null);
+      if (aTs != null && bTs != null) return aTs - bTs;
+      if (aTs != null) return -1;
+      if (bTs != null) return 1;
+      // fallback to numeric BIL if present
+      const aBil = Number(a.BIL ?? a.bil ?? 0);
+      const bBil = Number(b.BIL ?? b.bil ?? 0);
+      if (!Number.isNaN(aBil) && !Number.isNaN(bBil)) return aBil - bBil;
+      // final fallback: preserve existing order
+      return 0;
+    });
+  }
+
+  function parseTimestamp(v) {
+    if (!v) return null;
+    // If already a number
+    if (typeof v === "number") return v;
+    // If ISO string
+    const ms = Date.parse(v);
+    if (!Number.isNaN(ms)) return ms;
+    return null;
+  }
 
   // Persist changes to server when rows change (debounce could be added)
   // Debounced background sync to reduce network churn and re-renders
@@ -156,10 +184,35 @@ export default function ManpowerTable({ initial = [] }) {
         })();
       }
     } else {
-      setRows((r) => {
-        const next = [...r, { ...form }];
-        return next;
-      });
+      // If user is authenticated, try to POST immediately so the new row is persisted.
+      (async () => {
+        const { getAuth } = await import("firebase/auth");
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          try {
+            const res = await fetchWithAuth("/api/manpower", { method: "POST", body: JSON.stringify(form) });
+            if (res.ok) {
+              const json = await res.json();
+              setRows((r) => {
+                const next = [...r, { ...form, id: json.id }];
+                return next;
+              });
+              return;
+            }
+            // If POST failed, fall back to local add and log
+            console.error("POST failed when adding row", res.status, await res.text());
+          } catch (err) {
+            console.error("POST error when adding row", err);
+          }
+        }
+
+        // Fallback: add locally (unsynced)
+        setRows((r) => {
+          const next = [...r, { ...form }];
+          return next;
+        });
+      })();
     }
     setShowForm(false);
     setForm(emptyRow());
@@ -304,3 +357,4 @@ export default function ManpowerTable({ initial = [] }) {
     </div>
   );
 }
+

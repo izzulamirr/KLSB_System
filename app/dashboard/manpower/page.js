@@ -7,17 +7,16 @@ export default async function ManpowerPage() {
   const data = await getManpowerData();
 
   return (
-    <section>
-      <div className="flex items-center justify-between gap-4">
+    <section className="space-y-6">
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-[#0b1e3a]">Manpower Database</h1>
-          <p className="text-sm text-[#0e2b57]/70">Employee directory, roles and profiles.</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900">Manpower Database</h1>
+          <p className="text-sm text-slate-600 mt-1">Employee directory — roles, locations and dates.</p>
         </div>
-        <div className="text-sm text-[#0e2b57]/60">Demo: data stored in local storage for edits</div>
-      </div>
+       
+      </header>
 
-      <div className="mt-6">
-        {/* client-side interactive table (uses localStorage) */}
+      <div className="bg-white shadow-sm rounded-lg border border-slate-100 p-4">
         <ManpowerClient initial={data} />
       </div>
     </section>

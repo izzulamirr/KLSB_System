@@ -17,7 +17,7 @@ const STORAGE_KEY = "klsb:manpower:demo";
 
 function emptyRow() {
   return {
-    BIL: null,
+    BIL: null, 
     STAFF_NAME: "",
     POSITION: "",
     STATUS: "",
@@ -35,22 +35,35 @@ function emptyRow() {
 function Row({ r, i, onChange, onEdit, onRemove }) {
   // Render read-only cells; editing happens via modal opened by Edit
   return (
-    <tr key={i} className="border-t">
-      <td className="px-2 py-2 align-top">{r.BIL}</td>
-      <td className="px-2 py-2 align-top">{r.STAFF_NAME ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.POSITION ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.STATUS ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.LOCATION ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.PO_SO_No ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.START_DATE ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.END_DATE ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.EXTENSION_STATUS ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.Rate ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.NH ?? "-"}</td>
-      <td className="px-2 py-2 align-top">{r.OT ?? "-"}</td>
-      <td className="px-2 py-2 align-top flex gap-2">
-        <button onClick={() => onEdit(i)} className="text-blue-600">Edit</button>
-        <button onClick={() => onRemove(i)} className="text-red-600">Remove</button>
+    <tr key={i} className="border-t hover:bg-slate-50">
+      <td className="px-3 py-3 align-top whitespace-nowrap text-sm text-slate-700">{r.BIL}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.STAFF_NAME ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.POSITION ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.STATUS ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.LOCATION ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.PO_SO_No ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.START_DATE ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.END_DATE ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.EXTENSION_STATUS ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.Rate ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.NH ?? "-"}</td>
+      <td className="px-3 py-3 align-top text-sm text-slate-700">{r.OT ?? "-"}</td>
+      <td className="px-2 py-2 align-top text-right">
+        <div className="inline-flex items-center gap-2">
+          <button onClick={() => onEdit(i)} aria-label="Edit" title="Edit" className="p-2 rounded hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-700" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+              <path d="M4 13.5V17h3.5L17.65 6.85a1 1 0 0 0 0-1.41L15.56 3.29a1 1 0 0 0-1.41 0L4 13.5z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          <button onClick={() => onRemove(i)} aria-label="Delete" title="Delete" className="p-2 rounded hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M3 6h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 11v6M14 11v6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </td>
     </tr>
   );

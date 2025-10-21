@@ -85,7 +85,8 @@ export default function DashboardLayout({ children }) {
               await signOut(auth);
               router.push("/login");
             }}
-            className="w-full py-2.5 rounded-xl font-medium bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow hover:shadow-lg transition"
+            aria-label="Sign out"
+            className="w-full py-2.5 rounded-xl font-medium bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow hover:shadow-lg transform hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-rose-300"
           >
             Logout
           </button>

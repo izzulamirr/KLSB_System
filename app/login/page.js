@@ -60,17 +60,14 @@ export default function Page() {
 
         <div className="flex flex-col items-center gap-3 mb-6">
           <Image
-            src="/logo-full.svg"
-            alt="KLSB Logo"
-            width={200}
-            height={64}
+            src="/logo/KLSB_icon.png"
+            alt="KLSB Icon"
+            width={84}
+            height={84}
             priority
-            className="object-contain drop-shadow-[0_4px_16px_rgba(255,255,255,0.35)]"
+            className="object-contain"
           />
-          <div className="flex items-center gap-2 text-xs tracking-widest uppercase text-[#0b1e3a]/70">
-            <span className="inline-block w-1.5 h-1.5 rotate-45 bg-[#0b1e3a]" />
-            <span>Secure Access</span>
-          </div>
+          
         </div>
 
         <h2
@@ -99,16 +96,8 @@ export default function Page() {
           inputMode="email"
         />
 
-        <div className="flex items-center justify-between">
+        <div>
           <label className="block text-sm font-medium text-[#0e2b57]">Password</label>
-          <button
-            type="button"
-            onClick={() => setShowPw((s) => !s)}
-            className="text-xs text-[#0e2b57]/70 hover:text-[#0e2b57] underline decoration-dotted"
-            aria-pressed={showPw}
-          >
-            {showPw ? "Hide" : "Show"}
-          </button>
         </div>
         <div className="relative">
           <input
@@ -122,7 +111,17 @@ export default function Page() {
           />
 
           {/* Small floating diamond ornament */}
-          <span className="pointer-events-none absolute -right-3 -bottom-3 w-4 h-4 rotate-45 bg-gradient-to-br from-white to-[#c7d9ee] border border-white/60 shadow" />
+        </div>
+
+        <div className="mb-4 text-right">
+          <button
+            type="button"
+            onClick={() => setShowPw((s) => !s)}
+            className="text-xs text-[#0e2b57]/70 hover:text-[#0e2b57] underline decoration-dotted"
+            aria-pressed={showPw}
+          >
+            {showPw ? "Hide" : "Show"}
+          </button>
         </div>
 
         {error && (

@@ -22,8 +22,21 @@ export async function GET(req) {
     const collectionNameNormalized = collectionName.toLowerCase();
 
     // Support optional ?id=docId to fetch a single document
-    const url = new URL(req.url);
-    const id = url.searchParams.get("id");
+    // req.url may sometimes be a relative URL depending on environment; be defensive.
+    let id = null;
+    try {
+      const url = new URL(req.url);
+      id = url.searchParams.get("id");
+    } catch (err) {
+      try {
+        const host = req.headers.get("host") || "localhost";
+        const url = new URL(req.url, `http://${host}`);
+        id = url.searchParams.get("id");
+      } catch (err2) {
+        // give up — leave id null
+        id = null;
+      }
+    }
     if (id) {
       const docSnap = await db.collection(collectionName).doc(id).get();
       if (!docSnap.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });

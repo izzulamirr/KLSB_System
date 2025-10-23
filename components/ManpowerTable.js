@@ -66,7 +66,7 @@ function StatusPill({ value }) {
 
 function Cell({ children, className = "" }) {
   return (
-    <td className={`px-4 py-3 align-top text-sm text-slate-700 whitespace-nowrap ${className}`}>{children}</td>
+    <td className={`px-4 py-3 align-top text-sm text-slate-700 ${className}`}>{children}</td>
   );
 }
 
@@ -88,28 +88,25 @@ function Row({ r, i, onEdit, onRemove }) {
     <tr
       className={`border-t border-slate-100 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/50"} hover:bg-slate-50 transition-colors`}
     >
-      <Cell className="whitespace-nowrap text-slate-800 font-medium">{r.BIL ?? "-"}</Cell>
-      <Cell>{r.STAFF_NAME ?? "-"}</Cell>
-      <Cell>{r.POSITION ?? "-"}</Cell>
-      <Cell><StatusPill value={r.STATUS} /></Cell>
-      <Cell>{r.LOCATION ?? "-"}</Cell>
-      <Cell>{r.PO_SO_No ?? "-"}</Cell>
+      <Cell className="whitespace-nowrap text-slate-800 font-medium">{r.BIL}</Cell>
+      <Cell>{r.STAFF_NAME || "-"}</Cell>
+      <Cell>{r.POSITION || "-"}</Cell>
+      <Cell>
+        <StatusPill value={r.STATUS} />
+      </Cell>
+      <Cell>{r.LOCATION || "-"}</Cell>
+      <Cell>{r.PO_SO_No || "-"}</Cell>
       <Cell>{formatDate(r.START_DATE)}</Cell>
       <Cell>{formatDate(r.END_DATE)}</Cell>
-      <Cell>{r.END_DATE_KLSB ?? "-"}</Cell>
-      <Cell>{r.EXTENSION_STATUS ?? "-"}</Cell>
-      <Cell>{r.Rate ?? "-"}</Cell>
+      <Cell>{r.EXTENSION_STATUS || "-"}</Cell>
+      <Cell>{r.Rate || "-"}</Cell>
       <Cell>{
-        (() => {
-          const val = r.PAY_TYPE ?? computePayType(r);
-          if (!val) return "-";
-          if (val.toLowerCase() === "monthly") return "Monthly";
-          if (val.toLowerCase() === "hourly") return "Hourly";
-          return val;
-        })()
+        (computePayType(r) === 'M') ? 'Monthly'
+        : (computePayType(r) === 'H') ? 'Hourly'
+        : (computePayType(r) || '-')
       }</Cell>
-      <Cell>{r.NH ?? "-"}</Cell>
-      <Cell>{r.OT ?? "-"}</Cell>
+      <Cell>{r.NH || "-"}</Cell>
+      <Cell>{r.OT || "-"}</Cell>
       <Cell className="text-right">
         <div className="inline-flex items-center gap-1.5">
           <ActionIconButton title="Edit" onClick={() => onEdit(i)}>
@@ -133,7 +130,24 @@ function Row({ r, i, onEdit, onRemove }) {
 const MemoRow = memo(Row);
 
 export default function ManpowerTable({ initial = [] }) {
-  const [rows, setRows] = useState(initial);
+  const [rows, setRows] = useState(() => {
+    // On initial load, ensure PAY_TYPE is set according to Rate
+    return initial.map(row => ({
+      ...row,
+      PAY_TYPE: computePayType(row)
+    }));
+  });
+  // Whenever rows or their Rate changes, update PAY_TYPE to match logic
+  useEffect(() => {
+    // Compute new PAY_TYPEs for all rows
+    const computed = rows.map(row => computePayType(row));
+    const current = rows.map(row => row.PAY_TYPE);
+    // Only update if any PAY_TYPE is out of sync
+    if (computed.some((v, i) => v !== current[i])) {
+      setRows(rows => rows.map((row, i) => ({ ...row, PAY_TYPE: computed[i] })));
+    }
+    // eslint-disable-next-line
+  }, [JSON.stringify(rows.map(r => r.Rate))]);
   const [q, setQ] = useState("");
   const [nameFilter, setNameFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
@@ -161,18 +175,35 @@ export default function ManpowerTable({ initial = [] }) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
-            setRows(sortByPoSoAsc(data));
+            setRows(sortByPoSoNoAndLocationAsc(data));
             return;
           }
         }
-        // fall back to localStorage or initial
-        const cached = getLocal();
-  if (cached?.length) setRows(sortByBilAsc(cached));
-  else setRows(sortByBilAsc(initial));
+    // fall back to localStorage or initial
+    const cached = getLocal();
+  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
+  else setRows(sortByPoSoNoAndLocationAsc(initial));
       } catch (e) {
         const cached = getLocal();
-  if (cached?.length) setRows(sortByBilAsc(cached));
-  else setRows(sortByBilAsc(initial));
+  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
+  else setRows(sortByPoSoNoAndLocationAsc(initial));
+// Sort by PO_SO_No ascending (alphanumeric)
+// Sort by PO_SO_No, then LOCATION (both ascending, alphanumeric)
+function sortByPoSoNoAndLocationAsc(list) {
+  if (!Array.isArray(list)) return list;
+  return list.slice().sort((a, b) => {
+    const aPo = String(a?.PO_SO_No ?? '').toLowerCase();
+    const bPo = String(b?.PO_SO_No ?? '').toLowerCase();
+    if (aPo < bPo) return -1;
+    if (aPo > bPo) return 1;
+    // If PO/SO No is equal, sort by LOCATION
+    const aLoc = String(a?.LOCATION ?? '').toLowerCase();
+    const bLoc = String(b?.LOCATION ?? '').toLowerCase();
+    if (aLoc < bLoc) return -1;
+    if (aLoc > bLoc) return 1;
+    return 0;
+  });
+}
       }
     })();
   }, []);
@@ -227,11 +258,8 @@ export default function ManpowerTable({ initial = [] }) {
         alert("Please provide at least BIL and STAFF NAME");
         return;
       }
-      // Only compute PAY_TYPE if left blank (auto); otherwise use selected value
-      const withPayType = { ...form };
-      if (!form.PAY_TYPE) {
-        withPayType.PAY_TYPE = computePayType(form);
-      }
+  // Use selected PAY_TYPE if set, otherwise compute
+  const withPayType = { ...form, PAY_TYPE: form.PAY_TYPE || computePayType(form) };
       if (editingIndex >= 0) {
         setRows((r) => {
           const cp = r.map((x) => ({ ...x }));
@@ -436,9 +464,7 @@ export default function ManpowerTable({ initial = [] }) {
         if (sd) out.START_DATE = normalizeDate(sd);
         const ed = getMapped("END_DATE", "END_DATE", "END DATE", "End Date");
         if (ed) out.END_DATE = normalizeDate(ed);
-  const edk = getMapped("END_DATE_KLSB", "END_DATE_KLSB", "END DATE KLSB", "End Date KLSB");
-  if (edk) out.END_DATE_KLSB = normalizeDate(edk);
-  const ext = getMapped("EXTENSION_STATUS", "EXTENSION_STATUS", "EXTENSION STATUS", "Extension Status");
+        const ext = getMapped("EXTENSION_STATUS", "EXTENSION_STATUS", "EXTENSION STATUS", "Extension Status");
         if (ext) out.EXTENSION_STATUS = ext;
         const rate = getMapped("Rate", "Rate", "RATE", "Salary");
         if (rate) out.Rate = rate;
@@ -446,25 +472,8 @@ export default function ManpowerTable({ initial = [] }) {
         if (nh) out.NH = nh;
         const ot = getMapped("OT", "OT", "O/T");
         if (ot) out.OT = ot;
-  // allow PAY_TYPE to be explicitly mapped; otherwise compute it
-  const pay = getMapped("PAY_TYPE", "PAY_TYPE", "PAY TYPE", "Pay Type", "Payment Type");
-  if (pay) out.PAY_TYPE = pay;
-  // compute pay type (monthly if NH or OT is blank)
-  if (!out.PAY_TYPE) out.PAY_TYPE = computePayType(out);
-
-        // Apply explicit COL_n mappings: if user mapped a CSV header to COL_i, preserve it
-        if (mapping && Object.keys(mapping).length) {
-          for (const [fromHeader, toField] of Object.entries(mapping)) {
-            if (!toField) continue;
-            const colMatch = /^COL_(\d+)$/i.exec(toField);
-            if (colMatch) {
-              // find raw header key in p (case-sensitive as provided)
-              if (p[fromHeader] != null) {
-                out[toField] = String(p[fromHeader]).trim();
-              }
-            }
-          }
-        }
+  // compute pay type ('M' if NH or OT is blank, else 'H')
+  out.PAY_TYPE = computePayType(out);
 
         return out;
       });
@@ -473,15 +482,9 @@ export default function ManpowerTable({ initial = [] }) {
       try { console.log("[Import] normalized sample:", normalized.slice(0, 3)); } catch {}
 
       // If nothing except BIL mapped, prompt user to map columns
-      const anyData = normalized.some((r) => {
-        // accept any mapped canonical field or any COL_n raw-preserved field
-        if (r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.END_DATE_KLSB || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT || r.PAY_TYPE) return true;
-        // any COL_n
-        for (const k of Object.keys(r)) {
-          if (/^COL_\d+$/.test(k) && String(r[k] || '').trim() !== '') return true;
-        }
-        return false;
-      });
+      const anyData = normalized.some((r) => (
+        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT
+      ));
       if (!anyData) {
         alert("No CSV columns matched. Please map columns before importing.");
         if (!csvHeaders.length && rawCsvRows[0]) setCsvHeaders(Object.keys(rawCsvRows[0]));
@@ -558,36 +561,6 @@ export default function ManpowerTable({ initial = [] }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Build deduplicated mapping targets (canonical fields first, then raw COLs)
-  const canonicalTargets = [
-    { value: "BIL", label: "BIL" },
-    { value: "STAFF_NAME", label: "Staff Name" },
-    { value: "POSITION", label: "Position" },
-    { value: "STATUS", label: "Status" },
-    { value: "LOCATION", label: "Location" },
-    { value: "PO_SO_No", label: "PO/SO No" },
-    { value: "START_DATE", label: "Start Date" },
-    { value: "END_DATE", label: "End Date" },
-    { value: "END_DATE_KLSB", label: "End Date KLSB" },
-    { value: "EXTENSION_STATUS", label: "Extension Status" },
-    { value: "Rate", label: "Rate" },
-    { value: "PAY_TYPE", label: "Pay Type" },
-    { value: "NH", label: "NH" },
-    { value: "OT", label: "OT" },
-  ];
-  // Build raw column targets but skip those whose header already matches a canonical target
-  const canonicalNormalized = new Set(canonicalTargets.map((t) => String(t.label || '').toLowerCase().replace(/[^a-z0-9]+/g, '')));
-  const colTargets = (csvHeaders || [])
-    .map((hh, idx) => ({ value: `COL_${idx + 1}`, label: `COL_${idx + 1} — ${String(hh)}`, rawLabel: String(hh || '') }))
-    .filter((t) => {
-      const n = String(t.rawLabel || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-      // keep the COL option only if its normalized header doesn't match a canonical label
-      return !canonicalNormalized.has(n);
-    })
-    .map(({ value, label }) => ({ value, label }));
-  // dedupe by value (canonical first)
-  const mappingTargets = Array.from(new Map([...canonicalTargets, ...colTargets].map((t) => [t.value, t])).values());
-
   return (
     <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
       {/* Top bar */}
@@ -628,7 +601,7 @@ export default function ManpowerTable({ initial = [] }) {
               Add row
             </button>
 
-            <input ref={fileInputRef} type="file" accept=".csv,.xlsx" onChange={onFileChange} className="hidden" />
+            <input ref={fileInputRef} type="file" accept=".csv" onChange={onFileChange} className="hidden" />
             <button
               disabled={importing}
               onClick={() => fileInputRef.current?.click()}
@@ -637,7 +610,7 @@ export default function ManpowerTable({ initial = [] }) {
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              {importing ? "Importing…" : "Import CSV / XLSX"}
+              {importing ? "Importing…" : "Import CSV"}
             </button>
 
             <button
@@ -691,7 +664,6 @@ export default function ManpowerTable({ initial = [] }) {
                 "PO/SO No",
                 "START DATE",
                 "END DATE",
-                "END DATE KLSB",
                 "EXTENSION STATUS",
                 "Rate",
                 "PAY TYPE",
@@ -756,11 +728,7 @@ export default function ManpowerTable({ initial = [] }) {
               {renderInput("Location", "LOCATION")}
               {renderInput("PO/SO No", "PO_SO_No")}
               {renderInput("Start Date", "START_DATE", "date")}
-              {renderInput("End Date", "END_DATE", "date")}
-              {renderInput("End Date KLSB", "END_DATE_KLSB", "date")}
-              {renderInput("Extension Status", "EXTENSION_STATUS")}
-              {renderInput("Rate", "Rate")}
-              {/* PAY_TYPE select */}
+              {/* Editable PAY_TYPE */}
               <label className="flex flex-col">
                 <span className="text-xs text-slate-500 mb-1">Pay Type</span>
                 <select
@@ -769,10 +737,31 @@ export default function ManpowerTable({ initial = [] }) {
                   className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 >
                   <option value="">(auto)</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="hourly">Hourly</option>
+                  <option value="M">Monthly</option>
+                  <option value="H">Hourly</option>
                 </select>
               </label>
+              {/* Editable END_DATE (KLSB) */}
+              <label className="flex flex-col">
+                <span className="text-xs text-slate-500 mb-1">End Date (KLSB)</span>
+                <input
+                  type="date"
+                  value={form.END_DATE || ""}
+                  onChange={e => setForm({ ...form, END_DATE: e.target.value })}
+                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                />
+              </label>
+              {/* Editable EXTENSION_STATUS */}
+              <label className="flex flex-col">
+                <span className="text-xs text-slate-500 mb-1">Extension Status</span>
+                <input
+                  type="text"
+                  value={form.EXTENSION_STATUS || ""}
+                  onChange={e => setForm({ ...form, EXTENSION_STATUS: e.target.value })}
+                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                />
+              </label>
+              {renderInput("Rate", "Rate")}
               {renderInput("NH", "NH")}
               {renderInput("OT", "OT")}
             </div>
@@ -857,9 +846,18 @@ export default function ManpowerTable({ initial = [] }) {
                           className="border px-2 py-1 rounded w-60"
                         >
                           <option value="">(skip)</option>
-                          {mappingTargets.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
+                          <option value="BIL">BIL</option>
+                          <option value="STAFF_NAME">STAFF_NAME</option>
+                          <option value="POSITION">POSITION</option>
+                          <option value="STATUS">STATUS</option>
+                          <option value="LOCATION">LOCATION</option>
+                          <option value="PO_SO_No">PO_SO_No</option>
+                          <option value="START_DATE">START_DATE</option>
+                          <option value="END_DATE">END_DATE</option>
+                          <option value="EXTENSION_STATUS">EXTENSION_STATUS</option>
+                          <option value="Rate">Rate</option>
+                          <option value="NH">NH</option>
+                          <option value="OT">OT</option>
                         </select>
                       </td>
                     </tr>
@@ -920,61 +918,6 @@ function sortByBilAsc(list) {
   });
 }
 
-function sortByPoSoAsc(list) {
-  if (!Array.isArray(list)) return list;
-  // attempt to extract PO/SO number from canonical field then raw COL_* fields
-  function poKey(item) {
-    if (!item) return '';
-    const cand = item.PO_SO_No || item.PO_SO || item.PO || '';
-    if (cand && String(cand).trim()) return String(cand).trim();
-    // fallback: search for COL_* fields that have 'PO' or 'SO' in their header label (if stored headers present)
-    if (Array.isArray(item.__headers) && item.__headers.length) {
-      for (let i = 0; i < item.__headers.length; i++) {
-        const h = String(item.__headers[i] || '').toUpperCase();
-        if (h.includes('PO') || h.includes('SO')) {
-          const key = `COL_${i+1}`;
-          if (item[key]) return String(item[key]).trim();
-        }
-      }
-    }
-    // last fallback: scan COL_* for a token that looks like PO number (contains digits and slash/dash)
-    for (const k of Object.keys(item)) {
-      if (!k.startsWith('COL_')) continue;
-      const v = String(item[k] || '').trim();
-      if (v && /\d+[\/-]\d+/.test(v)) return v;
-    }
-    return '';
-  }
-
-  return list.slice().sort((a, b) => {
-    const pa = poKey(a) || '';
-    const pb = poKey(b) || '';
-    if (pa && pb) {
-      // try numeric segments first (e.g., 412026-00062)
-      const na = pa.replace(/[^0-9]/g, '');
-      const nb = pb.replace(/[^0-9]/g, '');
-      if (na && nb) {
-        const numa = BigInt(na);
-        const numb = BigInt(nb);
-        if (numa < numb) return -1;
-        if (numa > numb) return 1;
-      }
-      return pa.localeCompare(pb, undefined, { numeric: true, sensitivity: 'base' });
-    }
-    if (pa) return -1;
-    if (pb) return 1;
-    // fallback to BIL ordering
-    const aBil = Number(a?.BIL ?? a?.bil ?? -Infinity);
-    const bBil = Number(b?.BIL ?? b?.bil ?? -Infinity);
-    const aValid = !Number.isNaN(aBil);
-    const bValid = !Number.isNaN(bBil);
-    if (aValid && bValid) return aBil - bBil;
-    if (aValid) return -1;
-    if (bValid) return 1;
-    return 0;
-  });
-}
-
 function parseTimestamp(v) {
   if (!v) return null;
   if (typeof v === "number") return v;
@@ -992,46 +935,40 @@ function formatDate(v) {
 
 function normalizeDate(v) {
   if (!v) return "";
+  // Try parse common CSV formats (DD/MM/YYYY or MM/DD/YYYY or ISO)
   const s = String(v).trim();
-  // If ISO-like (YYYY-MM-DD), preserve as-is (no timezone shift)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // If ISO-like
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   // If DD/MM/YYYY or D/M/YYYY
-  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m) {
     const [_, dd, mm, yyyy] = m;
-    const y = String(yyyy).padStart(4, '0');
-    const mo = String(mm).padStart(2, '0');
-    const day = String(dd).padStart(2, '0');
-    return `${y}-${mo}-${day}`;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    if (!isNaN(d)) return d.toISOString().slice(0, 10);
   }
-  // If DD-MM-YYYY or D-M-YYYY
-  m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (m) {
-    const [_, dd, mm, yyyy] = m;
-    const y = String(yyyy).padStart(4, '0');
-    const mo = String(mm).padStart(2, '0');
-    const day = String(dd).padStart(2, '0');
-    return `${y}-${mo}-${day}`;
-  }
-  // Fallback: try Date.parse, but output as YYYY-MM-DD in local time
+  // Fallback to Date.parse
   const d = new Date(s);
-  if (!isNaN(d)) {
-    // Use local time, not UTC
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${mo}-${day}`;
-  }
+  if (!isNaN(d)) return d.toISOString().slice(0, 10);
   return s;
 }
 
 function computePayType(row) {
-  // Monthly if NH or OT is blank (empty string or null/undefined). Otherwise hourly.
+  // If Rate is below 200, PAY_TYPE is 'H' (hourly), otherwise 'M' (monthly)
+  let rate = row?.Rate;
+  if (typeof rate === 'string') {
+    rate = rate.replace(/,/g, '');
+  }
+  rate = parseFloat(rate);
+  if (!isNaN(rate)) {
+    if (rate < 700) return "H";
+    return "M";
+  }
+  // fallback to previous logic if Rate is not a number
   const nh = row?.NH;
   const ot = row?.OT;
   const isBlank = (x) => x === undefined || x === null || String(x).trim() === "";
-  if (isBlank(nh) || isBlank(ot)) return "monthly";
-  return "hourly";
+  if (isBlank(nh) || isBlank(ot)) return "M";
+  return "H";
 }
 
 async function safeJson(res) {
@@ -1154,8 +1091,7 @@ function guessMapping(headers) {
     else if (key.includes('start')) m[h] = 'START_DATE';
     else if (key.includes('end')) m[h] = 'END_DATE';
     else if (key.includes('extension')) m[h] = 'EXTENSION_STATUS';
-  else if (key.includes('rate') || key.includes('salary')) m[h] = 'Rate';
-  else if (key.includes('pay') || key.includes('payment')) m[h] = 'PAY_TYPE';
+    else if (key.includes('rate') || key.includes('salary')) m[h] = 'Rate';
     else if (key === 'nh' || key.includes('normal hour')) m[h] = 'NH';
     else if (key === 'ot' || key.includes('overtime')) m[h] = 'OT';
   });

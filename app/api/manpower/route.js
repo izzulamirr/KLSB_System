@@ -65,8 +65,9 @@ export async function POST(req) {
     const decoded = await verifyToken(req, admin);
     // basic auth check, allow any authenticated user for now
     const body = await req.json();
+    const cleaned = stripEmpty(body);
     const collectionName = process.env.MANPOWER_COLLECTION_NAME || "manpower";
-    const payload = collectionName === "staff" ? mapManpowerToStaff(body) : body;
+    const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
     const doc = await db.collection(collectionName).add({ ...payload, createdBy: decoded.uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     return NextResponse.json({ id: doc.id }, { status: 201 });
   } catch (e) {
@@ -83,8 +84,9 @@ export async function PUT(req) {
     const body = await req.json();
     if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
     const { id, ...data } = body;
+    const cleaned = stripEmpty(data);
     const collectionName = process.env.MANPOWER_COLLECTION_NAME || "manpower";
-    const payload = collectionName === "staff" ? mapManpowerToStaff(data) : data;
+    const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
     await db.collection(collectionName).doc(id).set({ ...payload, updatedBy: decoded.uid, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (e) {
@@ -124,6 +126,7 @@ function mapStaffToManpower(doc) {
     START_DATE: s.startDate || s.START_DATE || null,
     END_DATE: s.endDate || s.END_DATE || null,
     EXTENSION_STATUS: s.extension || s.EXTENSION_STATUS || "",
+    PAY_TYPE: s.payType || s.PAY_TYPE || null,
     Rate: s.rate || s.Rate || null,
     NH: s.nh || s.NH || null,
     OT: s.ot || s.OT || null,
@@ -142,8 +145,20 @@ function mapManpowerToStaff(man) {
     startDate: man.START_DATE,
     endDate: man.END_DATE,
     extension: man.EXTENSION_STATUS,
+    payType: man.PAY_TYPE,
     rate: man.Rate,
     nh: man.NH,
     ot: man.OT,
   };
+}
+
+// Remove empty string, null, and undefined properties recursively (one level is enough here)
+function stripEmpty(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === '' || v === null || v === undefined) continue;
+    out[k] = v;
+  }
+  return out;
 }

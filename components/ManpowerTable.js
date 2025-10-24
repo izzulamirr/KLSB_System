@@ -134,7 +134,9 @@ const MemoRow = memo(Row);
 export default function ManpowerTable({ initial = [] }) {
   const [rows, setRows] = useState(() => {
     // On initial load, ensure PAY_TYPE is set according to Rate
-    return initial.map(row => ({
+      // Ensure table always displays rows sorted by BIL ascending regardless of internal insertion order
+      const sortedRows = sortByBilAsc(initial);
+      return sortedRows.map(row => ({
       ...row,
       PAY_TYPE: computePayType(row)
     }));
@@ -177,35 +179,21 @@ export default function ManpowerTable({ initial = [] }) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
-            setRows(sortByPoSoNoAndLocationAsc(data));
+            setRows(sortByBilAsc(data));
             return;
           }
         }
     // fall back to localStorage or initial
     const cached = getLocal();
-  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
-  else setRows(sortByPoSoNoAndLocationAsc(initial));
+  if (cached?.length) setRows(sortByBilAsc(cached));
+  else setRows(sortByBilAsc(initial));
       } catch (e) {
         const cached = getLocal();
-  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
-  else setRows(sortByPoSoNoAndLocationAsc(initial));
+  if (cached?.length) setRows(sortByBilAsc(cached));
+  else setRows(sortByBilAsc(initial));
 // Sort by PO_SO_No ascending (alphanumeric)
 // Sort by PO_SO_No, then LOCATION (both ascending, alphanumeric)
-function sortByPoSoNoAndLocationAsc(list) {
-  if (!Array.isArray(list)) return list;
-  return list.slice().sort((a, b) => {
-    const aPo = String(a?.PO_SO_No ?? '').toLowerCase();
-    const bPo = String(b?.PO_SO_No ?? '').toLowerCase();
-    if (aPo < bPo) return -1;
-    if (aPo > bPo) return 1;
-    // If PO/SO No is equal, sort by LOCATION
-    const aLoc = String(a?.LOCATION ?? '').toLowerCase();
-    const bLoc = String(b?.LOCATION ?? '').toLowerCase();
-    if (aLoc < bLoc) return -1;
-    if (aLoc > bLoc) return 1;
-    return 0;
-  });
-}
+// sortByPoSoNoAndLocationAsc removed — using sortByBilAsc for consistent ascending BIL ordering
       }
     })();
   }, []);
@@ -469,7 +457,16 @@ function sortByPoSoNoAndLocationAsc(list) {
         const ed = getMapped("END_DATE", "END_DATE", "END DATE", "End Date");
   if (ed) out.END_DATE = normalizeDate(ed);
   // Map END_DATE_KLSB from CSV if present
-  const edk = getMapped("END_DATE_KLSB", "END_DATE_KLSB", "END DATE KLSB", "End Date KLSB");
+  // Accept several possible CSV header names for the KLSB-specific end date column
+  const edk = getMapped(
+    "END_DATE_KLSB",
+    "END_DATE_KLSB",
+    "END DATE KLSB",
+    "End Date KLSB",
+    "KLSB",
+    "KLSB END",
+    "KLSB END DATE"
+  );
   if (edk) out.END_DATE_KLSB = normalizeDate(edk);
         const ext = getMapped("EXTENSION_STATUS", "EXTENSION_STATUS", "EXTENSION STATUS", "Extension Status");
         if (ext) out.EXTENSION_STATUS = ext;
@@ -490,7 +487,7 @@ function sortByPoSoNoAndLocationAsc(list) {
 
       // If nothing except BIL mapped, prompt user to map columns
       const anyData = normalized.some((r) => (
-        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT
+        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.END_DATE_KLSB || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT
       ));
       if (!anyData) {
         alert("No CSV columns matched. Please map columns before importing.");
@@ -558,7 +555,8 @@ function sortByPoSoNoAndLocationAsc(list) {
     }
   }, [rawCsvRows, rows]);
 
-  const filtered = rows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
+  const sortedRows = sortByBilAsc(rows);
+  const filtered = sortedRows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
 
   // Reset to first page when filters or rows change
   useEffect(() => {
@@ -1118,9 +1116,14 @@ function guessMapping(headers) {
     const norm = normalize(csvHeader);
     if (normalizedTable[norm]) {
       m[csvHeader] = normalizedTable[norm];
+    } else if (norm === 'klsb' || norm.includes('klsb')) {
+      // Excel/CSV exports sometimes use a small sub-header 'KLSB' under END DATE — map it to END_DATE_KLSB
+      m[csvHeader] = 'END_DATE_KLSB';
     } else {
       m[csvHeader] = '';
     }
   });
   return m;
 }
+
+// (deduplicated) sortByBilAsc defined earlier

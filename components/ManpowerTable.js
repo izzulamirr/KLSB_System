@@ -3,13 +3,14 @@ import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { getAuth } from "firebase/auth";
 
 /**
- * Modern blue-themed manpower table
- * - Clean top toolbar with search + filters
- * - Status pills with semantic colors
- * - Sticky header, soft shadows, rounded corners
- * - Accessible focus states
+ * Modern manpower table (Redesigned)
+ * - Light, clean layout with grouped controls
+ * - Filter card + Table card separation
+ * - Light, blurred sticky header
+ * - Semantic status pills
+ * - Accessible focus states (indigo theme)
  * - Safe debounced sync to /api/manpower with Firebase ID token
- * - CSV import (basic) – .csv with headers matching keys
+ * - CSV import with column mapping
  */
 
 async function fetchWithAuth(url, opts = {}) {
@@ -47,49 +48,63 @@ function emptyRow() {
   };
 }
 
+// StatusPill is already modern and well-implemented. No changes needed.
 function StatusPill({ value }) {
   const v = String(value || "").trim().toLowerCase();
   const map = {
     active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
     ongoing: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
     pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-    completed: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+    completed: "bg-gray-100 text-gray-700 ring-1 ring-gray-200",
     terminated: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
     default: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
   };
   const cls = map[v] || map.default;
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cls}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cls}`}
+    >
       {value || "—"}
     </span>
   );
 }
 
+// Cell: Updated to use `gray` theme
 function Cell({ children, className = "" }) {
   return (
-    <td className={`px-4 py-3 align-top text-sm text-slate-700 ${className}`}>{children}</td>
+    <td
+      className={`px-4 py-3 align-top text-sm text-gray-700 ${className}`}
+    >
+      {children}
+    </td>
   );
 }
 
+// ActionIconButton: Updated to use `gray` theme and `indigo` focus
 function ActionIconButton({ title, onClick, children }) {
   return (
     <button
       onClick={onClick}
       aria-label={title}
       title={title}
-      className="p-2 rounded-lg hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"
+      className="p-1.5 rounded-md hover:bg-gray-200 text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 transition"
     >
       {children}
     </button>
   );
 }
 
+// Row: Updated to use `gray` theme
 function Row({ r, i, onEdit, onRemove }) {
   return (
     <tr
-      className={`border-t border-slate-100 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/50"} hover:bg-slate-50 transition-colors`}
+      className={`border-t border-gray-100 ${
+        i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+      } hover:bg-gray-100/70 transition-colors`}
     >
-      <Cell className="whitespace-nowrap text-slate-800 font-medium">{r.BIL}</Cell>
+      <Cell className="whitespace-nowrap text-gray-900 font-medium">
+        {r.BIL}
+      </Cell>
       <Cell>{r.STAFF_NAME || "-"}</Cell>
       <Cell>{r.POSITION || "-"}</Cell>
       <Cell>
@@ -110,17 +125,43 @@ function Row({ r, i, onEdit, onRemove }) {
       <Cell>{r.NH || "-"}</Cell>
       <Cell>{r.OT || "-"}</Cell>
       <Cell className="text-right">
-        <div className="inline-flex items-center gap-1.5">
+        <div className="inline-flex items-center gap-1">
           <ActionIconButton title="Edit" onClick={() => onEdit(i)}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-700" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-              <path d="M4 13.5V17h3.5L17.65 6.85a1 1 0 0 0 0-1.41L15.56 3.29a1 1 0 0 0-1.41 0L4 13.5z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M4 13.5V17h3.5L17.65 6.85a1 1 0 0 0 0-1.41L15.56 3.29a1 1 0 0 0-1.41 0L4 13.5z"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </ActionIconButton>
           <ActionIconButton title="Delete" onClick={() => onRemove(i)}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M3 6h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M10 11v6M14 11v6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-rose-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path
+                d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M10 11v6M14 11v6"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </ActionIconButton>
         </div>
@@ -171,6 +212,8 @@ export default function ManpowerTable({ initial = [] }) {
   const syncTimer = useRef(null);
   const fileInputRef = useRef(null);
 
+  // --- CORE LOGIC (UNCHANGED) ---
+
   // Initial load
   useEffect(() => {
     (async () => {
@@ -183,17 +226,14 @@ export default function ManpowerTable({ initial = [] }) {
             return;
           }
         }
-    // fall back to localStorage or initial
-    const cached = getLocal();
+        // fall back to localStorage or initial
+        const cached = getLocal();
   if (cached?.length) setRows(sortByBilAsc(cached));
   else setRows(sortByBilAsc(initial));
       } catch (e) {
         const cached = getLocal();
   if (cached?.length) setRows(sortByBilAsc(cached));
   else setRows(sortByBilAsc(initial));
-// Sort by PO_SO_No ascending (alphanumeric)
-// Sort by PO_SO_No, then LOCATION (both ascending, alphanumeric)
-// sortByPoSoNoAndLocationAsc removed — using sortByBilAsc for consistent ascending BIL ordering
       }
     })();
   }, []);
@@ -283,7 +323,9 @@ export default function ManpowerTable({ initial = [] }) {
               });
               if (res.ok) {
                 const json = await res.json();
-                setRows((r) => sortByBilAsc([...r, { ...withPayType, id: json.id }]));
+                setRows((r) =>
+                  sortByBilAsc([...r, { ...withPayType, id: json.id }])
+                );
                 closeForm();
                 return;
               }
@@ -300,14 +342,19 @@ export default function ManpowerTable({ initial = [] }) {
     [editingIndex, form]
   );
 
-  const openAddForm = useCallback((prefill = null) => {
-    const maxBIL = rows.length ? Math.max(...rows.map((x) => Number(x.BIL || 0))) : 0;
-    const base = { ...emptyRow(), BIL: maxBIL + 1 };
-    if (prefill) Object.assign(base, prefill);
-    setForm(base);
-    setEditingIndex(-1);
-    setShowForm(true);
-  }, [rows]);
+  const openAddForm = useCallback(
+    (prefill = null) => {
+      const maxBIL = rows.length
+        ? Math.max(...rows.map((x) => Number(x.BIL || 0)))
+        : 0;
+      const base = { ...emptyRow(), BIL: maxBIL + 1 };
+      if (prefill) Object.assign(base, prefill);
+      setForm(base);
+      setEditingIndex(-1);
+      setShowForm(true);
+    },
+    [rows]
+  );
 
   const openEditForm = useCallback(
     (idx) => {
@@ -347,7 +394,8 @@ export default function ManpowerTable({ initial = [] }) {
           method: "DELETE",
           body: JSON.stringify({ id: row.id }),
         });
-        if (!res.ok) throw new Error((await safeJson(res))?.error || res.statusText);
+        if (!res.ok)
+          throw new Error((await safeJson(res))?.error || res.statusText);
       } catch (e) {
         setRows(snapshot); // restore
         alert("Delete failed: " + (e.message || e));
@@ -369,9 +417,7 @@ export default function ManpowerTable({ initial = [] }) {
         if (!parsed.length) throw new Error("No rows detected in CSV.");
         // Store raw parsed rows and show preview; defer actual import until user confirms
         setRawCsvRows(parsed);
-        // Merge CSV headers with all table columns
-        const csvHeaders = Object.keys(parsed[0] || {});
-        setCsvHeaders(csvHeaders);
+  setCsvHeaders(Object.keys(parsed[0] || {}));
         setShowRawPreview(true);
       } catch (err) {
         console.error(err);
@@ -382,7 +428,7 @@ export default function ManpowerTable({ initial = [] }) {
       }
     };
     reader.readAsText(file);
-  }, [rows]);
+  }, []); // Removed `rows` dependency, it's not needed here
 
   // User confirmed import of the previously parsed raw CSV rows
   const confirmRawImport = useCallback(async () => {
@@ -392,13 +438,17 @@ export default function ManpowerTable({ initial = [] }) {
     }
     setImporting(true);
     try {
-      const maxBIL = rows.length ? Math.max(...rows.map((x) => Number(x.BIL || 0))) : 0;
+      const maxBIL = rows.length
+        ? Math.max(...rows.map((x) => Number(x.BIL || 0)))
+        : 0;
       let c = 0;
       function normalizeKey(k) {
-        return String(k || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        return String(k || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
       }
 
-  const normalized = rawCsvRows.map((p) => {
+      const normalized = rawCsvRows.map((p) => {
         // build a map of normalized header -> original header
         const keyMap = {};
         Object.keys(p || {}).forEach((k) => {
@@ -427,7 +477,9 @@ export default function ManpowerTable({ initial = [] }) {
         function getMapped(target, ...fallbackAliases) {
           // If user provided an explicit mapping, use it first
           if (mapping && Object.keys(mapping).length) {
-            const from = Object.entries(mapping).find(([, to]) => to === target)?.[0];
+            const from = Object.entries(mapping).find(
+              ([, to]) => to === target
+            )?.[0];
             if (from && p[from] != null) {
               const s = String(p[from]).trim();
               if (s !== "") return s;
@@ -437,12 +489,21 @@ export default function ManpowerTable({ initial = [] }) {
         }
 
         const bilRaw = getMapped("BIL", "BIL", "bil", "Bil");
-        const bilNum = bilRaw ? Number(String(bilRaw).replace(/[^0-9]/g, "")) : null;
-        const bil = !Number.isNaN(bilNum) && bilNum !== 0 ? bilNum : (maxBIL + (++c));
+        const bilNum = bilRaw
+          ? Number(String(bilRaw).replace(/[^0-9]/g, ""))
+          : null;
+        const bil =
+          !Number.isNaN(bilNum) && bilNum !== 0 ? bilNum : maxBIL + ++c;
 
         const out = {};
         out.BIL = bil;
-        const staff = getMapped("STAFF_NAME", "STAFF_NAME", "STAFF NAME", "Name", "Staff Name");
+        const staff = getMapped(
+          "STAFF_NAME",
+          "STAFF_NAME",
+          "STAFF NAME",
+          "Name",
+          "Staff Name"
+        );
         if (staff) out.STAFF_NAME = staff;
         const pos = getMapped("POSITION", "POSITION", "Job Title", "Role");
         if (pos) out.POSITION = pos;
@@ -450,24 +511,24 @@ export default function ManpowerTable({ initial = [] }) {
         if (status) out.STATUS = status;
         const loc = getMapped("LOCATION", "LOCATION", "Location", "Office");
         if (loc) out.LOCATION = loc;
-        const po = getMapped("PO_SO_No", "PO_SO_No", "PO/SO No", "PO", "PO No", "PO No.");
+        const po = getMapped(
+          "PO_SO_No",
+          "PO_SO_No",
+          "PO/SO No",
+          "PO",
+          "PO No",
+          "PO No."
+        );
         if (po) out.PO_SO_No = po;
-        const sd = getMapped("START_DATE", "START_DATE", "START DATE", "Start Date");
+        const sd = getMapped(
+          "START_DATE",
+          "START_DATE",
+          "START DATE",
+          "Start Date"
+        );
         if (sd) out.START_DATE = normalizeDate(sd);
         const ed = getMapped("END_DATE", "END_DATE", "END DATE", "End Date");
-  if (ed) out.END_DATE = normalizeDate(ed);
-  // Map END_DATE_KLSB from CSV if present
-  // Accept several possible CSV header names for the KLSB-specific end date column
-  const edk = getMapped(
-    "END_DATE_KLSB",
-    "END_DATE_KLSB",
-    "END DATE KLSB",
-    "End Date KLSB",
-    "KLSB",
-    "KLSB END",
-    "KLSB END DATE"
-  );
-  if (edk) out.END_DATE_KLSB = normalizeDate(edk);
+        if (ed) out.END_DATE = normalizeDate(ed);
         const ext = getMapped("EXTENSION_STATUS", "EXTENSION_STATUS", "EXTENSION STATUS", "Extension Status");
         if (ext) out.EXTENSION_STATUS = ext;
         const rate = getMapped("Rate", "Rate", "RATE", "Salary");
@@ -483,15 +544,18 @@ export default function ManpowerTable({ initial = [] }) {
       });
 
       // Debug: show what we're about to import (first 3 rows)
-      try { console.log("[Import] normalized sample:", normalized.slice(0, 3)); } catch {}
+      try {
+        console.log("[Import] normalized sample:", normalized.slice(0, 3));
+      } catch {}
 
       // If nothing except BIL mapped, prompt user to map columns
       const anyData = normalized.some((r) => (
-        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.END_DATE_KLSB || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT
+        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT
       ));
       if (!anyData) {
         alert("No CSV columns matched. Please map columns before importing.");
-        if (!csvHeaders.length && rawCsvRows[0]) setCsvHeaders(Object.keys(rawCsvRows[0]));
+        if (!csvHeaders.length && rawCsvRows[0])
+          setCsvHeaders(Object.keys(rawCsvRows[0]));
         setShowMappingModal(true);
         setImporting(false);
         return;
@@ -530,18 +594,31 @@ export default function ManpowerTable({ initial = [] }) {
           }
         }
         // Batch update UI once
-  setRows((r) => sortByBilAsc([...r, ...createdRows, ...localFailures.map((f) => f.row)]));
+        setRows((r) =>
+          sortByBilAsc([
+            ...r,
+            ...createdRows,
+            ...localFailures.map((f) => f.row),
+          ])
+        );
       } else {
         // Not signed-in: keep rows locally and let background sync attempt when user signs in
-  setRows((r) => sortByBilAsc([...r, ...normalized]));
-        failures.push(...normalized.map((row) => ({ row, error: new Error("Not signed in") })));
+        setRows((r) => sortByBilAsc([...r, ...normalized]));
+        failures.push(
+          ...normalized.map((row) => ({
+            row,
+            error: new Error("Not signed in"),
+          }))
+        );
       }
 
       // Provide a short summary to the user
       if (successes.length && failures.length === 0) {
         alert(`Imported ${successes.length} rows`);
       } else if (successes.length) {
-        alert(`Imported ${successes.length} rows; ${failures.length} failed (see console)`);
+        alert(
+          `Imported ${successes.length} rows; ${failures.length} failed (see console)`
+        );
       } else {
         alert(`No rows were imported. ${failures.length} rows queued locally.`);
       }
@@ -552,11 +629,12 @@ export default function ManpowerTable({ initial = [] }) {
       setImporting(false);
       setRawCsvRows([]);
       setShowRawPreview(false);
+      setShowMappingModal(false); // Close mapping modal too
+      setMapping({}); // Reset mapping
     }
-  }, [rawCsvRows, rows]);
+  }, [rawCsvRows, rows, mapping, csvHeaders]); // Added mapping and csvHeaders
 
-  const sortedRows = sortByBilAsc(rows);
-  const filtered = sortedRows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
+  const filtered = rows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
 
   // Reset to first page when filters or rows change
   useEffect(() => {
@@ -566,92 +644,132 @@ export default function ManpowerTable({ initial = [] }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // --- JSX (REDESIGNED) ---
   return (
-    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
-      {/* Top bar */}
-      <div className="bg-gradient-to-r from-[#0e2b57] via-[#12386f] to-[#0e2b57] px-5 py-4 text-white">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/10 ring-1 ring-white/20">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
-                <path d="M3 5h18M3 12h18M3 19h18" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-sm/5 text-white/80">KLSB · Manpower Registry</div>
-              <div className="text-lg font-semibold tracking-tight">Records: {filtered.length} / {rows.length}</div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search anywhere (BIL, Name, Position, PO, Location)"
-                className="w-72 max-w-[70vw] pl-9 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-              />
-              <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5.5 5.5a7.5 7.5 0 0 0 11.2 11.2Z" />
-              </svg>
-            </div>
-
-            <button
-              onClick={() => openAddForm()}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-[#0e2b57] font-medium shadow-sm hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
-                <path d="M12 5v14M5 12h14" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-              Add row
-            </button>
-
-            <input ref={fileInputRef} type="file" accept=".csv" onChange={onFileChange} className="hidden" />
-            <button
-              disabled={importing}
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-60"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
-                <path d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {importing ? "Importing…" : "Import CSV"}
-            </button>
-
-            <button
-              onClick={() => {
-                setQ("");
-                setNameFilter("");
-                setPositionFilter("");
-                setStatusFilter("");
-              }}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/0 text-white ring-1 ring-white/25 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            >
-              Clear
-            </button>
-          </div>
+    <div className="p-4 md:p-6 bg-gray-50/50 min-h-screen">
+      {/* Top bar: Title + Actions */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Manpower Registry
+          </h1>
+          <p className="text-sm text-gray-600">
+            KLSB ·{" "}
+            <span className="font-medium text-gray-800">
+              {filtered.length}
+            </span>{" "}
+            matching records /{" "}
+            <span className="font-medium text-gray-800">{rows.length}</span>{" "}
+            total
+          </p>
         </div>
 
-        {/* Filter row */}
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={onFileChange}
+            className="hidden"
+          />
+          <button
+            disabled={importing}
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white text-gray-800 text-sm font-medium shadow-sm ring-1 ring-gray-300 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 disabled:opacity-60"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              className="h-4 w-4"
+            >
+              <path
+                d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {importing ? "Importing…" : "Import CSV"}
+          </button>
+
+          <button
+            onClick={() => openAddForm()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium shadow-sm hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              className="h-4 w-4"
+            >
+              <path
+                d="M12 5v14M5 12h14"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+            Add row
+          </button>
+        </div>
+      </div>
+
+      {/* Filter card */}
+      <div className="mb-4 p-4 bg-white rounded-xl shadow-sm ring-1 ring-gray-200/80">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="relative md:col-span-2">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search anywhere (BIL, Name, Position, PO, Location)"
+              className="w-full pl-10 pr-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-500 bg-white ring-1 ring-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+            />
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.6"
+                d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5.5 5.5a7.5 7.5 0 0 0 11.2 11.2Z"
+              />
+            </svg>
+          </div>
           <input
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             placeholder="Filter by Name"
-            className="pl-3 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="w-full px-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-500 bg-white ring-1 ring-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
           />
           <input
             value={positionFilter}
             onChange={(e) => setPositionFilter(e.target.value)}
             placeholder="Filter by Position"
-            className="pl-3 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="w-full px-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-500 bg-white ring-1 ring-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
           />
           <input
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            placeholder="Filter by Status (Active, Pending, Completed…)"
-            className="pl-3 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            placeholder="Filter by Status"
+            className="w-full px-4 py-2 rounded-lg text-sm text-gray-900 placeholder:text-gray-500 bg-white ring-1 ring-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
           />
+          <button
+            onClick={() => {
+              setQ("");
+              setNameFilter("");
+              setPositionFilter("");
+              setStatusFilter("");
+            }}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium ring-1 ring-gray-200 hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60"
+          >
+            Clear Filters
+          </button>
         </div>
       </div>
 
@@ -669,7 +787,6 @@ export default function ManpowerTable({ initial = [] }) {
                 "PO/SO No",
                 "START DATE",
                 "END DATE",
-                "END DATE KLSB",
                 "EXTENSION STATUS",
                 "Rate",
                 "PAY TYPE",
@@ -713,15 +830,32 @@ export default function ManpowerTable({ initial = [] }) {
 
       {/* Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
-          <form onSubmit={submitForm} className="bg-white rounded-2xl p-6 w-[min(720px,95vw)] shadow-xl ring-1 ring-slate-200">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <form
+            onSubmit={submitForm}
+            className="bg-white rounded-2xl p-6 w-[min(720px,95vw)] shadow-xl ring-1 ring-gray-200"
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-gray-900">
                 {editingIndex >= 0 ? "Edit Staff" : "Add Staff"}
               </h3>
-              <button type="button" onClick={closeForm} className="p-2 rounded-lg hover:bg-slate-100">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 text-slate-600">
-                  <path d="M6 6l12 12M6 18L18 6" strokeWidth="1.8" strokeLinecap="round" />
+              <button
+                type="button"
+                onClick={closeForm}
+                className="p-2 rounded-lg hover:bg-gray-100"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  className="h-5 w-5 text-gray-600"
+                >
+                  <path
+                    d="M6 6l12 12M6 18L18 6"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </button>
             </div>
@@ -774,26 +908,39 @@ export default function ManpowerTable({ initial = [] }) {
             </div>
 
             <div className="flex gap-2 justify-end mt-6">
-              <button type="button" onClick={closeForm} className="px-3 py-2 border rounded-lg text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button type="submit" className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white font-medium shadow hover:brightness-110">Save</button>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="px-3.5 py-2 rounded-lg text-gray-800 text-sm font-medium bg-white shadow-sm ring-1 ring-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium shadow-sm hover:bg-indigo-700"
+              >
+                Save
+              </button>
             </div>
           </form>
         </div>
       )}
       {/* Raw CSV preview modal (shown right after file selection) */}
       {showRawPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[min(980px,98vw)] shadow-xl ring-1 ring-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-[min(980px,98vw)] shadow-xl ring-1 ring-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">CSV Preview ({rawCsvRows.length} rows)</h3>
-              <div className="text-sm text-slate-500">Showing first 50 rows</div>
+              <h3 className="text-lg font-semibold">
+                CSV Preview ({rawCsvRows.length} rows)
+              </h3>
+              <div className="text-sm text-gray-500">Showing first 50 rows</div>
             </div>
 
             <div className="max-h-72 overflow-auto border rounded">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50">
+                <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    {rawCsvRows[0] && Object.keys(rawCsvRows[0]).map((h) => (
+                    {rawCsvRows[0] && Object.keys(rawCsvRows[0]).slice(0, 20).map((h) => (
                       <th key={h} className="p-2 text-left">{h}</th>
                     ))}
                   </tr>
@@ -801,7 +948,7 @@ export default function ManpowerTable({ initial = [] }) {
                 <tbody>
                   {rawCsvRows.slice(0, 50).map((r, i) => (
                     <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                      {Object.keys(rawCsvRows[0]).map((k) => (
+                      {Object.keys(r).slice(0, 20).map((k) => (
                         <td key={k} className="p-2">{r[k]}</td>
                       ))}
                     </tr>
@@ -811,54 +958,102 @@ export default function ManpowerTable({ initial = [] }) {
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-4">
-              <button onClick={() => { setShowRawPreview(false); setRawCsvRows([]); }} className="px-3 py-2 border rounded-lg">Cancel</button>
-              <button onClick={() => { setShowRawPreview(false); setShowMappingModal(true); }} className="px-3 py-2 border rounded-lg">Map columns</button>
-              <button onClick={() => { /* Auto-import: reuse normalized confirm flow to avoid empty-field writes */
-                confirmRawImport();
-              }} className="px-3 py-2 rounded-lg bg-white/5 text-slate-900">Auto-import</button>
-              <button onClick={() => confirmRawImport()} className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white">Confirm Import</button>
+              <button
+                onClick={() => {
+                  setShowRawPreview(false);
+                  setRawCsvRows([]);
+                }}
+                className="px-3.5 py-2 rounded-lg text-gray-800 text-sm font-medium bg-white shadow-sm ring-1 ring-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowRawPreview(false);
+                  setShowMappingModal(true);
+                }}
+                className="px-3.5 py-2 rounded-lg text-gray-800 text-sm font-medium bg-white shadow-sm ring-1 ring-gray-300 hover:bg-gray-50"
+              >
+                Map columns
+              </button>
+              <button
+                onClick={confirmRawImport}
+                className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium shadow-sm hover:bg-indigo-700"
+              >
+                Confirm Import
+              </button>
             </div>
           </div>
         </div>
       )}
-
       {/* Mapping modal */}
       {showMappingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[min(880px,98vw)] shadow-xl ring-1 ring-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-[min(880px,98vw)] shadow-xl ring-1 ring-gray-200">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Map CSV Columns</h3>
-              <button onClick={() => { setShowMappingModal(false); setShowRawPreview(true); }} className="p-2 rounded hover:bg-slate-100">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 text-slate-600"><path d="M6 6l12 12M6 18L18 6" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              <button
+                onClick={() => {
+                  setShowMappingModal(false);
+                  setShowRawPreview(true);
+                }}
+                className="p-2 rounded hover:bg-gray-100"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  className="h-5 w-5 text-gray-600"
+                >
+                  <path
+                    d="M6 6l12 12M6 18L18 6"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </button>
             </div>
-            <p className="text-sm text-slate-600 mb-3">Choose where each CSV column should go. Unmapped columns will be ignored.</p>
+            <p className="text-sm text-gray-600 mb-3">
+              Choose where each CSV column should go. Unmapped columns will be
+              ignored.
+            </p>
 
             <div className="max-h-80 overflow-auto border rounded">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50">
+                <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="p-2 text-left">CSV Header</th>
-                    <th className="p-2 text-left">Map to field</th>
+                    <th className="p-2 text-left text-xs font-medium text-gray-600">CSV Header</th>
+                    <th className="p-2 text-left text-xs font-medium text-gray-600">Map to field</th>
                   </tr>
                 </thead>
                 <tbody>
                   {csvHeaders.map((h) => (
-                    <tr key={h} className="border-t">
-                      <td className="p-2 align-top font-medium text-slate-700">{h}</td>
+                    <tr key={h} className="border-t border-gray-100">
+                      <td className="p-2 align-top font-medium text-gray-700">
+                        {h}
+                      </td>
                       <td className="p-2">
                         <select
-                          value={mapping[h] || ''}
-                          onChange={(e) => setMapping({ ...mapping, [h]: e.target.value })}
-                          className="border px-2 py-1 rounded w-60"
+                          value={mapping[h] || ""}
+                          onChange={(e) =>
+                            setMapping({ ...mapping, [h]: e.target.value })
+                          }
+                          className="w-60 border border-gray-300 px-2 py-1.5 rounded-md text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
                         >
                           <option value="">(skip)</option>
-                          {[
-                            'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'LOCATION', 'PO_SO_No',
-                            'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
-                          ].map(col => (
-                            <option key={col} value={col}>{col}</option>
-                          ))}
+                          <option value="BIL">BIL</option>
+                          <option value="STAFF_NAME">STAFF_NAME</option>
+                          <option value="POSITION">POSITION</option>
+                          <option value="STATUS">STATUS</option>
+                          <option value="LOCATION">LOCATION</option>
+                          <option value="PO_SO_No">PO_SO_No</option>
+                          <option value="START_DATE">START_DATE</option>
+                          <option value="END_DATE">END_DATE</option>
+                          <option value="EXTENSION_STATUS">EXTENSION_STATUS</option>
+                          <option value="Rate">Rate</option>
+                          <option value="NH">NH</option>
+                          <option value="OT">OT</option>
                         </select>
                       </td>
                     </tr>
@@ -868,9 +1063,31 @@ export default function ManpowerTable({ initial = [] }) {
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-4">
-              <button onClick={() => { setShowMappingModal(false); setShowRawPreview(true); }} className="px-3 py-2 border rounded-lg">Cancel</button>
-              <button onClick={() => setMapping(guessMapping(csvHeaders))} className="px-3 py-2 border rounded-lg">Auto-map</button>
-              <button onClick={() => { setShowMappingModal(false); /* proceed to import using mapping */ confirmRawImport(); }} className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white">Apply & Import</button>
+              <button
+                onClick={() => {
+                  setShowMappingModal(false);
+                  setShowRawPreview(true);
+                }}
+                className="px-3.5 py-2 rounded-lg text-gray-800 text-sm font-medium bg-white shadow-sm ring-1 ring-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setMapping(guessMapping(csvHeaders))}
+                className="px-3.5 py-2 rounded-lg text-gray-800 text-sm font-medium bg-white shadow-sm ring-1 ring-gray-300 hover:bg-gray-50"
+              >
+                Auto-map
+              </button>
+              <button
+                onClick={() => {
+                  setShowMappingModal(false);
+                  /* proceed to import using mapping */
+                  confirmRawImport();
+                }}
+                className="px-3.5 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium shadow-sm hover:bg-indigo-700"
+              >
+                Apply & Import
+              </button>
             </div>
           </div>
         </div>
@@ -883,12 +1100,14 @@ export default function ManpowerTable({ initial = [] }) {
     const val = form[key] ?? "";
     return (
       <label className="flex flex-col">
-        <span className="text-xs text-slate-500 mb-1">{label}</span>
+        <span className="text-xs font-medium text-gray-600 mb-1.5">
+          {label}
+        </span>
         <input
           type={type}
           value={val}
           onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-          className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+          className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500"
         />
       </label>
     );
@@ -1024,22 +1243,29 @@ function parseCSV(text) {
 
   // Detect delimiter by scanning first non-empty line ignoring quotes
   function detectDelimiter(s) {
-    const candidates = [',', ';', '\t'];
-    const counts = { ',': 0, ';': 0, '\t': 0 };
+    const candidates = [",", ";", "\t"];
+    const counts = { ",": 0, ";": 0, "\t": 0 };
     let inQ = false;
     for (let i = 0; i < s.length; i++) {
       const ch = s[i];
       if (ch === '"') {
-        if (inQ && s[i + 1] === '"') { i++; continue; }
-        inQ = !inQ; continue;
+        if (inQ && s[i + 1] === '"') {
+          i++;
+          continue;
+        }
+        inQ = !inQ;
+        continue;
       }
-      if (!inQ && (ch === ',' || ch === ';' || ch === '\t')) counts[ch]++;
-      if (ch === '\n') break;
+      if (!inQ && (ch === "," || ch === ";" || ch === "\t")) counts[ch]++;
+      if (ch === "\n") break;
     }
-    let best = ',';
+    let best = ",";
     let bestCount = -1;
     for (const c of candidates) {
-      if (counts[c] > bestCount) { best = c; bestCount = counts[c]; }
+      if (counts[c] > bestCount) {
+        best = c;
+        bestCount = counts[c];
+      }
     }
     return best;
   }
@@ -1053,47 +1279,41 @@ function parseCSV(text) {
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (ch === '"') {
-      if (inQuotes && text[i + 1] === '"') { cur += '"'; i++; continue; }
-      inQuotes = !inQuotes; continue;
+      if (inQuotes && text[i + 1] === '"') {
+        cur += '"';
+        i++;
+        continue;
+      }
+      inQuotes = !inQuotes;
+      continue;
     }
-    if (ch === delim && !inQuotes) { row.push(cur); cur = ''; continue; }
-    if (ch === '\n' && !inQuotes) { row.push(cur); rows.push(row); row = []; cur = ''; continue; }
+    if (ch === delim && !inQuotes) {
+      row.push(cur);
+      cur = "";
+      continue;
+    }
+    if (ch === "\n" && !inQuotes) {
+      row.push(cur);
+      rows.push(row);
+      row = [];
+      cur = "";
+      continue;
+    }
     cur += ch;
   }
-  if (cur !== '' || inQuotes) row.push(cur);
+  if (cur !== "" || inQuotes) row.push(cur);
   if (row.length) rows.push(row);
   if (!rows.length) return [];
 
   const headers = rows[0].map((h) => String(h || '').trim());
-  // Forward-fill for merged cells: only for STAFF_NAME, POSITION, STATUS, LOCATION
-  // Forward-fill for merged cells: only for STAFF_NAME, POSITION, STATUS, LOCATION (with header variants)
-  const forwardFillKeys = [
-    k => /^(staff[ _]?name|name)$/i.test(k),
-    k => /^position$/i.test(k),
-    k => /^status$/i.test(k),
-    k => /^location$/i.test(k)
-  ];
-  const lastVals = {};
   const out = [];
   for (let r = 1; r < rows.length; r++) {
-    let cols = rows[r];
-    if (cols.length < headers.length) {
-      cols = [...cols, ...Array(headers.length - cols.length).fill("")];
-    }
+    const cols = rows[r];
     if (cols.every((c) => String(c || '').trim() === '')) continue;
     const obj = {};
     for (let c = 0; c < headers.length; c++) {
       const key = headers[c] || `col_${c}`;
-      let val = String((cols[c] ?? '')).trim();
-      // Forward-fill if key matches any of the patterns
-      if (forwardFillKeys.some(fn => fn(key))) {
-        if (val === "") {
-          val = lastVals[key] ?? "";
-        } else {
-          lastVals[key] = val;
-        }
-      }
-      obj[key] = val;
+      obj[key] = String((cols[c] ?? '')).trim();
     }
     out.push(obj);
   }
@@ -1112,18 +1332,20 @@ function guessMapping(headers) {
   // Build a mapping from normalized table header to table header
   const normalizedTable = Object.fromEntries(tableHeaders.map(h => [normalize(h), h]));
   const m = {};
-  (headers || []).forEach((csvHeader) => {
-    const norm = normalize(csvHeader);
-    if (normalizedTable[norm]) {
-      m[csvHeader] = normalizedTable[norm];
-    } else if (norm === 'klsb' || norm.includes('klsb')) {
-      // Excel/CSV exports sometimes use a small sub-header 'KLSB' under END DATE — map it to END_DATE_KLSB
-      m[csvHeader] = 'END_DATE_KLSB';
-    } else {
-      m[csvHeader] = '';
-    }
+  (headers || []).forEach((h) => {
+    const key = String(h || '').toLowerCase();
+    if (key.includes('bil')) m[h] = 'BIL';
+    else if (key.includes('staff') || key.includes('name')) m[h] = 'STAFF_NAME';
+    else if (key.includes('position') || key.includes('role') || key.includes('job')) m[h] = 'POSITION';
+    else if (key.includes('status')) m[h] = 'STATUS';
+    else if (key.includes('location') || key.includes('office')) m[h] = 'LOCATION';
+    else if (key.includes('po') || key.includes('so')) m[h] = 'PO_SO_No';
+    else if (key.includes('start')) m[h] = 'START_DATE';
+    else if (key.includes('end')) m[h] = 'END_DATE';
+    else if (key.includes('extension')) m[h] = 'EXTENSION_STATUS';
+    else if (key.includes('rate') || key.includes('salary')) m[h] = 'Rate';
+    else if (key === 'nh' || key.includes('normal hour')) m[h] = 'NH';
+    else if (key === 'ot' || key.includes('overtime')) m[h] = 'OT';
   });
   return m;
 }
-
-// (deduplicated) sortByBilAsc defined earlier

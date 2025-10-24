@@ -621,10 +621,10 @@ function sortByPoSoNoAndLocationAsc(list) {
 
   const filtered = rows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
 
-  // Reset to first page when filters or rows change
+  // Reset to first page only when filters change (not when rows update)
   useEffect(() => {
     setPage(1);
-  }, [q, nameFilter, positionFilter, statusFilter, rows]);
+  }, [q, nameFilter, positionFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1082,7 +1082,10 @@ function matchFilter(row, q, nameQ, positionQ, statusQ) {
 
     if (statusQ) {
       const s = String(statusQ).trim().toLowerCase();
-      if (!String(row.STATUS ?? "").toLowerCase().includes(s)) return false;
+      // Check both STATUS (display text) and STATUS_COLOR (color status)
+      const statusMatch = String(row.STATUS ?? "").toLowerCase().includes(s);
+      const colorMatch = String(row.STATUS_COLOR ?? "").toLowerCase().includes(s);
+      if (!statusMatch && !colorMatch) return false;
     }
 
     return true;

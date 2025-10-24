@@ -5,7 +5,10 @@
   --foreground: #171717;
 }
 
-@theme inline {
+/* Theme helper: map semantic theme tokens to CSS custom properties.
+   Replaced non-standard `@theme` at-rule with a regular `:root` block
+   so editors/linters don't report unknown at-rules. */
+:root {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);

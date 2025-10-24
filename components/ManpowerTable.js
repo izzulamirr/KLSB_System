@@ -34,6 +34,7 @@ function emptyRow() {
     STAFF_NAME: "",
     POSITION: "",
     STATUS: "",
+    STATUS_COLOR: "",
     LOCATION: "",
     PO_SO_No: "",
     START_DATE: "",
@@ -47,27 +48,60 @@ function emptyRow() {
   };
 }
 
-function StatusPill({ value }) {
-  const v = String(value || "").trim().toLowerCase();
-  const map = {
-    active: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    ongoing: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-    pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-    completed: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
-    terminated: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
-    default: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-  };
-  const cls = map[v] || map.default;
+function StatusPill({ value, onChange, displayText, colorStatus }) {
+  const [editing, setEditing] = useState(false);
+  const statuses = ["Active", "Pending", "Completed", "Terminated"];
+  
+  // Use colorStatus to determine pill color, not the display text
+  const v = String(colorStatus || "").trim().toLowerCase();
+  let cls = "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
+  if (v === "active" || v === "ongoing") cls = "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+  else if (v === "pending") cls = "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
+  else if (v === "completed") cls = "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
+  else if (v === "terminated") cls = "bg-rose-50 text-rose-700 ring-1 ring-rose-200";
+
+  if (editing) {
+    return (
+      <select
+        className={`px-2 py-1 rounded text-xs font-medium border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]`}
+        value={colorStatus || ""}
+        onChange={e => { 
+          console.log('Status color changed to:', e.target.value);
+          setEditing(false); 
+          if (typeof onChange === 'function') {
+            onChange(e.target.value);
+          }
+        }}
+        onBlur={() => setEditing(false)}
+        autoFocus
+        onClick={(e) => e.stopPropagation()}
+      >
+        <option value="">No status</option>
+        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    );
+  }
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cls}`}>
-      {value || "—"}
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
+      title={`Status: ${colorStatus || 'Not set'} - Click to change`}
+      tabIndex={0}
+      onClick={(e) => { 
+        e.stopPropagation(); 
+        console.log('Status pill clicked!', colorStatus); 
+        setEditing(true); 
+      }}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditing(true); } }}
+      role="button"
+    >
+      {displayText || value || "Not set"}
     </span>
   );
 }
 
-function Cell({ children, className = "" }) {
+function Cell({ children, className = "", onClick }) {
   return (
-    <td className={`px-4 py-3 align-top text-sm text-slate-700 ${className}`}>{children}</td>
+    <td className={`px-4 py-3 align-top text-sm text-slate-700 ${className}`} onClick={onClick}>{children}</td>
   );
 }
 
@@ -85,6 +119,10 @@ function ActionIconButton({ title, onClick, children }) {
 }
 
 function Row({ r, i, onEdit, onRemove }) {
+  // Keep the original STATUS text for display, use STATUS_COLOR for pill color
+  const displayText = r.STATUS || "";
+  const colorStatus = r.STATUS_COLOR || "";
+  
   return (
     <tr
       className={`border-t border-slate-100 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/50"} hover:bg-slate-50 transition-colors`}
@@ -93,7 +131,25 @@ function Row({ r, i, onEdit, onRemove }) {
       <Cell>{r.STAFF_NAME || "-"}</Cell>
       <Cell>{r.POSITION || "-"}</Cell>
       <Cell>
-        <StatusPill value={r.STATUS} />
+        <StatusPill 
+          value={r.STATUS}
+          displayText={displayText}
+          colorStatus={colorStatus}
+          onChange={async newColorStatus => {
+            // Update only STATUS_COLOR, keep STATUS text unchanged
+            const updatedRow = { ...r, STATUS_COLOR: newColorStatus };
+            onEdit(i, updatedRow);
+            try {
+              await fetchWithAuth("/api/manpower", {
+                method: "PUT",
+                body: JSON.stringify(updatedRow),
+              });
+            } catch (err) {
+              // Optionally show error
+              console.error("Failed to update status color", err);
+            }
+          }} 
+        />
       </Cell>
       <Cell>{r.LOCATION || "-"}</Cell>
       <Cell>{r.PO_SO_No || "-"}</Cell>
@@ -321,8 +377,13 @@ function sortByPoSoNoAndLocationAsc(list) {
     setShowForm(true);
   }, [rows]);
 
+  // Allow row update for status change without opening modal
   const openEditForm = useCallback(
-    (idx) => {
+    (idx, updatedRow) => {
+      if (typeof updatedRow === "object" && updatedRow !== null) {
+        setRows(rows => rows.map((row, i) => i === idx ? updatedRow : row));
+        return;
+      }
       const row = rows[idx];
       if (!row) return;
       setForm({ ...row });
@@ -733,6 +794,21 @@ function sortByPoSoNoAndLocationAsc(list) {
               {renderInput("Staff Name", "STAFF_NAME")}
               {renderInput("Position", "POSITION")}
               {renderInput("Status", "STATUS")}
+              {/* Editable STATUS_COLOR */}
+              <label className="flex flex-col">
+                <span className="text-xs text-slate-500 mb-1">Status Color</span>
+                <select
+                  value={form.STATUS_COLOR || ""}
+                  onChange={e => setForm({ ...form, STATUS_COLOR: e.target.value })}
+                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                >
+                  <option value="">(none)</option>
+                  <option value="Active">Active (Green)</option>
+                  <option value="Pending">Pending (Yellow)</option>
+                  <option value="Completed">Completed (Gray)</option>
+                  <option value="Terminated">Terminated (Red)</option>
+                </select>
+              </label>
               {renderInput("Location", "LOCATION")}
               {renderInput("PO/SO No", "PO_SO_No")}
               {renderInput("Start Date", "START_DATE", "date")}
@@ -856,7 +932,7 @@ function sortByPoSoNoAndLocationAsc(list) {
                         >
                           <option value="">(skip)</option>
                           {[
-                            'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'LOCATION', 'PO_SO_No',
+                            'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'PO_SO_No',
                             'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
                           ].map(col => (
                             <option key={col} value={col}>{col}</option>
@@ -1105,7 +1181,7 @@ function parseCSV(text) {
 function guessMapping(headers) {
   // Make every CSV column available for mapping to any table header, and vice versa
   const tableHeaders = [
-    'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'LOCATION', 'PO_SO_No',
+    'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'PO_SO_No',
     'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
   ];
   function normalize(s) {

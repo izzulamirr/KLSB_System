@@ -38,6 +38,7 @@ function emptyRow() {
     PO_SO_No: "",
     START_DATE: "",
     END_DATE: "",
+    END_DATE_KLSB: "",
     EXTENSION_STATUS: "",
     Rate: "",
     PAY_TYPE: "",
@@ -96,9 +97,10 @@ function Row({ r, i, onEdit, onRemove }) {
       </Cell>
       <Cell>{r.LOCATION || "-"}</Cell>
       <Cell>{r.PO_SO_No || "-"}</Cell>
-      <Cell>{formatDate(r.START_DATE)}</Cell>
-      <Cell>{formatDate(r.END_DATE)}</Cell>
-      <Cell>{r.EXTENSION_STATUS || "-"}</Cell>
+  <Cell>{formatDate(r.START_DATE)}</Cell>
+  <Cell>{formatDate(r.END_DATE)}</Cell>
+  <Cell>{formatDate(r.END_DATE_KLSB)}</Cell>
+  <Cell>{r.EXTENSION_STATUS || "-"}</Cell>
       <Cell>{r.Rate || "-"}</Cell>
       <Cell>{
         (computePayType(r) === 'M') ? 'Monthly'
@@ -375,11 +377,13 @@ function sortByPoSoNoAndLocationAsc(list) {
     reader.onload = () => {
       try {
         const text = String(reader.result || "");
-  const parsed = parseCSV(text); // returns array of objects
+        const parsed = parseCSV(text); // returns array of objects
         if (!parsed.length) throw new Error("No rows detected in CSV.");
         // Store raw parsed rows and show preview; defer actual import until user confirms
         setRawCsvRows(parsed);
-  setCsvHeaders(Object.keys(parsed[0] || {}));
+        // Merge CSV headers with all table columns
+        const csvHeaders = Object.keys(parsed[0] || {});
+        setCsvHeaders(csvHeaders);
         setShowRawPreview(true);
       } catch (err) {
         console.error(err);
@@ -463,7 +467,10 @@ function sortByPoSoNoAndLocationAsc(list) {
         const sd = getMapped("START_DATE", "START_DATE", "START DATE", "Start Date");
         if (sd) out.START_DATE = normalizeDate(sd);
         const ed = getMapped("END_DATE", "END_DATE", "END DATE", "End Date");
-        if (ed) out.END_DATE = normalizeDate(ed);
+  if (ed) out.END_DATE = normalizeDate(ed);
+  // Map END_DATE_KLSB from CSV if present
+  const edk = getMapped("END_DATE_KLSB", "END_DATE_KLSB", "END DATE KLSB", "End Date KLSB");
+  if (edk) out.END_DATE_KLSB = normalizeDate(edk);
         const ext = getMapped("EXTENSION_STATUS", "EXTENSION_STATUS", "EXTENSION STATUS", "Extension Status");
         if (ext) out.EXTENSION_STATUS = ext;
         const rate = getMapped("Rate", "Rate", "RATE", "Salary");
@@ -664,6 +671,7 @@ function sortByPoSoNoAndLocationAsc(list) {
                 "PO/SO No",
                 "START DATE",
                 "END DATE",
+                "END DATE KLSB",
                 "EXTENSION STATUS",
                 "Rate",
                 "PAY TYPE",
@@ -764,6 +772,7 @@ function sortByPoSoNoAndLocationAsc(list) {
               {renderInput("Rate", "Rate")}
               {renderInput("NH", "NH")}
               {renderInput("OT", "OT")}
+              {renderInput("End Date (KLSB)", "END_DATE_KLSB", "date")}
             </div>
 
             <div className="flex gap-2 justify-end mt-6">
@@ -786,7 +795,7 @@ function sortByPoSoNoAndLocationAsc(list) {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    {rawCsvRows[0] && Object.keys(rawCsvRows[0]).slice(0, 20).map((h) => (
+                    {rawCsvRows[0] && Object.keys(rawCsvRows[0]).map((h) => (
                       <th key={h} className="p-2 text-left">{h}</th>
                     ))}
                   </tr>
@@ -794,7 +803,7 @@ function sortByPoSoNoAndLocationAsc(list) {
                 <tbody>
                   {rawCsvRows.slice(0, 50).map((r, i) => (
                     <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                      {Object.keys(r).slice(0, 20).map((k) => (
+                      {Object.keys(rawCsvRows[0]).map((k) => (
                         <td key={k} className="p-2">{r[k]}</td>
                       ))}
                     </tr>
@@ -846,18 +855,12 @@ function sortByPoSoNoAndLocationAsc(list) {
                           className="border px-2 py-1 rounded w-60"
                         >
                           <option value="">(skip)</option>
-                          <option value="BIL">BIL</option>
-                          <option value="STAFF_NAME">STAFF_NAME</option>
-                          <option value="POSITION">POSITION</option>
-                          <option value="STATUS">STATUS</option>
-                          <option value="LOCATION">LOCATION</option>
-                          <option value="PO_SO_No">PO_SO_No</option>
-                          <option value="START_DATE">START_DATE</option>
-                          <option value="END_DATE">END_DATE</option>
-                          <option value="EXTENSION_STATUS">EXTENSION_STATUS</option>
-                          <option value="Rate">Rate</option>
-                          <option value="NH">NH</option>
-                          <option value="OT">OT</option>
+                          {[
+                            'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'LOCATION', 'PO_SO_No',
+                            'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
+                          ].map(col => (
+                            <option key={col} value={col}>{col}</option>
+                          ))}
                         </select>
                       </td>
                     </tr>
@@ -1064,14 +1067,35 @@ function parseCSV(text) {
   if (!rows.length) return [];
 
   const headers = rows[0].map((h) => String(h || '').trim());
+  // Forward-fill for merged cells: only for STAFF_NAME, POSITION, STATUS, LOCATION
+  // Forward-fill for merged cells: only for STAFF_NAME, POSITION, STATUS, LOCATION (with header variants)
+  const forwardFillKeys = [
+    k => /^(staff[ _]?name|name)$/i.test(k),
+    k => /^position$/i.test(k),
+    k => /^status$/i.test(k),
+    k => /^location$/i.test(k)
+  ];
+  const lastVals = {};
   const out = [];
   for (let r = 1; r < rows.length; r++) {
-    const cols = rows[r];
+    let cols = rows[r];
+    if (cols.length < headers.length) {
+      cols = [...cols, ...Array(headers.length - cols.length).fill("")];
+    }
     if (cols.every((c) => String(c || '').trim() === '')) continue;
     const obj = {};
     for (let c = 0; c < headers.length; c++) {
       const key = headers[c] || `col_${c}`;
-      obj[key] = String((cols[c] ?? '')).trim();
+      let val = String((cols[c] ?? '')).trim();
+      // Forward-fill if key matches any of the patterns
+      if (forwardFillKeys.some(fn => fn(key))) {
+        if (val === "") {
+          val = lastVals[key] ?? "";
+        } else {
+          lastVals[key] = val;
+        }
+      }
+      obj[key] = val;
     }
     out.push(obj);
   }
@@ -1079,21 +1103,24 @@ function parseCSV(text) {
 }
 
 function guessMapping(headers) {
+  // Make every CSV column available for mapping to any table header, and vice versa
+  const tableHeaders = [
+    'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'LOCATION', 'PO_SO_No',
+    'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
+  ];
+  function normalize(s) {
+    return String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  }
+  // Build a mapping from normalized table header to table header
+  const normalizedTable = Object.fromEntries(tableHeaders.map(h => [normalize(h), h]));
   const m = {};
-  (headers || []).forEach((h) => {
-    const key = String(h || '').toLowerCase();
-    if (key.includes('bil')) m[h] = 'BIL';
-    else if (key.includes('staff') || key.includes('name')) m[h] = 'STAFF_NAME';
-    else if (key.includes('position') || key.includes('role') || key.includes('job')) m[h] = 'POSITION';
-    else if (key.includes('status')) m[h] = 'STATUS';
-    else if (key.includes('location') || key.includes('office')) m[h] = 'LOCATION';
-    else if (key.includes('po') || key.includes('so')) m[h] = 'PO_SO_No';
-    else if (key.includes('start')) m[h] = 'START_DATE';
-    else if (key.includes('end')) m[h] = 'END_DATE';
-    else if (key.includes('extension')) m[h] = 'EXTENSION_STATUS';
-    else if (key.includes('rate') || key.includes('salary')) m[h] = 'Rate';
-    else if (key === 'nh' || key.includes('normal hour')) m[h] = 'NH';
-    else if (key === 'ot' || key.includes('overtime')) m[h] = 'OT';
+  (headers || []).forEach((csvHeader) => {
+    const norm = normalize(csvHeader);
+    if (normalizedTable[norm]) {
+      m[csvHeader] = normalizedTable[norm];
+    } else {
+      m[csvHeader] = '';
+    }
   });
   return m;
 }

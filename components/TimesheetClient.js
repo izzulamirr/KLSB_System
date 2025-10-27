@@ -47,86 +47,70 @@ export default function TimesheetClient() {
     if (user) fetchTimesheets();
   }, [user, fetchTimesheets]);
 
-  // Convert PDF to image
-  const pdfToImage = async (file) => {
+  // Extract text from PDF using server-side API
+  const extractPdfText = async (file) => {
     try {
-      // Dynamically import pdfjs-dist only when needed
-      const pdfjsLib = await import("pdfjs-dist");
-      
-      // Configure worker with correct path for Next.js
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-      
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const page = await pdf.getPage(1); // Get first page
-      
-      const viewport = page.getViewport({ scale: 2.0 });
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-      }).promise;
-      
-      // Convert canvas to blob
-      return new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, "image/png");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/extract-pdf", {
+        method: "POST",
+        body: formData,
       });
+
+      if (!res.ok) {
+        throw new Error("Failed to extract PDF text");
+      }
+
+      const data = await res.json();
+      return data.text;
     } catch (err) {
-      console.error("PDF conversion error:", err);
-      throw new Error("Failed to convert PDF to image");
+      console.error("PDF extraction error:", err);
+      throw new Error("Failed to extract text from PDF");
     }
   };
 
-  // Extract timesheet data from file using OCR
+  // Extract timesheet data from file using OCR or PDF extraction
   const extractTimesheetData = async (file) => {
     setProcessing(true);
     setOcrProgress(0);
     
     try {
-      let fileToProcess = file;
-      
-      // If PDF, convert to image first
+      let text = "";
+
+      // Handle PDF files - extract text server-side
       if (file.type === "application/pdf") {
-        setOcrProgress(10);
-        fileToProcess = await pdfToImage(file);
-        setOcrProgress(20);
+        setOcrProgress(30);
+        text = await extractPdfText(file);
+        setOcrProgress(100);
+        console.log("Extracted PDF text:", text);
+      } else {
+        // Handle image files - use OCR
+        // Create a worker for better performance and resource management
+        // Do NOT pass functions (like logger) into createWorker options — they cannot be cloned for the worker.
+        // We'll use a simple interval-based progress indicator instead.
+        const worker = await Tesseract.createWorker("eng");
+
+        // Set up progress tracking
+        let progressInterval = setInterval(() => {
+          setOcrProgress((prev) => {
+            if (prev >= 90) return prev;
+            return prev + 5;
+          });
+        }, 500);
+
+        // Perform OCR on the file directly
+        const { data: { text: ocrText } } = await worker.recognize(file);
+        
+        clearInterval(progressInterval);
+        setOcrProgress(100);
+        
+        text = ocrText;
+        console.log("Extracted OCR text:", text);
+
+        // Terminate worker to free resources
+        await worker.terminate();
       }
-
-      // Create a worker for better performance and resource management
-      const worker = await Tesseract.createWorker({
-        logger: (m) => {
-          console.log(m);
-        },
-      });
-
-      // Load language data
-      await worker.loadLanguage("eng");
-      await worker.initialize("eng");
-
-      // Set up progress tracking
-      let progressInterval = setInterval(() => {
-        setOcrProgress((prev) => {
-          if (prev >= 90) return prev;
-          return prev + 5;
-        });
-      }, 500);
-
-      // Perform OCR on the file directly
-      const { data: { text } } = await worker.recognize(fileToProcess);
-      
-      clearInterval(progressInterval);
-      setOcrProgress(100);
-      
-      console.log("Extracted text:", text);
-
-      // Terminate worker to free resources
-      await worker.terminate();
 
       // Parse the text to extract timesheet information
       const parsed = parseTimesheetText(text);
@@ -134,7 +118,7 @@ export default function TimesheetClient() {
       
       return parsed;
     } catch (err) {
-      console.error("OCR Error:", err);
+      console.error("Extraction Error:", err);
       alert(`Failed to extract data from file: ${err.message}. Please ensure the image/PDF is clear and readable.`);
       return null;
     } finally {
@@ -276,9 +260,9 @@ export default function TimesheetClient() {
 
     setSelectedFile(file);
     
-    // For PDFs, show a placeholder preview
+    // Show preview for images, placeholder for PDFs
     if (file.type === "application/pdf") {
-      setPreviewUrl(null); // We'll show PDF icon instead
+      setPreviewUrl(null);
     } else {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
@@ -513,7 +497,7 @@ export default function TimesheetClient() {
                       <div className="flex flex-col items-center justify-center py-16 bg-slate-50">
                         <div className="text-6xl mb-4">📄</div>
                         <p className="text-lg font-semibold text-slate-900">{selectedFile.name}</p>
-                        <p className="text-sm text-slate-600 mt-2">PDF - First page will be scanned</p>
+                        <p className="text-sm text-slate-600 mt-2">PDF - Text will be extracted</p>
                       </div>
                     ) : null}
                   </div>

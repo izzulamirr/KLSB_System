@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import admin from "../../../lib/firebaseAdmin";
-
-const db = admin.firestore();
+import initAdmin from "../../../lib/firebaseAdmin";
 
 // GET - Fetch all timesheet records
 export async function GET(request) {
   try {
+    const admin = await initAdmin();
+    const db = admin.firestore();
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -69,6 +70,9 @@ export async function GET(request) {
 // POST - Create new timesheet record
 export async function POST(request) {
   try {
+    const admin = await initAdmin();
+    const db = admin.firestore();
+    
     const body = await request.json();
     
     // Validate required fields
@@ -109,6 +113,9 @@ export async function POST(request) {
 // PUT - Update timesheet record
 export async function PUT(request) {
   try {
+    const admin = await initAdmin();
+    const db = admin.firestore();
+    
     const body = await request.json();
     const { id, ...updateData } = body;
 
@@ -139,6 +146,9 @@ export async function PUT(request) {
 // DELETE - Delete timesheet record
 export async function DELETE(request) {
   try {
+    const admin = await initAdmin();
+    const db = admin.firestore();
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

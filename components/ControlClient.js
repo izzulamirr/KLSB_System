@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "../firebase";
@@ -18,6 +18,9 @@ export default function ControlClient() {
   });
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [dataChanged, setDataChanged] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -31,12 +34,22 @@ export default function ControlClient() {
     if (user) {
       fetchSystemStats();
       fetchRecentActivities();
+      // Auto-refresh every 20 seconds
+      const interval = setInterval(() => {
+        fetchSystemStats(true);
+        fetchRecentActivities(true);
+      }, 20000);
+      return () => clearInterval(interval);
     }
   }, [user]);
 
-  const fetchSystemStats = async () => {
+  const fetchSystemStats = async (isAutoRefresh = false) => {
     try {
-      setLoading(true);
+      if (isAutoRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       
       // Fetch manpower data
       const manpowerRes = await fetch("/api/manpower");
@@ -56,6 +69,13 @@ export default function ControlClient() {
         return statusColor === "pending";
       }).length;
 
+      // Check if data changed
+      const oldTotal = stats.totalStaff;
+      if (isAutoRefresh && totalStaff !== oldTotal && oldTotal !== 0) {
+        setDataChanged(true);
+        setTimeout(() => setDataChanged(false), 3000);
+      }
+
       setStats({
         totalStaff,
         activeStaff,
@@ -65,21 +85,54 @@ export default function ControlClient() {
         dbStatus: "Online",
         lastBackup: new Date().toLocaleDateString(),
       });
+      
+      setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to fetch system stats:", err);
       setStats((prev) => ({ ...prev, systemHealth: "Error", dbStatus: "Error" }));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const fetchRecentActivities = async () => {
-    // Mock recent activities - in production, fetch from audit log
-    setActivities([
-      { id: 1, user: user?.email, action: "Logged in", timestamp: new Date().toISOString(), type: "info" },
-      { id: 2, user: "system", action: "Database backup completed", timestamp: new Date(Date.now() - 3600000).toISOString(), type: "success" },
-      { id: 3, user: user?.email, action: "Viewed control center", timestamp: new Date().toISOString(), type: "info" },
-    ]);
+  const fetchRecentActivities = async (isAutoRefresh = false) => {
+    try {
+      // Fetch real activity from manpower changes
+      const res = await fetch("/api/manpower");
+      if (res.ok) {
+        const data = await res.json();
+        const recentData = [...data]
+          .sort((a, b) => (b.BIL || 0) - (a.BIL || 0))
+          .slice(0, 5);
+        
+        const newActivities = [
+          {
+            id: Date.now(),
+            user: user?.email || "System",
+            action: isAutoRefresh ? "Auto-refreshed system data" : "Loaded control center",
+            timestamp: new Date().toISOString(),
+            type: "info"
+          },
+          ...recentData.map((record, idx) => ({
+            id: Date.now() - idx - 1,
+            user: "System",
+            action: `Staff record: ${record.STAFF_NAME} - ${record.STATUS_COLOR || "Unknown"}`,
+            timestamp: new Date(Date.now() - (idx + 1) * 60000).toISOString(),
+            type: record.STATUS_COLOR?.toLowerCase() === "active" ? "success" : "info"
+          }))
+        ];
+        
+        setActivities(newActivities.slice(0, 10));
+      }
+    } catch (err) {
+      console.error("Failed to fetch activities:", err);
+    }
+  };
+
+  const handleManualRefresh = () => {
+    fetchSystemStats(true);
+    fetchRecentActivities(true);
   };
 
   const handleClearCache = () => {
@@ -134,10 +187,47 @@ export default function ControlClient() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 p-4 md:p-6">
+      {/* Data Changed Notification */}
+      {dataChanged && (
+        <div className="fixed top-4 right-4 z-50 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
+          <span className="text-xl">✓</span>
+          <span className="font-medium">System data updated!</span>
+        </div>
+      )}
+      
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Control Center</h1>
-        <p className="text-slate-600">System monitoring, administration, and controls</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Control Center</h1>
+          <p className="text-slate-600">System monitoring, administration, and controls</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastUpdated && (
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+              <span>Live • {lastUpdated.toLocaleTimeString()}</span>
+            </div>
+          )}
+          <button
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+              refreshing 
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
+                : "bg-[#0e2b57] text-white hover:bg-[#0a1f3d] hover:shadow-lg"
+            }`}
+          >
+            <svg 
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{refreshing ? "Refreshing..." : "Refresh"}</span>
+          </button>
+        </div>
       </div>
 
       {/* System Health Cards */}

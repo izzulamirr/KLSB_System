@@ -41,7 +41,6 @@ function emptyRow() {
     END_DATE: "",
     END_DATE_KLSB: "",
     EXTENSION_STATUS: "",
-    Rate: "",
     PAY_TYPE: "",
     NH: "",
     OT: "",
@@ -157,7 +156,6 @@ function Row({ r, i, onEdit, onRemove }) {
   <Cell>{formatDate(r.END_DATE)}</Cell>
   <Cell>{formatDate(r.END_DATE_KLSB)}</Cell>
   <Cell>{r.EXTENSION_STATUS || "-"}</Cell>
-      <Cell>{r.Rate || "-"}</Cell>
       <Cell>{
         (computePayType(r) === 'M') ? 'Monthly'
         : (computePayType(r) === 'H') ? 'Hourly'
@@ -233,19 +231,19 @@ export default function ManpowerTable({ initial = [] }) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
-            // Default table sort: ascending by BIL (numeric increase)
-            setRows(sortByBilAsc(data));
+            // Default table sort: ascending by PO/SO No, then LOCATION
+            setRows(sortByPoSoNoAndLocationAsc(data));
             return;
           }
         }
     // fall back to localStorage or initial
     const cached = getLocal();
-  if (cached?.length) setRows(sortByBilAsc(cached));
-  else setRows(sortByBilAsc(initial));
+  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
+  else setRows(sortByPoSoNoAndLocationAsc(initial));
       } catch (e) {
         const cached = getLocal();
-  if (cached?.length) setRows(sortByBilAsc(cached));
-  else setRows(sortByBilAsc(initial));
+  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
+  else setRows(sortByPoSoNoAndLocationAsc(initial));
 // Sort by PO_SO_No ascending (alphanumeric)
 // Sort by PO_SO_No, then LOCATION (both ascending, alphanumeric)
 function sortByPoSoNoAndLocationAsc(list) {
@@ -352,7 +350,7 @@ function sortByPoSoNoAndLocationAsc(list) {
               });
               if (res.ok) {
                 const json = await res.json();
-                setRows((r) => sortByBilAsc([...r, { ...withPayType, id: json.id }]));
+                setRows((r) => sortByPoSoNoAndLocationAsc([...r, { ...withPayType, id: json.id }]));
                 closeForm();
                 return;
               }
@@ -361,7 +359,7 @@ function sortByPoSoNoAndLocationAsc(list) {
             }
           }
           // fallback local
-          setRows((r) => sortByBilAsc([...r, { ...withPayType }]));
+          setRows((r) => sortByPoSoNoAndLocationAsc([...r, { ...withPayType }]));
         })();
       }
       closeForm();
@@ -535,13 +533,11 @@ function sortByPoSoNoAndLocationAsc(list) {
   if (edk) out.END_DATE_KLSB = normalizeDate(edk);
         const ext = getMapped("EXTENSION_STATUS", "EXTENSION_STATUS", "EXTENSION STATUS", "Extension Status");
         if (ext) out.EXTENSION_STATUS = ext;
-        const rate = getMapped("Rate", "Rate", "RATE", "Salary");
-        if (rate) out.Rate = rate;
         const nh = getMapped("NH", "NH", "N/H");
         if (nh) out.NH = nh;
         const ot = getMapped("OT", "OT", "O/T");
         if (ot) out.OT = ot;
-  // compute pay type ('M' if NH or OT is blank, else 'H')
+  // compute pay type based on NH/OT presence
   out.PAY_TYPE = computePayType(out);
 
         return out;
@@ -552,7 +548,7 @@ function sortByPoSoNoAndLocationAsc(list) {
 
       // If nothing except BIL mapped, prompt user to map columns
       const anyData = normalized.some((r) => (
-        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.Rate || r.NH || r.OT
+        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.NH || r.OT
       ));
       if (!anyData) {
         alert("No CSV columns matched. Please map columns before importing.");
@@ -595,10 +591,10 @@ function sortByPoSoNoAndLocationAsc(list) {
           }
         }
         // Batch update UI once
-  setRows((r) => sortByBilAsc([...r, ...createdRows, ...localFailures.map((f) => f.row)]));
+  setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...createdRows, ...localFailures.map((f) => f.row)]));
       } else {
         // Not signed-in: keep rows locally and let background sync attempt when user signs in
-  setRows((r) => sortByBilAsc([...r, ...normalized]));
+  setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...normalized]));
         failures.push(...normalized.map((row) => ({ row, error: new Error("Not signed in") })));
       }
 
@@ -735,7 +731,6 @@ function sortByPoSoNoAndLocationAsc(list) {
                 "END DATE",
                 "END DATE KLSB",
                 "EXTENSION STATUS",
-                "Rate",
                 "PAY TYPE",
                 "NH",
                 "OT",
@@ -757,7 +752,7 @@ function sortByPoSoNoAndLocationAsc(list) {
               ))
             ) : (
               <tr>
-                <td colSpan={14} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={13} className="px-4 py-12 text-center text-slate-500">
                   No matching records. Try adjusting your filters.
                 </td>
               </tr>
@@ -846,7 +841,6 @@ function sortByPoSoNoAndLocationAsc(list) {
                   className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 />
               </label>
-              {renderInput("Rate", "Rate")}
               {renderInput("NH", "NH")}
               {renderInput("OT", "OT")}
               {renderInput("End Date (KLSB)", "END_DATE_KLSB", "date")}
@@ -934,7 +928,7 @@ function sortByPoSoNoAndLocationAsc(list) {
                           <option value="">(skip)</option>
                           {[
                             'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'PO_SO_No',
-                            'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
+                            'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT'
                           ].map(col => (
                             <option key={col} value={col}>{col}</option>
                           ))}
@@ -1033,17 +1027,7 @@ function normalizeDate(v) {
 }
 
 function computePayType(row) {
-  // If Rate is below 200, PAY_TYPE is 'H' (hourly), otherwise 'M' (monthly)
-  let rate = row?.Rate;
-  if (typeof rate === 'string') {
-    rate = rate.replace(/,/g, '');
-  }
-  rate = parseFloat(rate);
-  if (!isNaN(rate)) {
-    if (rate < 700) return "H";
-    return "M";
-  }
-  // fallback to previous logic if Rate is not a number
+  // If NH or OT is blank, PAY_TYPE is 'M' (monthly), otherwise 'H' (hourly)
   const nh = row?.NH;
   const ot = row?.OT;
   const isBlank = (x) => x === undefined || x === null || String(x).trim() === "";
@@ -1183,7 +1167,7 @@ function guessMapping(headers) {
   // Make every CSV column available for mapping to any table header, and vice versa
   const tableHeaders = [
     'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'PO_SO_No',
-    'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'Rate', 'PAY_TYPE', 'NH', 'OT'
+    'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT'
   ];
   function normalize(s) {
     return String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();

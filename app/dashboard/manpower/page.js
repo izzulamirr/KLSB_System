@@ -3,9 +3,34 @@ import ManpowerClient from "../../../components/ManpowerClient";
 
 export const metadata = { title: "Manpower Database | KLSB Portal" };
 
-export default async function ManpowerPage() {
+export default async function ManpowerPage({ searchParams }) {
   const data = await getManpowerData();
   const total = Array.isArray(data) ? data.length : 0;
+  
+  // If a project PO/SO is provided via query param, filter the initial dataset
+  // If company is provided, filter by LOCATION (company name)
+  // If bil is provided, filter by BIL (staff identifier)
+  let initial = data;
+  const poFilter = searchParams?.po;
+  const companyFilter = searchParams?.company;
+  const bilFilter = searchParams?.bil;
+  
+  if (bilFilter) {
+    const norm = String(bilFilter).toLowerCase();
+    initial = Array.isArray(data)
+      ? data.filter((r) => String(r.BIL || "").toLowerCase() === norm)
+      : [];
+  } else if (poFilter) {
+    const norm = String(poFilter).toLowerCase();
+    initial = Array.isArray(data)
+      ? data.filter((r) => String(r.PO_SO_No || "").toLowerCase() === norm)
+      : [];
+  } else if (companyFilter) {
+    const norm = String(companyFilter).toLowerCase();
+    initial = Array.isArray(data)
+      ? data.filter((r) => String(r.LOCATION || "").toLowerCase() === norm)
+      : [];
+  }
 
   return (
     <section className="space-y-6">
@@ -36,8 +61,8 @@ export default async function ManpowerPage() {
 
       <div className="grid grid-cols-1 gap-6">
         <main>
-          <div className="bg-white shadow-sm rounded-lg border border-slate-100 p-6">
-            <ManpowerClient initial={data} />
+            <div className="bg-white shadow-sm rounded-lg border border-slate-100 p-6">
+            <ManpowerClient initial={initial} />
           </div>
         </main>
       </div>

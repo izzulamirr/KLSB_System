@@ -59,14 +59,16 @@ export default function TimesheetClient() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to extract PDF text");
+        const errorData = await res.json();
+        console.error("PDF extraction failed:", errorData);
+        throw new Error(errorData.details || "Failed to extract PDF text");
       }
 
       const data = await res.json();
       return data.text;
     } catch (err) {
       console.error("PDF extraction error:", err);
-      throw new Error("Failed to extract text from PDF");
+      throw new Error(`Failed to extract text from PDF: ${err.message}`);
     }
   };
 
@@ -85,22 +87,29 @@ export default function TimesheetClient() {
         setOcrProgress(100);
         console.log("Extracted PDF text:", text);
       } else {
-        // Handle image files - use OCR
+        // Handle image files - use OCR with optimized settings
+        setOcrProgress(10);
+        
         // Create a worker for better performance and resource management
-        // Do NOT pass functions (like logger) into createWorker options — they cannot be cloned for the worker.
-        // We'll use a simple interval-based progress indicator instead.
-        const worker = await Tesseract.createWorker("eng");
+        const worker = await Tesseract.createWorker("eng", 1, {
+          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
+          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
+        });
+
+        setOcrProgress(20);
 
         // Set up progress tracking
         let progressInterval = setInterval(() => {
           setOcrProgress((prev) => {
-            if (prev >= 90) return prev;
-            return prev + 5;
+            if (prev >= 85) return prev;
+            return prev + 3;
           });
         }, 500);
 
-        // Perform OCR on the file directly
-        const { data: { text: ocrText } } = await worker.recognize(file);
+        // Perform OCR with enhanced parameters for better accuracy
+        const { data: { text: ocrText } } = await worker.recognize(file, {
+          rotateAuto: true, // Auto-rotate the image if needed
+        });
         
         clearInterval(progressInterval);
         setOcrProgress(100);
@@ -129,87 +138,152 @@ export default function TimesheetClient() {
 
   // Parse extracted text to find timesheet data
   const parseTimesheetText = (text) => {
+    console.log("Parsing text:", text);
     const lines = text.split("\n").filter((line) => line.trim());
     const entries = [];
 
-    // Common patterns to look for
-    const datePattern = /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/;
-    const timePattern = /(\d{1,2}:\d{2}|\d{1,2}\.\d{1,2}|\d{1,2})/;
-    const poSoPattern = /(PO|SO)[:\-\s]*([A-Z0-9\-]+)/i;
-    const namePattern = /^([A-Z][A-Z\s]+(?:BIN|BINTI)[A-Z\s]+)$/i;
+    // Enhanced patterns to look for
+    const datePattern = /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/;
+    const timePattern = /(\d{1,2}[\:\.\,]\d{1,2}|\d{1,2})/;
+    const poSoPattern = /(PO|SO)[:\-\s#]*([A-Z0-9\-\/]+)/i;
+    const namePattern = /^([A-Z][A-Za-z\s]+(?:BIN|BINTI|B\.)[A-Za-z\s]+)$/i;
+    const hourPattern = /(\d+(?:\.\d+)?)\s*(?:hour|hr|h|hrs)/i;
 
     let currentEntry = {};
     let staffName = "";
     let poSoNumber = "";
 
-    // Extract PO/SO from document
-    const poSoMatch = text.match(poSoPattern);
-    if (poSoMatch) {
-      poSoNumber = poSoMatch[2].trim();
+    // Enhanced PO/SO extraction - look for multiple patterns
+    const poSoMatches = text.match(new RegExp(poSoPattern, 'gi'));
+    if (poSoMatches && poSoMatches.length > 0) {
+      const match = poSoMatches[0].match(poSoPattern);
+      poSoNumber = match[2].trim();
     }
 
-    // Look for staff name (usually at the top)
-    for (let i = 0; i < Math.min(10, lines.length); i++) {
-      const nameMatch = lines[i].match(namePattern);
+    // Enhanced staff name detection - check first 15 lines
+    for (let i = 0; i < Math.min(15, lines.length); i++) {
+      const line = lines[i].trim();
+      
+      // Try exact pattern first
+      const nameMatch = line.match(namePattern);
       if (nameMatch) {
-        staffName = nameMatch[1].trim();
+        staffName = nameMatch[1].trim().toUpperCase();
         break;
       }
+      
+      // Try to find name with keywords
+      if (line.toLowerCase().includes('name') || line.toLowerCase().includes('staff')) {
+        const nextLine = lines[i + 1]?.trim();
+        if (nextLine && nextLine.length > 5 && /^[A-Z\s]+$/.test(nextLine)) {
+          staffName = nextLine;
+          break;
+        }
+      }
     }
 
-    // Process each line
+    // Process each line for timesheet entries
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const line = lines[i].trim();
+      const lowerLine = line.toLowerCase();
 
-      // Try to find date
+      // Try to find date - if found, start a new entry
       const dateMatch = line.match(datePattern);
       if (dateMatch) {
+        // Save previous entry if exists
         if (currentEntry.date) {
+          // Calculate total hours if not set
+          if (!currentEntry.totalHours) {
+            currentEntry.totalHours = (currentEntry.normalHours || 0) + 
+                                      (currentEntry.otHours || 0) + 
+                                      (currentEntry.nhHours || 0);
+          }
           entries.push({ ...currentEntry });
-          currentEntry = {};
         }
-        currentEntry.date = dateMatch[1];
-        currentEntry.staffName = staffName;
-        currentEntry.poSoNo = poSoNumber;
+        
+        // Start new entry
+        currentEntry = {
+          date: dateMatch[1],
+          staffName: staffName,
+          poSoNo: poSoNumber,
+          normalHours: 0,
+          otHours: 0,
+          nhHours: 0,
+          totalHours: 0,
+        };
       }
 
-      // Look for hours/time entries
-      const lowerLine = line.toLowerCase();
-      if (lowerLine.includes("hour") || lowerLine.includes("hr")) {
-        const timeMatch = line.match(timePattern);
-        if (timeMatch) {
-          const hours = parseFloat(timeMatch[1].replace(":", "."));
-          
-          if (lowerLine.includes("normal") || lowerLine.includes("regular")) {
-            currentEntry.normalHours = hours;
-          } else if (lowerLine.includes("ot") || lowerLine.includes("overtime")) {
-            currentEntry.otHours = hours;
-          } else if (lowerLine.includes("nh") || lowerLine.includes("night")) {
-            currentEntry.nhHours = hours;
-          } else {
-            currentEntry.totalHours = hours;
+      // Look for hours with improved patterns
+      if (currentEntry.date) {
+        // Normal Hours / Regular Hours
+        if (lowerLine.includes('normal') || lowerLine.includes('regular') || lowerLine.includes('nh')) {
+          const hourMatch = line.match(hourPattern) || line.match(timePattern);
+          if (hourMatch) {
+            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
+            if (!isNaN(hours) && hours <= 24) {
+              if (lowerLine.includes('nh') && !lowerLine.includes('normal')) {
+                currentEntry.nhHours = hours;
+              } else {
+                currentEntry.normalHours = hours;
+              }
+            }
+          }
+        }
+        
+        // Overtime (OT)
+        if (lowerLine.includes('ot') || lowerLine.includes('overtime') || lowerLine.includes('over time')) {
+          const hourMatch = line.match(hourPattern) || line.match(timePattern);
+          if (hourMatch) {
+            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
+            if (!isNaN(hours) && hours <= 24) {
+              currentEntry.otHours = hours;
+            }
+          }
+        }
+        
+        // Night Hours (NH) - specific check
+        if ((lowerLine.includes('night') || lowerLine.match(/\bnh\b/)) && !lowerLine.includes('normal')) {
+          const hourMatch = line.match(hourPattern) || line.match(timePattern);
+          if (hourMatch) {
+            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
+            if (!isNaN(hours) && hours <= 24) {
+              currentEntry.nhHours = hours;
+            }
+          }
+        }
+
+        // Total Hours
+        if (lowerLine.includes('total')) {
+          const hourMatch = line.match(hourPattern) || line.match(timePattern);
+          if (hourMatch) {
+            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
+            if (!isNaN(hours) && hours <= 24) {
+              currentEntry.totalHours = hours;
+            }
+          }
+        }
+
+        // Try to extract hours from table-like structures (e.g., "Date | NH | OT | Total")
+        const parts = line.split(/[\|\t]+/).map(p => p.trim());
+        if (parts.length >= 3) {
+          for (let j = 0; j < parts.length; j++) {
+            const val = parseFloat(parts[j]);
+            if (!isNaN(val) && val <= 24) {
+              if (j === 1 && currentEntry.normalHours === 0) currentEntry.normalHours = val;
+              if (j === 2 && currentEntry.otHours === 0) currentEntry.otHours = val;
+              if (j === 3 && currentEntry.nhHours === 0) currentEntry.nhHours = val;
+            }
           }
         }
       }
-
-      // Look for NH (Night Hours)
-      if (lowerLine.includes("nh") || lowerLine.includes("night")) {
-        const timeMatch = line.match(timePattern);
-        if (timeMatch) {
-          currentEntry.nhHours = parseFloat(timeMatch[1].replace(":", "."));
-        }
-      }
-
-      // Look for OT (Overtime)
-      if (lowerLine.includes("ot") || lowerLine.includes("overtime")) {
-        const timeMatch = line.match(timePattern);
-        if (timeMatch) {
-          currentEntry.otHours = parseFloat(timeMatch[1].replace(":", "."));
-        }
-      }
     }
 
-    if (Object.keys(currentEntry).length > 0) {
+    // Save last entry
+    if (currentEntry.date) {
+      if (!currentEntry.totalHours) {
+        currentEntry.totalHours = (currentEntry.normalHours || 0) + 
+                                  (currentEntry.otHours || 0) + 
+                                  (currentEntry.nhHours || 0);
+      }
       entries.push(currentEntry);
     }
 
@@ -246,19 +320,23 @@ export default function TimesheetClient() {
 
   const handleFile = (file) => {
     // Check file type - accept images and PDFs
-    const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/bmp", "image/tiff", "application/pdf"];
+    const validTypes = [
+      "image/jpeg", "image/png", "image/jpg", "image/bmp", 
+      "image/tiff", "image/webp", "application/pdf"
+    ];
     if (!validTypes.includes(file.type)) {
-      alert("Please upload an image file (JPG, PNG, BMP, TIFF) or PDF");
+      alert("Please upload an image file (JPG, PNG, BMP, TIFF, WebP) or PDF");
       return;
     }
 
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert("File size too large. Please upload a file under 10MB.");
+    // Check file size (max 20MB for better support)
+    if (file.size > 20 * 1024 * 1024) {
+      alert("File size too large. Please upload a file under 20MB.");
       return;
     }
 
     setSelectedFile(file);
+    setExtractedData(null); // Reset extracted data
     
     // Show preview for images, placeholder for PDFs
     if (file.type === "application/pdf") {
@@ -376,7 +454,7 @@ export default function TimesheetClient() {
         <p className="text-sm text-slate-600 mb-4">
           Drag and drop your timesheet image or PDF here, or click to browse
         </p>
-        <p className="text-xs text-slate-500">Supports: JPG, PNG, BMP, TIFF, PDF (max 10MB)</p>
+        <p className="text-xs text-slate-500">Supports: JPG, PNG, BMP, TIFF, WebP, PDF (max 20MB)</p>
         <input
           id="fileInput"
           type="file"
@@ -525,7 +603,7 @@ export default function TimesheetClient() {
                 <div className="mb-6 p-4 bg-slate-50 rounded-lg">
                   <h3 className="text-lg font-semibold text-slate-900 mb-3">Extracted Data</h3>
                   {extractedData.needsManualReview ? (
-                    <div className="text-sm text-amber-600 mb-3">
+                    <div className="text-sm text-amber-600 mb-3 p-3 bg-amber-50 rounded border border-amber-200">
                       ⚠ Automatic extraction incomplete. Please review and edit the data below.
                     </div>
                   ) : null}
@@ -540,21 +618,41 @@ export default function TimesheetClient() {
                     </div>
                     {extractedData.entries && extractedData.entries.length > 0 ? (
                       <div className="mt-4">
-                        <div className="font-medium text-slate-700 mb-2">Entries Found:</div>
-                        <div className="space-y-2">
+                        <div className="font-medium text-slate-700 mb-2">
+                          Entries Found: {extractedData.entries.length}
+                        </div>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
                           {extractedData.entries.map((entry, idx) => (
                             <div key={idx} className="p-3 bg-white rounded border border-slate-200">
                               <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div>Date: {entry.date || "N/A"}</div>
+                                <div className="font-medium">Date: {entry.date || "N/A"}</div>
+                                <div>Total: {entry.totalHours || 0}h</div>
                                 <div>Normal: {entry.normalHours || 0}h</div>
                                 <div>OT: {entry.otHours || 0}h</div>
                                 <div>NH: {entry.nhHours || 0}h</div>
+                                <div>PO/SO: {entry.poSoNo || "N/A"}</div>
                               </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="mt-4 text-amber-600 text-sm">
+                        No entries found in the document. Please check if the document is clear and contains timesheet data.
+                      </div>
+                    )}
+                    
+                    {/* Show raw text for debugging */}
+                    {extractedData.rawText && (
+                      <details className="mt-4">
+                        <summary className="cursor-pointer text-slate-600 hover:text-slate-900 font-medium">
+                          View Raw Extracted Text (Debug)
+                        </summary>
+                        <div className="mt-2 p-3 bg-white rounded border border-slate-200 text-xs font-mono max-h-40 overflow-y-auto whitespace-pre-wrap">
+                          {extractedData.rawText}
+                        </div>
+                      </details>
+                    )}
                   </div>
                 </div>
               )}

@@ -179,7 +179,7 @@ export default function Page() {
             <h1 className="text-3xl font-bold text-slate-900">
               Welcome back, <span className="text-[#0e2b57]">{user?.displayName || user?.email?.split("@")[0]}</span>
             </h1>
-            <p className="text-slate-600 mt-1">Here's what's happening with your manpower today</p>
+            <p className="text-slate-600 mt-1">Here&apos;s what&apos;s happening with your manpower today</p>
           </div>
           <div className="hidden md:block">
             <div className="px-4 py-2 bg-gradient-to-r from-[#0e2b57] to-[#1a3d6f] text-white rounded-lg shadow-md">

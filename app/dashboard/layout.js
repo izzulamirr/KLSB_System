@@ -41,21 +41,24 @@ export default function DashboardLayout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-b from-[#0b1e3a] via-[#0e2b57] to-[#0b1e3a] relative overflow-hidden">
-      <div className="pointer-events-none absolute top-0 left-0 h-[3px] w-full bg-gradient-to-r from-yellow-400/90 via-yellow-400 to-yellow-400/90" />
+    <div className="min-h-screen bg-gradient-to-b from-[#0b1e3a] via-[#0e2b57] to-[#0b1e3a] relative overflow-x-hidden">
+      <div className="pointer-events-none absolute top-0 left-0 h-[3px] w-full bg-gradient-to-r from-yellow-400/90 via-yellow-400 to-yellow-400/90 z-50" />
 
       <div className="absolute -right-40 -top-40 w-[420px] h-[420px] rotate-45 rounded-3xl bg-gradient-to-br from-white/10 to-transparent border border-white/20" />
       <div className="absolute -left-48 -bottom-48 w-[520px] h-[520px] rotate-45 rounded-3xl bg-gradient-to-tr from-white/10 to-transparent border border-white/10" />
 
-      <aside className="hidden md:flex md:w-72 shrink-0 flex-col relative z-10 bg-white/10 backdrop-blur-xl border-r border-white/20 text-white">
-        <div className="relative px-5 py-5 border-b border-white/10">
-          <div className="flex items-center justify-center">
-            <Image src="/logo/KLSB_icon.png" alt="KLSB Logo" width={64} height={64} className="object-contain drop-shadow" />
+      {/* Fixed Sidebar */}
+      <aside className="hidden md:block fixed left-0 top-0 w-80 h-screen z-40 bg-white/15 backdrop-blur-2xl border-r-2 border-white/30 text-white shadow-2xl">
+        <div className="relative px-6 py-6 border-b border-white/20">
+          <div className="flex items-center gap-3">
+            <Image src="/logo-full.svg" alt="KLSB Logo" width={180} height={56} className="object-contain drop-shadow-lg" />
           </div>
-        
+          <p className="mt-4 text-xs uppercase tracking-wider text-white/80 flex items-center gap-2 font-medium">
+            <span className="inline-block w-2 h-2 rotate-45 bg-yellow-400 animate-pulse" /> Secure Access
+          </p>
         </div>
 
-        <nav className="p-4 grid gap-1 text-sm">
+        <nav className="p-5 space-y-2 overflow-y-auto h-[calc(100vh-220px)]">
           {nav.map((item) => {
             const active = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));
             return (
@@ -63,37 +66,37 @@ export default function DashboardLayout({ children }) {
                 key={item.href}
                 href={item.href}
                 className={
-                  "group flex items-center gap-3 px-3 py-2 rounded-xl transition border " +
+                  "group flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 border text-base font-medium " +
                   (active
-                    ? "text-white bg-white/15 border-white/20"
-                    : "text-white/90 hover:text-white hover:bg:white/10 hover:bg-white/10 border-transparent hover:border-white/10")
+                    ? "text-white bg-white/20 border-white/30 shadow-lg scale-[1.02]"
+                    : "text-white/90 hover:text-white hover:bg-white/10 border-transparent hover:border-white/20 hover:scale-[1.02]")
                 }
               >
-                <span className="text-base">{item.icon}</span>
-                <span>{item.label}</span>
-                <span className="ml-auto w-1.5 h-1.5 rotate-45 bg-yellow-400/60 group-hover:bg-yellow-400 rounded-[1px]" />
+                <span className="text-xl">{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+                <span className="w-2 h-2 rotate-45 bg-yellow-400/60 group-hover:bg-yellow-400 rounded-[1px] transition-colors" />
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-auto p-4 border-t border-white/10">
+        <div className="absolute bottom-0 left-0 right-0 p-5 border-t border-white/20 bg-white/5 backdrop-blur">
           <button
             onClick={async () => {
               await signOut(auth);
               router.push("/login");
             }}
-            aria-label="Sign out"
-            className="w-full py-2.5 rounded-xl font-medium bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow hover:shadow-lg transform hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-rose-300"
+            className="w-full py-3 rounded-xl font-semibold text-base bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-rose-300"
           >
             Logout
           </button>
-          <p className="mt-2 text-[10px] text-white/60 text-center">v0.0.1</p>
+          <p className="mt-3 text-xs text-white/70 text-center font-medium">Portal v0.0.1</p>
         </div>
       </aside>
 
-      <main className="relative z-10 flex-1 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
-        <div className="min-h-full rounded-2xl bg-white/90 backdrop-blur-xl border border-white/40 shadow-2xl p-5 sm:p-8 text-[#0b1e3a]">
+      {/* Main Content with left margin for fixed sidebar */}
+      <main className="md:ml-80 relative z-10 min-h-screen px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
+        <div className="rounded-2xl bg-white/90 backdrop-blur-xl border border-white/40 shadow-2xl p-5 sm:p-8 text-[#0b1e3a]">
           {children}
         </div>
       </main>

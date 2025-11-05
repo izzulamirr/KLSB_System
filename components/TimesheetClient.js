@@ -84,41 +84,75 @@ export default function TimesheetClient() {
       if (file.type === "application/pdf") {
         setOcrProgress(30);
         text = await extractPdfText(file);
+        text = text || ""; // Ensure text is never undefined
         setOcrProgress(100);
         console.log("Extracted PDF text:", text);
       } else {
         // Handle image files - use OCR with optimized settings
         setOcrProgress(10);
         
-        // Create a worker for better performance and resource management
-        const worker = await Tesseract.createWorker("eng", 1, {
-          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
-          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
-        });
-
-        setOcrProgress(20);
-
-        // Set up progress tracking
-        let progressInterval = setInterval(() => {
-          setOcrProgress((prev) => {
-            if (prev >= 85) return prev;
-            return prev + 3;
+        let worker = null;
+        try {
+          // Create a worker for better performance and resource management
+          // Use the recommended createWorker API and explicit load/initialize steps.
+          worker = Tesseract.createWorker({
+            workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
+            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
+            // Hook into logger to update progress (approximate)
+            logger: (m) => {
+              try {
+                if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
+                  // scale to 0-90 to leave room for finalization
+                  setOcrProgress(Math.min(90, Math.round(m.progress * 100)));
+                }
+              } catch (e) {}
+            }
           });
-        }, 500);
 
-        // Perform OCR with enhanced parameters for better accuracy
-        const { data: { text: ocrText } } = await worker.recognize(file, {
-          rotateAuto: true, // Auto-rotate the image if needed
-        });
-        
-        clearInterval(progressInterval);
-        setOcrProgress(100);
-        
-        text = ocrText;
-        console.log("Extracted OCR text:", text);
+          // initialize worker
+          await worker.load();
+          await worker.loadLanguage('eng');
+          await worker.initialize('eng');
 
-        // Terminate worker to free resources
-        await worker.terminate();
+          setOcrProgress(20);
+
+          // Perform OCR with enhanced parameters for better accuracy
+          // Convert File/Blob to objectURL for robust worker input
+          const imageUrl = URL.createObjectURL(file);
+          const result = await worker.recognize(imageUrl, {
+            rotateAuto: true, // Auto-rotate the image if needed
+          });
+          URL.revokeObjectURL(imageUrl);
+
+          setOcrProgress(100);
+
+          text = result?.data?.text || ""; // Ensure text is never undefined
+          console.log("Extracted OCR text:", text);
+        } catch (ocrError) {
+          console.warn("Worker OCR processing error, attempting fallback recognize():", ocrError);
+          // Try a direct recognize fallback (may be slower but works when worker init fails)
+          try {
+            const fallback = await Tesseract.recognize(file, 'eng', {
+              workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
+              corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
+            });
+            text = fallback?.data?.text || "";
+            console.log("Fallback OCR text:", text);
+          } catch (fallbackErr) {
+            console.error("Fallback OCR failed:", fallbackErr);
+            text = "";
+            throw new Error(`OCR failed: ${fallbackErr?.message || String(fallbackErr)}`);
+          }
+        } finally {
+          // Terminate worker to free resources
+          if (worker) {
+            try {
+              await worker.terminate();
+            } catch (terminateError) {
+              console.warn("Worker termination error:", terminateError);
+            }
+          }
+        }
       }
 
       // Parse the text to extract timesheet information
@@ -138,6 +172,12 @@ export default function TimesheetClient() {
 
   // Parse extracted text to find timesheet data
   const parseTimesheetText = (text) => {
+    // Validate input text
+    if (!text || typeof text !== 'string') {
+      console.warn("parseTimesheetText received invalid text:", text);
+      return [];
+    }
+    
     console.log("Parsing text:", text);
     const lines = text.split("\n").filter((line) => line.trim());
     const entries = [];

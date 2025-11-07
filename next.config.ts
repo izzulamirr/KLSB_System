@@ -12,7 +12,18 @@ const nextConfig: NextConfig = {
     if (isServer) {
       config.externals = config.externals || [];
       config.externals.push('pdf-parse');
+      
+      // Ensure pdfjs-dist can be imported properly on server
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        canvas: false,
+        fs: false,
+      };
     }
+    
+    // Suppress critical dependency warnings for pdfjs-dist
+    config.module = config.module || {};
+    config.module.exprContextCritical = false;
     
     return config;
   },

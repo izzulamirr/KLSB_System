@@ -47,32 +47,62 @@ export default function TimesheetClient() {
     if (user) fetchTimesheets();
   }, [user, fetchTimesheets]);
 
-  // Extract text from PDF using server-side API
+  // Extract text from PDF - Currently not supported, ask user to convert to image
   const extractPdfText = async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/extract-pdf", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("PDF extraction failed:", errorData);
-        throw new Error(errorData.details || "Failed to extract PDF text");
-      }
-
-      const data = await res.json();
-      return data.text;
-    } catch (err) {
-      console.error("PDF extraction error:", err);
-      throw new Error(`Failed to extract text from PDF: ${err.message}`);
-    }
+    // PDF processing has compatibility issues with Next.js
+    // Ask user to convert PDF to image instead
+    throw new Error("PDF files are not currently supported. Please convert your PDF to an image file (PNG or JPG) and upload again. You can use online tools like pdf2png.com or take a screenshot of the PDF.");
   };
 
-  // Extract timesheet data from file using OCR or PDF extraction
+  // Preprocess image to improve OCR accuracy
+  const preprocessImageForOCR = async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas with 2x scale for better OCR
+          const canvas = document.createElement('canvas');
+          const scaleFactor = 2;
+          canvas.width = img.width * scaleFactor;
+          canvas.height = img.height * scaleFactor;
+          const ctx = canvas.getContext('2d');
+          
+          // Draw image at higher resolution
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // Get image data for processing
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Convert to grayscale and increase contrast
+          for (let i = 0; i < data.length; i += 4) {
+            const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            // Increase contrast
+            const contrast = 1.5;
+            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+            const newGray = factor * (gray - 128) + 128;
+            const final = Math.max(0, Math.min(255, newGray));
+            
+            data[i] = data[i + 1] = data[i + 2] = final;
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Convert canvas to blob
+          canvas.toBlob((blob) => {
+            resolve(blob);
+          }, 'image/png');
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Extract timesheet data from file using OCR
   const extractTimesheetData = async (file) => {
     setProcessing(true);
     setOcrProgress(0);
@@ -88,56 +118,49 @@ export default function TimesheetClient() {
         setOcrProgress(100);
         console.log("Extracted PDF text:", text);
       } else {
-        // Handle image files - use OCR with optimized settings
+        // Handle image files - use OCR with simpler, more reliable settings
         setOcrProgress(10);
         
         let worker = null;
         try {
-          // Create a worker for better performance and resource management
-          // Use the recommended createWorker API and explicit load/initialize steps.
-          worker = Tesseract.createWorker({
-            workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
-            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
-            // Hook into logger to update progress (approximate)
-            logger: (m) => {
-              try {
-                if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
-                  // scale to 0-90 to leave room for finalization
-                  setOcrProgress(Math.min(90, Math.round(m.progress * 100)));
-                }
-              } catch (e) {}
-            }
+          // Create a worker with simple configuration
+          worker = await Tesseract.createWorker('eng');
+
+          setOcrProgress(30);
+
+          // Use the original file without preprocessing - sometimes simpler is better
+          const result = await worker.recognize(file, {
+            tessedit_pageseg_mode: '1', // Automatic page segmentation with OSD
           });
-
-          // initialize worker
-          await worker.load();
-          await worker.loadLanguage('eng');
-          await worker.initialize('eng');
-
-          setOcrProgress(20);
-
-          // Perform OCR with enhanced parameters for better accuracy
-          // Convert File/Blob to objectURL for robust worker input
-          const imageUrl = URL.createObjectURL(file);
-          const result = await worker.recognize(imageUrl, {
-            rotateAuto: true, // Auto-rotate the image if needed
-          });
-          URL.revokeObjectURL(imageUrl);
-
-          setOcrProgress(100);
+          
+          setOcrProgress(90);
 
           text = result?.data?.text || ""; // Ensure text is never undefined
-          console.log("Extracted OCR text:", text);
+          
+          console.log("=== OCR EXTRACTION COMPLETE ===");
+          console.log("OCR Recognition confidence:", result?.data?.confidence);
+          console.log("=== FULL EXTRACTED TEXT (START) ===");
+          console.log(text);
+          console.log("=== FULL EXTRACTED TEXT (END) ===");
+          console.log("Text length:", text.length, "characters");
+          console.log("Number of lines:", text.split('\n').length);
+          
+          // If text is empty or too short, alert user
+          if (!text || text.trim().length < 50) {
+            console.warn("⚠️ OCR extracted very little text. The image may be too blurry or low quality.");
+            alert("OCR extracted very little text from the image. Please ensure:\n1. Image is clear and high resolution\n2. Text is readable\n3. Image is not too dark or too bright\n\nYou may need to take a better quality photo or scan.");
+          }
+          
+          setOcrProgress(100);
         } catch (ocrError) {
-          console.warn("Worker OCR processing error, attempting fallback recognize():", ocrError);
-          // Try a direct recognize fallback (may be slower but works when worker init fails)
+          console.warn("Worker OCR processing error:", ocrError);
+          // Try a direct recognize fallback
           try {
-            const fallback = await Tesseract.recognize(file, 'eng', {
-              workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
-              corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js',
-            });
+            setOcrProgress(40);
+            const fallback = await Tesseract.recognize(file, 'eng');
             text = fallback?.data?.text || "";
             console.log("Fallback OCR text:", text);
+            setOcrProgress(100);
           } catch (fallbackErr) {
             console.error("Fallback OCR failed:", fallbackErr);
             text = "";
@@ -178,175 +201,124 @@ export default function TimesheetClient() {
       return [];
     }
     
-    console.log("Parsing text:", text);
+    console.log("\n=== PARSING TIMESHEET TEXT ===");
+    console.log("Full text length:", text.length, "characters");
+    console.log("\n=== ALL LINES (with line numbers) ===");
     const lines = text.split("\n").filter((line) => line.trim());
-    const entries = [];
+    lines.forEach((line, index) => {
+      console.log(`Line ${index + 1}: "${line}"`);
+    });
 
-    // Enhanced patterns to look for
-    const datePattern = /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/;
-    const timePattern = /(\d{1,2}[\:\.\,]\d{1,2}|\d{1,2})/;
-    const poSoPattern = /(PO|SO)[:\-\s#]*([A-Z0-9\-\/]+)/i;
-    const namePattern = /^([A-Z][A-Za-z\s]+(?:BIN|BINTI|B\.)[A-Za-z\s]+)$/i;
-    const hourPattern = /(\d+(?:\.\d+)?)\s*(?:hour|hr|h|hrs)/i;
-
-    let currentEntry = {};
+    // Enhanced patterns to look for - based on actual timesheet format
+    const employeePattern = /EMPLOYEE\s+NAME[:\s]*([A-Z\s]+(?:BIN|BINTI)[A-Z\s]+)/i;
+    const projectPattern = /PROJECT\s+CODE\s*\/\s*NAME[:\s]*([A-Z0-9\s\/\-\.]+?)(?:\n|WEEK|MONTH|LOCATION)/i;
+    
     let staffName = "";
     let poSoNumber = "";
 
-    // Enhanced PO/SO extraction - look for multiple patterns
-    const poSoMatches = text.match(new RegExp(poSoPattern, 'gi'));
-    if (poSoMatches && poSoMatches.length > 0) {
-      const match = poSoMatches[0].match(poSoPattern);
-      poSoNumber = match[2].trim();
-    }
-
-    // Enhanced staff name detection - check first 15 lines
-    for (let i = 0; i < Math.min(15, lines.length); i++) {
-      const line = lines[i].trim();
-      
-      // Try exact pattern first
-      const nameMatch = line.match(namePattern);
-      if (nameMatch) {
-        staffName = nameMatch[1].trim().toUpperCase();
-        break;
-      }
-      
-      // Try to find name with keywords
-      if (line.toLowerCase().includes('name') || line.toLowerCase().includes('staff')) {
-        const nextLine = lines[i + 1]?.trim();
-        if (nextLine && nextLine.length > 5 && /^[A-Z\s]+$/.test(nextLine)) {
-          staffName = nextLine;
+    console.log("\n=== SEARCHING FOR EMPLOYEE NAME ===");
+    // Extract employee name
+    const empMatch = text.match(employeePattern);
+    if (empMatch) {
+      staffName = empMatch[1].trim().replace(/\s+/g, ' ');
+      console.log("✓ Found Employee Name:", staffName);
+    } else {
+      console.log("✗ Employee name pattern not found");
+      // Try alternative: look for lines with BIN/BINTI in first 20 lines
+      for (let i = 0; i < Math.min(20, lines.length); i++) {
+        const line = lines[i].trim();
+        if (line.match(/\b(BIN|BINTI)\b/i) && line.split(/\s+/).length >= 3 && line.length > 10) {
+          staffName = line.toUpperCase();
+          console.log("✓ Found staff name (alternative):", staffName);
           break;
         }
       }
     }
 
-    // Process each line for timesheet entries
+    console.log("\n=== SEARCHING FOR PROJECT CODE ===");
+    // Extract Project Code
+    const projMatch = text.match(projectPattern);
+    if (projMatch) {
+      poSoNumber = projMatch[1].trim().replace(/\s+/g, ' ');
+      console.log("✓ Found Project Code:", poSoNumber);
+    } else {
+      console.log("✗ Project code pattern not found");
+      // Alternative: Look for "R####" pattern or any alphanumeric code after PROJECT
+      const altProjMatch = text.match(/\b(R\d{4}[A-Z0-9\s\/\-\.]*)/i);
+      if (altProjMatch) {
+        poSoNumber = altProjMatch[1].trim();
+        console.log("✓ Found Project Code (alternative):", poSoNumber);
+      } else {
+        // Try to find any project-like code
+        const lines2 = text.split('\n');
+        for (let line of lines2) {
+          if (line.toUpperCase().includes('PROJECT') || line.toUpperCase().includes('CODE')) {
+            const codeMatch = line.match(/([A-Z]\d{4}.*)/i);
+            if (codeMatch) {
+              poSoNumber = codeMatch[1].trim();
+              console.log("✓ Found Project Code (line scan):", poSoNumber);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    console.log("\n=== SEARCHING FOR TOTAL HOURS ===");
+    // Look for TOTAL line which has Normal Hours and OT Hours totals
+    let totalNormalHours = 0;
+    let totalOTHours = 0;
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      const lowerLine = line.toLowerCase();
-
-      // Try to find date - if found, start a new entry
-      const dateMatch = line.match(datePattern);
-      if (dateMatch) {
-        // Save previous entry if exists
-        if (currentEntry.date) {
-          // Calculate total hours if not set
-          if (!currentEntry.totalHours) {
-            currentEntry.totalHours = (currentEntry.normalHours || 0) + 
-                                      (currentEntry.otHours || 0) + 
-                                      (currentEntry.nhHours || 0);
-          }
-          entries.push({ ...currentEntry });
-        }
+      const lineLower = line.toLowerCase();
+      
+      // Look for line containing "TOTAL" (usually at bottom of timesheet table)
+      if (lineLower.includes('total') && !lineLower.includes('overtime')) {
+        console.log(`Found TOTAL line at ${i + 1}: "${line}"`);
         
-        // Start new entry
-        currentEntry = {
-          date: dateMatch[1],
-          staffName: staffName,
-          poSoNo: poSoNumber,
-          normalHours: 0,
-          otHours: 0,
-          nhHours: 0,
-          totalHours: 0,
-        };
-      }
-
-      // Look for hours with improved patterns
-      if (currentEntry.date) {
-        // Normal Hours / Regular Hours
-        if (lowerLine.includes('normal') || lowerLine.includes('regular') || lowerLine.includes('nh')) {
-          const hourMatch = line.match(hourPattern) || line.match(timePattern);
-          if (hourMatch) {
-            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
-            if (!isNaN(hours) && hours <= 24) {
-              if (lowerLine.includes('nh') && !lowerLine.includes('normal')) {
-                currentEntry.nhHours = hours;
-              } else {
-                currentEntry.normalHours = hours;
-              }
-            }
-          }
-        }
+        // Extract all numbers from the total line
+        const numbers = [...line.matchAll(/\b(\d+)\b/g)]
+          .map(m => parseInt(m[1]))
+          .filter(n => !isNaN(n) && n > 0);
         
-        // Overtime (OT)
-        if (lowerLine.includes('ot') || lowerLine.includes('overtime') || lowerLine.includes('over time')) {
-          const hourMatch = line.match(hourPattern) || line.match(timePattern);
-          if (hourMatch) {
-            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
-            if (!isNaN(hours) && hours <= 24) {
-              currentEntry.otHours = hours;
-            }
-          }
-        }
+        console.log(`Numbers in TOTAL line: ${JSON.stringify(numbers)}`);
         
-        // Night Hours (NH) - specific check
-        if ((lowerLine.includes('night') || lowerLine.match(/\bnh\b/)) && !lowerLine.includes('normal')) {
-          const hourMatch = line.match(hourPattern) || line.match(timePattern);
-          if (hourMatch) {
-            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
-            if (!isNaN(hours) && hours <= 24) {
-              currentEntry.nhHours = hours;
-            }
-          }
+        // Typically the TOTAL line has: Normal Hours Total, OT Hours Total, NH Hours Total
+        // Take first two numbers as Normal and OT totals
+        if (numbers.length >= 2) {
+          totalNormalHours = numbers[0];
+          totalOTHours = numbers[1];
+          console.log(`✓ Extracted totals - Normal: ${totalNormalHours}, OT: ${totalOTHours}`);
         }
-
-        // Total Hours
-        if (lowerLine.includes('total')) {
-          const hourMatch = line.match(hourPattern) || line.match(timePattern);
-          if (hourMatch) {
-            const hours = parseFloat(hourMatch[1].replace(/[:\,]/g, '.'));
-            if (!isNaN(hours) && hours <= 24) {
-              currentEntry.totalHours = hours;
-            }
-          }
-        }
-
-        // Try to extract hours from table-like structures (e.g., "Date | NH | OT | Total")
-        const parts = line.split(/[\|\t]+/).map(p => p.trim());
-        if (parts.length >= 3) {
-          for (let j = 0; j < parts.length; j++) {
-            const val = parseFloat(parts[j]);
-            if (!isNaN(val) && val <= 24) {
-              if (j === 1 && currentEntry.normalHours === 0) currentEntry.normalHours = val;
-              if (j === 2 && currentEntry.otHours === 0) currentEntry.otHours = val;
-              if (j === 3 && currentEntry.nhHours === 0) currentEntry.nhHours = val;
-            }
-          }
-        }
+        break;
       }
     }
 
-    // Save last entry
-    if (currentEntry.date) {
-      if (!currentEntry.totalHours) {
-        currentEntry.totalHours = (currentEntry.normalHours || 0) + 
-                                  (currentEntry.otHours || 0) + 
-                                  (currentEntry.nhHours || 0);
-      }
-      entries.push(currentEntry);
-    }
-
-    // If no structured entries found, create a manual entry template
-    if (entries.length === 0) {
-      return {
-        staffName: staffName || "Unknown",
-        poSoNo: poSoNumber || "",
-        date: new Date().toISOString().split("T")[0],
-        normalHours: 0,
-        otHours: 0,
-        nhHours: 0,
-        totalHours: 0,
-        rawText: text,
-        needsManualReview: true,
-      };
-    }
-
+    console.log("\n=== PARSING COMPLETE ===");
+    console.log("Staff Name:", staffName);
+    console.log("PO/SO Number:", poSoNumber);
+    console.log("Total Normal Hours:", totalNormalHours);
+    console.log("Total OT Hours:", totalOTHours);
+    console.log("=========================\n");
+    
+    // Return single entry with totals
+    const entry = {
+      date: new Date().toISOString().split('T')[0], // Use current date
+      staffName: staffName || "Unknown",
+      poSoNo: poSoNumber || "",
+      normalHours: totalNormalHours,
+      otHours: totalOTHours,
+      nhHours: 0,
+      totalHours: totalNormalHours + totalOTHours,
+    };
+    
     return {
       staffName: staffName || "Unknown",
       poSoNo: poSoNumber || "",
-      entries,
+      entries: [entry], // Return single entry with totals
       rawText: text,
+      needsManualReview: totalNormalHours === 0 && totalOTHours === 0
     };
   };
 
@@ -642,6 +614,19 @@ export default function TimesheetClient() {
               {extractedData && (
                 <div className="mb-6 p-4 bg-slate-50 rounded-lg">
                   <h3 className="text-lg font-semibold text-slate-900 mb-3">Extracted Data</h3>
+                  
+                  {/* Show raw OCR text for debugging */}
+                  {extractedData.rawText && (
+                    <details className="mb-4">
+                      <summary className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800">
+                        Click to view raw OCR text (for debugging)
+                      </summary>
+                      <pre className="mt-2 p-3 bg-white rounded border border-slate-300 text-xs overflow-x-auto max-h-48">
+                        {extractedData.rawText}
+                      </pre>
+                    </details>
+                  )}
+                  
                   {extractedData.needsManualReview ? (
                     <div className="text-sm text-amber-600 mb-3 p-3 bg-amber-50 rounded border border-amber-200">
                       ⚠ Automatic extraction incomplete. Please review and edit the data below.

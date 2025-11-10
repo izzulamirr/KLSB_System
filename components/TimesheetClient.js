@@ -141,46 +141,50 @@ export default function TimesheetClient() {
             console.log(`  ✅ TOTAL column extracted: ${canvas.width}x${canvas.height}`);
             resolve(canvas.toDataURL());
           } else {
-            // Portrait - extract rightmost 10% (similar to landscape)
-            console.log("  Portrait orientation - extracting right column...");
-            const columnWidth = Math.floor(img.width * 0.10);
+            // PORTRAIT - For DCSE, extract OVERTIME HOURS column (RIGHTMOST column)
+            console.log("  Portrait orientation - extracting OVERTIME column for DCSE...");
+            
+            // OVERTIME HOURS column is the RIGHTMOST column
+            // Extract from 85% to 100% of width (15% slice) - same as landscape
+            const columnWidth = Math.floor(img.width * 0.15);
             const startX = img.width - columnWidth;
             
-            console.log(`  Portrait detected - extracting right ${columnWidth}px (${startX} to ${img.width})`);
+            console.log(`  Portrait DCSE - extracting OT column ${columnWidth}px (${startX} to ${img.width})`);
             
-            // Create canvas for TOTAL column with 5x scaling
-            const scale = 5;
+            // Create canvas for OVERTIME column with 6x scaling (extra aggressive)
+            const scale = 6;
             canvas.width = columnWidth * scale;
             canvas.height = img.height * scale;
             
-            // Draw ONLY the TOTAL column region, scaled up
+            // Draw ONLY the OVERTIME column region, scaled up
             ctx.drawImage(
               img,
-              startX, 0, columnWidth, img.height,  // Source: right column
+              startX, 0, columnWidth, img.height,  // Source: OT column
               0, 0, canvas.width, canvas.height     // Dest: full canvas
             );
             
-            // Apply preprocessing
+            // Apply aggressive preprocessing
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
-            console.log("  Applying preprocessing to TOTAL column (portrait)...");
+            console.log("  Applying aggressive preprocessing to OVERTIME column...");
             for (let i = 0; i < data.length; i += 4) {
               let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-              const value = gray > 140 ? 255 : 0;
+              // Boost contrast even more for small numbers
+              gray = ((gray - 128) * 2.0) + 128;
+              gray = Math.max(0, Math.min(255, gray));
+              const value = gray > 140 ? 255 : 0; // Slightly lower threshold
               data[i] = data[i + 1] = data[i + 2] = value;
             }
             
             ctx.putImageData(imageData, 0, 0);
             
-            console.log(`  ✅ TOTAL column extracted (portrait): ${canvas.width}x${canvas.height}`);
+            console.log(`  ✅ OVERTIME column extracted: ${canvas.width}x${canvas.height}`);
             resolve(canvas.toDataURL());
           }
         };
-        img.onerror = reject;
         img.src = e.target.result;
       };
-      reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
@@ -917,12 +921,19 @@ export default function TimesheetClient() {
     const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
     const isPetrofac = text.match(/Petrofac/i) || text.match(/RNZ/i);
     const isPetronas = text.match(/Petronas/i);
+    // DCSE Time Amendment format - detect by company name OR overtime column headers OR mangled form text
+    const isDCSE = text.match(/DCSE/i) || 
+                   text.match(/XSE.*TECH/i) || 
+                   text.match(/XZSE.*TECH/i) ||
+                   text.match(/TIME.*AM.*EN.*DM.*ENT.*FORM/i) ||
+                   text.match(/REII?SON.*?AMENDMENT/i);
     
     console.log(`\n=== FORMAT DETECTION ===`);
     console.log(`Petrofac: ${!!isPetrofac}`);
     console.log(`Petronas: ${!!isPetronas}`);
     console.log(`Primavera: ${!!isPrimavera}`);
     console.log(`Bureau Veritas: ${!!isBureauVeritas}`);
+    console.log(`DCSE: ${!!isDCSE}`);
     console.log(`========================\n`);
     
     // Look for TOTAL line which has Normal Hours and OT Hours totals
@@ -930,10 +941,193 @@ export default function TimesheetClient() {
     let totalOTHours = 0;
     
     // ==========================================
+    // DCSE TIME AMENDMENT FORMAT HANDLER
+    // ==========================================
+    // This format shows OT hours in rightmost column, normal hours = 8 per filled row with timestamp
+    if (isDCSE && !isPetrofac && !isBureauVeritas) {
+      console.log("✅ DCSE TIME AMENDMENT FORMAT DETECTED - Extracting OT hours and counting work days...");
+
+      
+      // Strategy: Count work days (lines with time entries) 
+      // Weekend work = 8 hours OT (full day)
+      // Weekday OT = hours after 6 PM
+      let workDaysCount = 0;
+      const otHoursList = [];
+      
+      console.log("Analyzing lines for date entries:");
+      const workDayLines = [];
+      const weekendLines = [];
+      
+      lines.forEach((line, idx) => {
+        // Look for 8-digit date pattern at start of line (DDMMYYYY format)
+        const dateMatch = line.match(/^\s*(\d{8})/);
+        
+        if (dateMatch) {
+          const dateStr = dateMatch[1];
+          // Parse date: Format is DDMM????YY where ???? are OCR artifacts
+          // Example: "01107125" = 01/07/2025 (day 01, month 07, year 25)
+          // Example: "10407125" = 10/07/2025 (day 10, month 07, year 25) - "04" is OCR noise
+          const day = parseInt(dateStr.substring(0, 2));
+          const month = parseInt(dateStr.substring(2, 4)) - 1; // JS months are 0-indexed
+          const year = 2000 + parseInt(dateStr.substring(6, 8)); // Last 2 digits = year
+          const date = new Date(year, month, day);
+          const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
+          
+          const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+          
+          // Check if this is a work day (has time entries, not just date)
+          const hasTimePattern = line.match(/\d{1,2}[:\.]\d{2}\s*[AP]M/i) || 
+                                 line.match(/\d{3,4}\s*[AP]M/i) ||
+                                 line.match(/LEAVE/i);
+          
+          if (hasTimePattern || line.length > 20) {
+            workDaysCount++;
+            workDayLines.push(idx);
+            console.log(`  Line ${idx + 1}: Work day${isWeekend ? ' (WEEKEND)' : ''} - "${line.substring(0, 60)}..."`);
+          } else if (isWeekend && line.trim().length > 8) {
+            // Weekend line with just date but some content = worked
+            weekendLines.push(idx);
+            console.log(`  Line ${idx + 1}: WEEKEND work (date only) - "${line}"`);
+          } else {
+            console.log(`  Line ${idx + 1}: Skipped (holiday) - "${line}"`);
+          }
+        }
+      });
+      
+      console.log(`Found ${workDaysCount} work day entries + ${weekendLines.length} weekend entries`);
+      
+      // Try OVERTIME COLUMN first
+      const overtimeColumnText = window._ocrTotalColumn || '';
+      console.log(`\nExtracting OT from OVERTIME COLUMN:\n"${overtimeColumnText}"`);
+      
+      if (overtimeColumnText.trim()) {
+        // Split by newlines and extract numbers
+        const overtimeLines = overtimeColumnText.split('\n').filter(l => l.trim());
+        overtimeLines.forEach((line, idx) => {
+          // Look for single or double digit numbers (1-20)
+          const matches = line.match(/\d{1,2}/g);
+          if (matches) {
+            matches.forEach(match => {
+              const otValue = parseInt(match);
+              // Accept values 1-20 (reasonable OT hours per day)
+              if (otValue >= 1 && otValue <= 20) {
+                otHoursList.push(otValue);
+                console.log(`  OT Column Line ${idx + 1}: Found OT = ${otValue} hours`);
+              }
+            });
+          }
+        });
+      }
+      
+      // FALLBACK: If OT column failed, extract from main text
+      if (otHoursList.length === 0) {
+        console.log("\n⚠️ OVERTIME column empty - using FALLBACK extraction from main text...");
+        
+        // Process weekend work first (full 8 hours OT each)
+        weekendLines.forEach(lineIdx => {
+          const line = lines[lineIdx];
+          otHoursList.push(8);
+          console.log(`  Line ${lineIdx + 1}: WEEKEND OT = 8 hours (full day)`);
+        });
+        
+        workDayLines.forEach(lineIdx => {
+          const line = lines[lineIdx];
+          
+          // Check if this is a weekend work day
+          const dateMatch = line.match(/^\s*(\d{8})/);
+          let isWeekend = false;
+          if (dateMatch) {
+            const dateStr = dateMatch[1];
+            const day = parseInt(dateStr.substring(0, 2));
+            const month = parseInt(dateStr.substring(2, 4)) - 1;
+            const year = 2000 + parseInt(dateStr.substring(6, 8)); // Last 2 digits
+            const date = new Date(year, month, day);
+            const dayOfWeek = date.getDay();
+            isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+          }
+          
+          if (isWeekend) {
+            // Weekend work = 8 hours OT (full day)
+            otHoursList.push(8);
+            console.log(`  Line ${lineIdx + 1}: WEEKEND OT = 8 hours (full day)`);
+            return;
+          }
+          
+          // WEEKDAY: OT starts at 6:00 PM onwards
+          // Look for last time in line - if after 6 PM, calculate hours after 6 PM
+          const timeMatches = line.match(/(\d{1,2})[:\.]?(\d{2})?\s*PM/gi);
+          if (timeMatches && timeMatches.length > 0) {
+            // Get the last time (end time)
+            const lastTimeStr = timeMatches[timeMatches.length - 1];
+            const timeMatch = lastTimeStr.match(/(\d{1,2})[:\.]?(\d{2})?\s*PM/i);
+            
+            if (timeMatch) {
+              let hour = parseInt(timeMatch[1]);
+              let minute = parseInt(timeMatch[2] || '0');
+              
+              // Convert to 24-hour format
+              if (hour !== 12) hour += 12;
+              
+              // OT starts at 6 PM (18:00)
+              const endTimeDecimal = hour + (minute / 60);
+              const otStartTime = 18.0; // 6:00 PM
+              
+              if (endTimeDecimal > otStartTime) {
+                const otHours = endTimeDecimal - otStartTime;
+                otHoursList.push(otHours);
+                console.log(`  Line ${lineIdx + 1}: Weekday OT = ${otHours.toFixed(2)} hours (worked until ${hour}:${minute.toString().padStart(2, '0')} = ${lastTimeStr})`);
+                return;
+              }
+            }
+          }
+          
+          // Fallback Pattern 1: "pm 20 001mm" where 20 = 2.0 hours
+          const pmPattern = line.match(/[AP]M\s+(\d{1,2})\s+\d{3,}mm/i);
+          if (pmPattern) {
+            const val = parseInt(pmPattern[1]);
+            const otHours = val / 10; // 20 -> 2.0
+            otHoursList.push(otHours);
+            console.log(`  Line ${lineIdx + 1}: Found OT ${otHours} hours (from "pm ${val}")`);
+            return;
+          }
+          
+          // Fallback Pattern 2: Check next 2 lines for standalone OT value
+          for (let offset = 1; offset <= 2; offset++) {
+            if (lineIdx + offset < lines.length) {
+              const nextLine = lines[lineIdx + offset];
+              // Match "w 01", "N", "u", "0", or standalone digit
+              const nextMatch = nextLine.match(/^\s*(?:w\s+)?(\d{1,2})\s*$/);
+              if (nextMatch) {
+                const val = parseInt(nextMatch[1]);
+                if (val >= 1 && val <= 10) {
+                  otHoursList.push(val);
+                  console.log(`  Line ${lineIdx + 1}: Found OT ${val} hours (from line ${lineIdx + offset + 1}: "${nextLine.trim()}")`);
+                  return;
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      console.log(`\nOT hours list (${otHoursList.length} entries):`, otHoursList);
+      
+      // Calculate totals
+      totalNormalHours = workDaysCount * 8;
+      
+      if (otHoursList.length > 0) {
+        totalOTHours = otHoursList.reduce((sum, h) => sum + h, 0);
+      }
+      
+      console.log(`  ✅ Calculated Normal Hours: ${totalNormalHours} (${workDaysCount} days × 8 hours)`);
+      console.log(`  ✅ Calculated OT Hours: ${totalOTHours} (sum of ${otHoursList.length} entries)`);
+    }
+    
+    // ==========================================
     // PETROFAC FORMAT HANDLER
     // ==========================================
     // Petrofac landscape timesheets require special handling
-    if (isPetrofac && !isBureauVeritas) {
+    else if (isPetrofac && !isBureauVeritas) {
       console.log("✅ PETROFAC FORMAT DETECTED - Attempting to extract hours...");
       
       // PRIORITY 1: Use TOTAL COLUMN OCR if available (landscape only)
@@ -1191,7 +1385,8 @@ export default function TimesheetClient() {
     
     // Format 1a: Bureau Veritas format - "Total" column with Billable rows
     // Look for lines with "Billable" followed by numbers, then "Total" with a number
-    if (totalNormalHours === 0 && totalOTHours === 0) {
+    // ONLY process if Bureau Veritas was detected in format detection
+    if (totalNormalHours === 0 && totalOTHours === 0 && isBureauVeritas) {
       console.log("Trying Bureau Veritas format (Billable rows with Total column)...");
       
       let bvTotalFound = false;
@@ -1610,14 +1805,16 @@ export default function TimesheetClient() {
       console.log("DEBUG: Default condition NOT met - skipping format detection");
     }
     
-    // SANITY CHECK: Cap hours at reasonable values
-    if (totalNormalHours > 80) {
-      console.log(`⚠️ WARNING: Normal hours too high (${totalNormalHours}) - capping at 40`);
-      totalNormalHours = 40;
-    }
-    if (totalOTHours > 40) {
-      console.log(`⚠️ WARNING: OT hours too high (${totalOTHours}) - capping at 0`);
-      totalOTHours = 0;
+    // SANITY CHECK: Cap hours at reasonable values (skip for DCSE format - can have 22+ days)
+    if (!isDCSE) {
+      if (totalNormalHours > 80) {
+        console.log(`⚠️ WARNING: Normal hours too high (${totalNormalHours}) - capping at 40`);
+        totalNormalHours = 40;
+      }
+      if (totalOTHours > 40) {
+        console.log(`⚠️ WARNING: OT hours too high (${totalOTHours}) - capping at 0`);
+        totalOTHours = 0;
+      }
     }
     
     console.log(`FINAL HOURS AFTER SANITY CHECK: Normal=${totalNormalHours}, OT=${totalOTHours}`);

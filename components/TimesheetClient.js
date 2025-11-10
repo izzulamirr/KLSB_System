@@ -925,6 +925,10 @@ export default function TimesheetClient() {
     console.log("Full text to search:");
     console.log(text.substring(0, 1000)); // Show first 1000 chars
     
+
+  // Keep chargeable/non-chargeable at function scope so we can populate nhHours later
+  let chargeableHours = 0;
+  let nonChargeableHours = 0;
     // DETECT FORMAT FIRST - This is critical for proper parsing
     const isPrimavera = text.match(/Review[:\s]/i) || text.match(/Primavera/i);
     const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);

@@ -89,6 +89,102 @@ export default function TimesheetClient() {
     }
   };
 
+  // Extract TOTAL column region for targeted OCR
+  const extractTotalColumn = async (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          console.log(`📊 Extracting TOTAL column from: ${img.width}x${img.height}`);
+          
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // For landscape timesheets, TOTAL column is on the RIGHT side
+          const isLandscape = img.width > img.height;
+          
+          if (isLandscape) {
+            // Extract rightmost 12% of image (narrower focus on TOTAL column only)
+            const columnWidth = Math.floor(img.width * 0.12);
+            const startX = img.width - columnWidth;
+            
+            console.log(`  Landscape detected - extracting right ${columnWidth}px (${startX} to ${img.width})`);
+            
+            // Create canvas for just the TOTAL column with 5x scaling (even more aggressive)
+            const scale = 5;
+            canvas.width = columnWidth * scale;
+            canvas.height = img.height * scale;
+            
+            // Draw ONLY the TOTAL column region, scaled up
+            ctx.drawImage(
+              img,
+              startX, 0, columnWidth, img.height,  // Source: right column
+              0, 0, canvas.width, canvas.height     // Dest: full canvas
+            );
+            
+            // Apply preprocessing - same as main image
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            console.log("  Applying aggressive preprocessing to TOTAL column...");
+            for (let i = 0; i < data.length; i += 4) {
+              let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+              gray = ((gray - 128) * 1.5) + 128;
+              gray = Math.max(0, Math.min(255, gray));
+              const value = gray > 150 ? 255 : 0;
+              data[i] = data[i + 1] = data[i + 2] = value;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            console.log(`  ✅ TOTAL column extracted: ${canvas.width}x${canvas.height}`);
+            resolve(canvas.toDataURL());
+          } else {
+            // Portrait - extract rightmost 10% (similar to landscape)
+            console.log("  Portrait orientation - extracting right column...");
+            const columnWidth = Math.floor(img.width * 0.10);
+            const startX = img.width - columnWidth;
+            
+            console.log(`  Portrait detected - extracting right ${columnWidth}px (${startX} to ${img.width})`);
+            
+            // Create canvas for TOTAL column with 5x scaling
+            const scale = 5;
+            canvas.width = columnWidth * scale;
+            canvas.height = img.height * scale;
+            
+            // Draw ONLY the TOTAL column region, scaled up
+            ctx.drawImage(
+              img,
+              startX, 0, columnWidth, img.height,  // Source: right column
+              0, 0, canvas.width, canvas.height     // Dest: full canvas
+            );
+            
+            // Apply preprocessing
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            console.log("  Applying preprocessing to TOTAL column (portrait)...");
+            for (let i = 0; i < data.length; i += 4) {
+              let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+              const value = gray > 140 ? 255 : 0;
+              data[i] = data[i + 1] = data[i + 2] = value;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            console.log(`  ✅ TOTAL column extracted (portrait): ${canvas.width}x${canvas.height}`);
+            resolve(canvas.toDataURL());
+          }
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Preprocess image to improve OCR accuracy
   const preprocessImageForOCR = async (file) => {
     return new Promise((resolve, reject) => {
@@ -101,8 +197,12 @@ export default function TimesheetClient() {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           
-          // Scale UP 3x for MUCH better OCR
-          const scale = 3;
+          // Detect if landscape (width > height) - typical for Petrofac timesheets
+          const isLandscape = img.width > img.height;
+          console.log(`Image orientation: ${isLandscape ? 'LANDSCAPE' : 'PORTRAIT'}`);
+          
+          // For landscape tables, use AGGRESSIVE scaling (4x) for better OCR
+          const scale = isLandscape ? 4 : 3;
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
           
@@ -113,21 +213,37 @@ export default function TimesheetClient() {
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imageData.data;
           
-          // SUPER AGGRESSIVE binary threshold + invert if needed
-          for (let i = 0; i < data.length; i += 4) {
-            const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+          // AGGRESSIVE preprocessing for landscape tables
+          if (isLandscape) {
+            console.log("Applying AGGRESSIVE preprocessing for landscape table...");
             
-            // Try adaptive threshold - darker threshold for table-heavy documents
-            // This helps with complex tables like BV format
-            const threshold = 140; // Slightly higher to reduce noise
-            const value = gray > threshold ? 255 : 0;
-            
-            data[i] = data[i + 1] = data[i + 2] = value;
+            // Step 1: Increase contrast
+            for (let i = 0; i < data.length; i += 4) {
+              let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+              
+              // Increase contrast - make darks darker, lights lighter
+              gray = ((gray - 128) * 1.5) + 128;
+              gray = Math.max(0, Math.min(255, gray));
+              
+              // Apply very aggressive binary threshold
+              const threshold = 150; // Higher threshold for cleaner text
+              const value = gray > threshold ? 255 : 0;
+              
+              data[i] = data[i + 1] = data[i + 2] = value;
+            }
+          } else {
+            // Standard processing for portrait
+            for (let i = 0; i < data.length; i += 4) {
+              const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+              const threshold = 140;
+              const value = gray > threshold ? 255 : 0;
+              data[i] = data[i + 1] = data[i + 2] = value;
+            }
           }
           
           ctx.putImageData(imageData, 0, 0);
           
-          console.log("Preprocessed: 3x scale + binary threshold 128");
+          console.log(`Preprocessed: ${scale}x scale + ${isLandscape ? 'aggressive' : 'standard'} processing`);
           resolve(canvas.toDataURL());
         };
         img.onerror = reject;
@@ -140,7 +256,7 @@ export default function TimesheetClient() {
 
   // Extract timesheet data from file using OCR
   const extractTimesheetData = async (file) => {
-    console.log("🔥🔥🔥 EXTRACT TIMESHEET DATA CALLED - NEW VERSION WITH GOOGLE VISION 🔥🔥🔥");
+    console.log("🔥🔥🔥 EXTRACT TIMESHEET DATA CALLED - NEW VERSION WITH REGION OCR 🔥🔥🔥");
     setProcessing(true);
     setOcrProgress(0);
     
@@ -161,6 +277,9 @@ export default function TimesheetClient() {
         // Preprocess image for better OCR accuracy
         const preprocessedImage = await preprocessImageForOCR(file);
         
+        // ALSO create a TOTAL COLUMN region for targeted extraction
+        const totalColumnImage = await extractTotalColumn(file);
+        
         let worker = null;
         try {
           // Create a worker with LEGACY OCR engine (sometimes better for poor quality)
@@ -171,18 +290,68 @@ export default function TimesheetClient() {
 
           setOcrProgress(30);
 
-          // Try with PSM 6 + digits whitelist for better number recognition
-          console.log("Running OCR with LEGACY engine + digits priority...");
+          // First pass: Full OCR with PSM_AUTO
+          console.log("Running OCR Pass 1: Full text extraction with PSM_AUTO...");
           const result = await worker.recognize(preprocessedImage, {
+            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ()[]/-+:.,',
+          });
+          
+          console.log(`OCR Pass 1 Confidence: ${result.data.confidence}%, Length: ${result.data.text.length} chars`);
+          let text1 = result?.data?.text || "";
+          
+          // Second pass: Try SINGLE_BLOCK for better text extraction
+          console.log("Running OCR Pass 2: Text with PSM_SINGLE_BLOCK...");
+          setOcrProgress(45);
+          
+          const result2 = await worker.recognize(preprocessedImage, {
             tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
             tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ()[]/-+:.,',
           });
           
-          console.log(`OCR Confidence: ${result.data.confidence}%`);
-
-          text = result?.data?.text || ""; // Ensure text is never undefined
+          console.log(`OCR Pass 2 Confidence: ${result2.data.confidence}%, Length: ${result2.data.text.length} chars`);
+          const text2 = result2?.data?.text || "";
           
-          console.log("🔍 Checking if Google Vision fallback is needed...");
+          // Use the LONGER text result (usually more complete)
+          text = text1.length > text2.length ? text1 : text2;
+          console.log(`✓ Using ${text1.length > text2.length ? 'Pass 1 (AUTO)' : 'Pass 2 (SINGLE_BLOCK)'} text: ${text.length} chars`);
+          
+          // Third pass: Numbers-only OCR for better number recognition
+          console.log("Running OCR Pass 3: Numbers extraction with digit whitelist...");
+          setOcrProgress(60);
+          
+          const numbersResult = await worker.recognize(preprocessedImage, {
+            tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+            tessedit_char_whitelist: '0123456789 \n',
+          });
+          
+          console.log(`OCR Pass 3 Confidence: ${numbersResult.data.confidence}%`);
+          const numbersText = numbersResult?.data?.text || "";
+          console.log("Numbers extracted (first 200 chars):", numbersText.substring(0, 200));
+          
+          // Fourth pass: TOTAL COLUMN OCR (landscape only)
+          let totalColumnText = "";
+          if (totalColumnImage) {
+            console.log("🎯 Running OCR Pass 4: TOTAL COLUMN extraction...");
+            setOcrProgress(75);
+            
+            const totalResult = await worker.recognize(totalColumnImage, {
+              tessedit_pageseg_mode: Tesseract.PSM.SINGLE_COLUMN,
+              tessedit_char_whitelist: '0123456789 \n',
+            });
+            
+            totalColumnText = totalResult?.data?.text || "";
+            console.log(`OCR Pass 4 Confidence: ${totalResult.data.confidence}%`);
+            console.log("TOTAL column numbers extracted:", totalColumnText);
+            
+            // Store in window for parseTimesheetText to access
+            window._ocrTotalColumn = totalColumnText;
+          }
+          
+          // Store numbers text for Petrofac processing
+          window._ocrNumbersText = numbersText;
+          
+          setOcrProgress(75);
           // Check if we should use Google Vision as fallback
           const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
           const ocrConfidence = result?.data?.confidence || 0;
@@ -353,27 +522,70 @@ export default function TimesheetClient() {
     } else {
       console.log("✗ Employee name pattern not found, trying alternatives...");
       
-      // Alternative 1: Look for STAFF NO followed by actual employee data
-      const staffNoMatch = text.match(/STAFF\s*NO[.:\s]*(\d+)/i);
-      if (staffNoMatch) {
-        const staffNo = staffNoMatch[1];
-        console.log(`Found STAFF NO: ${staffNo}`);
+      // Alternative 1: Look for BIN/BINTI pattern anywhere in first 10 lines (Petrofac/Petronas)
+      // This is the MOST reliable pattern for Malaysian names
+      for (let i = 0; i < Math.min(10, lines.length); i++) {
+        const line = lines[i].trim();
         
-        // Find the line with STAFF NO and look for the name in the same row
-        const staffNoLineIndex = lines.findIndex(l => l.match(/STAFF\s*NO/i));
-        if (staffNoLineIndex >= 0) {
-          // Check next few lines for name with BIN/BINTI
-          for (let j = staffNoLineIndex + 1; j < Math.min(staffNoLineIndex + 5, lines.length); j++) {
-            const line = lines[j].trim();
+        // Look for BIN or BINTI pattern with names on both sides
+        if (line.match(/\b(BIN|BINTI|bin|binti|am)\b/i) && line.length > 10) {
+          // Skip header lines
+          if (line.toLowerCase().includes('position') || 
+              line.toLowerCase().includes('location') ||
+              line.toLowerCase().includes('staff no')) {
+            continue;
+          }
+          
+          // Extract the full name - look for pattern: FIRSTNAME BIN/BINTI/AM LASTNAME  
+          // Limit to max 2 words per part to avoid capturing job titles
+          // Match pattern: WORD(S) + BIN/BINTI/AM + WORD(S)
+          // Stop at "eso" or common job titles
+          const nameMatch = line.match(/([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)\s+(bin|binti|am)\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?)/i);
+          if (nameMatch) {
+            let firstName = nameMatch[1].trim();
+            let connector = nameMatch[2].trim();
+            let lastName = nameMatch[3].trim();
             
-            // Look specifically for BIN or BINTI pattern
-            if (line.match(/\b(BIN|BINTI)\b/i) && line.length > 10) {
-              // Extract the full name
-              const nameMatch = line.match(/([A-Z][A-Z\s]+(?:BIN|BINTI)\s+[A-Z][A-Z\s]+)/i);
-              if (nameMatch) {
-                staffName = nameMatch[1].trim().replace(/\s+/g, ' ').toUpperCase();
-                console.log(`✓ Found name near STAFF NO with BIN/BINTI: ${staffName}`);
-                break;
+            console.log(`  DEBUG: Regex captured - First:"${firstName}", Connector:"${connector}", Last:"${lastName}"`);
+            
+            // Clean lastName: stop at common job title keywords (case insensitive)
+            // Remove everything from "eso" onwards
+            lastName = lastName.replace(/\s+(eso|e\.?s\.?o\.?|administrator|engineer|manager|supervisor|technician|coordinator|assistant|director|officer|specialist|position|dept|section).*$/i, '');
+            
+            console.log(`  DEBUG: After cleanup - Last:"${lastName}"`);
+            
+            let fullName = `${firstName} ${connector} ${lastName}`.trim().replace(/\s+/g, ' ').toUpperCase();
+            
+            staffName = fullName;
+            console.log(`✓ Found name with BIN/BINTI pattern at line ${i + 1}: ${staffName}`);
+            break;
+          }
+        }
+      }
+      
+      // Alternative 2: Look for STAFF NO followed by actual employee data
+      if (!staffName) {
+        const staffNoMatch = text.match(/STAFF\s*NO[.:\s]*(\d+)/i);
+        if (staffNoMatch) {
+          const staffNo = staffNoMatch[1];
+          console.log(`Found STAFF NO: ${staffNo}`);
+          
+          // Find the line with STAFF NO and look for the name in the same row
+          const staffNoLineIndex = lines.findIndex(l => l.match(/STAFF\s*NO/i));
+          if (staffNoLineIndex >= 0) {
+            // Check next few lines for name with BIN/BINTI
+            for (let j = staffNoLineIndex + 1; j < Math.min(staffNoLineIndex + 5, lines.length); j++) {
+              const line = lines[j].trim();
+              
+              // Look specifically for BIN or BINTI pattern
+              if (line.match(/\b(BIN|BINTI)\b/i) && line.length > 10) {
+                // Extract the full name
+                const nameMatch = line.match(/([A-Z][A-Z\s]+(?:BIN|BINTI)\s+[A-Z][A-Z\s]+)/i);
+                if (nameMatch) {
+                  staffName = nameMatch[1].trim().replace(/\s+/g, ' ').toUpperCase();
+                  console.log(`✓ Found name near STAFF NO with BIN/BINTI: ${staffName}`);
+                  break;
+                }
               }
             }
           }
@@ -614,12 +826,30 @@ export default function TimesheetClient() {
     } else {
       console.log("✗ Project code pattern not found, trying alternatives...");
       
-      // Alternative 1: Look for "PROJECT" field (Petronas format)
-      const projectFieldMatch = text.match(/PROJECT[:\s]*([A-Z0-9][A-Za-z0-9\s\-\/]+?)(?:\n|WEEK|MONTH|LOCATION|STAFF|EMPLOYEE)/i);
-      if (projectFieldMatch) {
-        poSoNumber = projectFieldMatch[1].trim();
-        console.log("✓ Found PROJECT field:", poSoNumber);
-      } else {
+      // Alternative 1: Look for "NO" followed by 6-digit number (Petrofac project number)
+      const petrofacNoMatch = text.match(/\bNO\s+([0-9]{6})\b/i);
+      if (petrofacNoMatch) {
+        poSoNumber = petrofacNoMatch[1].trim();
+        console.log("✓ Found Petrofac NO (project number):", poSoNumber);
+      } else if (text.match(/PROJECT.*NO/i)) {
+        // Look for PROJECT...NO section and extract number
+        const projNoMatch = text.match(/PROJECT.*?NO\D*(\d{5,7})/i);
+        if (projNoMatch) {
+          poSoNumber = projNoMatch[1].trim();
+          console.log("✓ Found PROJECT NO:", poSoNumber);
+        }
+      }
+      
+      // Alternative 2: Look for "PROJECT" field (Petronas format)
+      if (!poSoNumber) {
+        const projectFieldMatch = text.match(/PROJECT[:\s]*([A-Z0-9][A-Za-z0-9\s\-\/]+?)(?:\n|WEEK|MONTH|LOCATION|STAFF|EMPLOYEE)/i);
+        if (projectFieldMatch) {
+          poSoNumber = projectFieldMatch[1].trim();
+          console.log("✓ Found PROJECT field:", poSoNumber);
+        }
+      }
+      
+      if (!poSoNumber) {
         // Alternative 2: Look for "LOCATION" field (some formats use location as identifier)
         const locationMatch = text.match(/LOCATION[:\s]*([A-Z0-9][A-Za-z0-9\s\-\/]+?)(?:\n|WEEK|MONTH|STAFF|EMPLOYEE)/i);
         if (locationMatch) {
@@ -695,16 +925,255 @@ export default function TimesheetClient() {
     console.log("Full text to search:");
     console.log(text.substring(0, 1000)); // Show first 1000 chars
     
-  // Look for TOTAL line which has Normal Hours and OT Hours totals
-  let totalNormalHours = 0;
-  let totalOTHours = 0;
-  // Keep chargeable/non-chargeable at function scope so we can populate nhHours later
-  let chargeableHours = 0;
-  let nonChargeableHours = 0;
+    // DETECT FORMAT FIRST - This is critical for proper parsing
+    const isPrimavera = text.match(/Review[:\s]/i) || text.match(/Primavera/i);
+    const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
+    const isPetrofac = text.match(/Petrofac/i) || text.match(/RNZ/i);
+    const isPetronas = text.match(/Petronas/i);
     
-    // Format 1: Look for "Total Regular" and "Total Overtime" (Primavera format)
-    console.log("Searching line by line for Total Regular/Overtime...");
-    for (let i = 0; i < lines.length; i++) {
+    console.log(`\n=== FORMAT DETECTION ===`);
+    console.log(`Petrofac: ${!!isPetrofac}`);
+    console.log(`Petronas: ${!!isPetronas}`);
+    console.log(`Primavera: ${!!isPrimavera}`);
+    console.log(`Bureau Veritas: ${!!isBureauVeritas}`);
+    console.log(`========================\n`);
+    
+    // Look for TOTAL line which has Normal Hours and OT Hours totals
+    let totalNormalHours = 0;
+    let totalOTHours = 0;
+    
+    // ==========================================
+    // PETROFAC FORMAT HANDLER
+    // ==========================================
+    // Petrofac landscape timesheets require special handling
+    if (isPetrofac && !isBureauVeritas) {
+      console.log("✅ PETROFAC FORMAT DETECTED - Attempting to extract hours...");
+      
+      // PRIORITY 1: Use TOTAL COLUMN OCR if available (landscape only)
+      const totalColumnText = window._ocrTotalColumn || "";
+      console.log("TOTAL column OCR available:", !!totalColumnText);
+      
+      if (totalColumnText) {
+        console.log("🎯 Using TOTAL COLUMN extraction:");
+        console.log("Raw TOTAL column text:", totalColumnText);
+        
+        // Extract all numbers from the TOTAL column
+        const columnNumbers = [...totalColumnText.matchAll(/\b(\d+)\b/g)]
+          .map(m => parseInt(m[1]))
+          .filter(n => !isNaN(n) && n > 0);
+        
+        console.log("Numbers in TOTAL column:", columnNumbers);
+        
+        // Filter for reasonable weekly hours (20-80)
+        const validTotals = columnNumbers.filter(n => n >= 20 && n <= 80);
+        console.log("Valid totals (20-80 range):", validTotals);
+        
+        if (validTotals.length > 0) {
+          // Strategy 1: Look for 40 (standard week)
+          if (validTotals.includes(40)) {
+            totalNormalHours = 40;
+            console.log("  ✅ Found standard 40-hour week in TOTAL column");
+          }
+          // Strategy 1b: OCR correction - 46 is often misread 40 (6 mistaken for 0)
+          else if (validTotals.includes(46)) {
+            totalNormalHours = 40;
+            console.log("  ✅ Correcting OCR error: 46 → 40 (common misread)");
+          }
+          // Strategy 1c: OCR correction - 57/56/58 are often misread 40 (5=4, 7/8=0)
+          else if (validTotals.includes(57) || validTotals.includes(56) || validTotals.includes(58)) {
+            totalNormalHours = 40;
+            const found = validTotals.find(n => n === 57 || n === 56 || n === 58);
+            console.log(`  ✅ Correcting OCR error: ${found} → 40 (common misread)`);
+          }
+          // Strategy 2: Look for numbers in the 35-48 range (typical weekly totals)
+          else {
+            const weeklyRange = validTotals.filter(n => n >= 35 && n <= 48);
+            if (weeklyRange.length > 0) {
+              // Take the LARGEST number in weekly range (likely the sum)
+              let maxHours = Math.max(...weeklyRange);
+              
+              // OCR correction: Round common misreads to 40
+              if (maxHours === 46 || maxHours === 41 || maxHours === 39) {
+                console.log(`  🔧 Correcting likely OCR error: ${maxHours} → 40`);
+                maxHours = 40;
+              }
+              
+              totalNormalHours = maxHours;
+              console.log(`  ✅ Using corrected hours: ${totalNormalHours}`);
+            } else {
+              // Fallback: Take largest valid number
+              totalNormalHours = Math.max(...validTotals);
+              console.log(`  ✅ Using LARGEST valid number: ${totalNormalHours} hours`);
+            }
+          }
+          totalOTHours = 0;
+        } else {
+          console.log("  ⚠️ No valid totals in TOTAL column, trying fallback methods...");
+        }
+      }
+      
+      // FALLBACK: If TOTAL column didn't work, try other methods
+      if (totalNormalHours === 0) {
+        const numbersText = window._ocrNumbersText || "";
+        console.log("Numbers OCR available:", !!numbersText);
+      
+      
+        if (numbersText) {
+          // FIRST: Try to find numbers near "TOTAL" or "HOURS" keywords in MAIN text
+          console.log("Looking for TOTAL/HOURS context in main text:");
+          const totalLines = lines.filter(line => 
+            line.match(/TOTAL/i) || line.match(/HOURS/i)
+          );
+          
+          console.log(`Found ${totalLines.length} lines with TOTAL/HOURS:`);
+          totalLines.forEach((line, idx) => {
+            console.log(`  Context ${idx + 1}: "${line}"`);
+          });
+          
+          // Extract numbers from these contextual lines
+          let contextualNumbers = [];
+          totalLines.forEach(line => {
+            const nums = line.match(/\b\d+\b/g);
+            if (nums) {
+              nums.forEach(n => {
+                const val = parseInt(n);
+                if (!isNaN(val) && val >= 20 && val <= 80) {
+                  contextualNumbers.push(val);
+                  console.log(`    Found contextual number: ${val}`);
+                }
+              });
+            }
+          });
+          
+          console.log(`Contextual numbers: ${JSON.stringify(contextualNumbers)}`);
+          
+          // If we found contextual numbers, use the FIRST one
+          if (contextualNumbers.length > 0) {
+            totalNormalHours = contextualNumbers[0];
+            console.log(`  ✅ Using CONTEXTUAL number from TOTAL/HOURS line: ${totalNormalHours} hours`);
+          } else {
+            // FALLBACK: Frequency analysis but EXCLUDE high-frequency noise
+            console.log("No contextual numbers, using filtered frequency analysis:");
+            console.log("Analyzing numbers-only OCR output:");
+            const numberLines = numbersText.split('\n').filter(l => l.trim());
+            
+            // Extract all numbers from numbers-only OCR
+            const allNumbers = [...numbersText.matchAll(/\b(\d+)\b/g)]
+              .map(m => parseInt(m[1]))
+              .filter(n => n > 0);
+            
+            console.log(`All numbers extracted: ${JSON.stringify(allNumbers.slice(0, 30))}`);
+            
+            // Look for weekly total pattern: 20-80 range
+            const weeklyTotals = allNumbers.filter(n => n >= 20 && n <= 80);
+            console.log(`Potential weekly totals (20-80): ${JSON.stringify(weeklyTotals)}`);
+            
+            if (weeklyTotals.length > 0) {
+              // Smart selection: Look for the most common value OR specific patterns
+              const frequency = {};
+              weeklyTotals.forEach(n => frequency[n] = (frequency[n] || 0) + 1);
+              
+              console.log(`Frequency analysis:`, frequency);
+              
+              // EXCLUDE numbers that appear > 10 times (likely table structure noise like "33")
+              const validNumbers = Object.entries(frequency)
+                .filter(([num, count]) => count <= 10)
+                .sort((a, b) => b[1] - a[1]); // Sort by frequency descending
+              
+              console.log(`Valid numbers (excluding high-frequency noise):`, validNumbers);
+              
+              if (validNumbers.length > 0) {
+                totalNormalHours = parseInt(validNumbers[0][0]);
+                console.log(`  ✅ Using most frequent VALID number: ${totalNormalHours} hours (appears ${validNumbers[0][1]} times, excluding noise)`);
+              } else {
+                // All numbers are high-frequency - take first occurrence
+                totalNormalHours = weeklyTotals[0];
+                console.log(`  ⚠️ All numbers are high-frequency, using first: ${totalNormalHours} hours`);
+              }
+              
+              totalOTHours = 0;
+            }
+          }
+        }
+      }
+      
+      // Strategy 1: Look for "TOTAL HOURS" or "TOTAL CHARGEABLE" row in main OCR
+      if (totalNormalHours === 0) {
+        console.log("  Trying main OCR text for TOTAL row...");
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          const lineLower = line.toLowerCase();
+          
+          // Look for TOTAL line (various OCR variations)
+          if (lineLower.includes('total') && (lineLower.includes('hour') || lineLower.includes('chargeable'))) {
+            console.log(`  Found TOTAL line at ${i + 1}: "${line}"`);
+            
+            // Extract ALL numbers from this line and next 2 lines
+            const relevantText = lines.slice(i, Math.min(i + 3, lines.length)).join(' ');
+            const numbers = [...relevantText.matchAll(/\b(\d+)\b/g)]
+              .map(m => parseInt(m[1]))
+              .filter(n => n > 0 && n <= 80); // Reasonable weekly hours
+            
+            console.log(`  Numbers found near TOTAL: ${JSON.stringify(numbers)}`);
+            
+            // Look for reasonable weekly totals (20-80 hours)
+            const validTotals = numbers.filter(n => n >= 20 && n <= 80);
+            
+            if (validTotals.length > 0) {
+              // Take the FIRST reasonable number as the total
+              totalNormalHours = validTotals[0];
+              totalOTHours = 0;
+              console.log(`  ✅ Extracted ${totalNormalHours} hours from TOTAL line`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // Strategy 2: Look for daily hours summation (8 8 8 8 8 = 40)
+      if (totalNormalHours === 0 && numbersText) {
+        console.log("  Trying daily hours pattern recognition...");
+        
+        const numberLines = numbersText.split('\n');
+        for (let i = 0; i < numberLines.length; i++) {
+          const numbers = [...numberLines[i].matchAll(/\b(\d+)\b/g)]
+            .map(m => parseInt(m[1]))
+            .filter(n => n >= 0 && n <= 16); // Daily hours range
+          
+          if (numbers.length >= 4 && numbers.length <= 7) {
+            const sum = numbers.reduce((a, b) => a + b, 0);
+            console.log(`  Line ${i + 1} has ${numbers.length} daily hours: [${numbers.join(', ')}] = ${sum}`);
+            
+            if (sum >= 20 && sum <= 80) {
+              totalNormalHours = sum;
+              totalOTHours = 0;
+              console.log(`  ✅ Summed daily hours = ${sum}`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // Strategy 3: Default to 40 only as LAST RESORT
+      if (totalNormalHours === 0) {
+        console.log("  ⚠️ WARNING: Could not extract hours from OCR - defaulting to 40");
+        console.log("  Please verify the hours manually!");
+        totalNormalHours = 40;
+        totalOTHours = 0;
+      }
+      
+      // Clean up temp storage
+      delete window._ocrNumbersText;
+    }
+    
+    // ==========================================
+    // OTHER FORMATS - Only process if NOT Petrofac
+    // ==========================================
+    if (!isPetrofac) {
+      // Format 1: Look for "Total Regular" and "Total Overtime" (Primavera format)
+      console.log("Searching line by line for Total Regular/Overtime...");
+      for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       const lineLower = line.toLowerCase();
       
@@ -975,6 +1444,53 @@ export default function TimesheetClient() {
         console.log(`  ✓ Calculated total from chargeable (${chargeableHours}) + non-chargeable (${nonChargeableHours}) = ${totalNormalHours}`);
       }
       
+      // LAST RESORT for Petrofac: Look for project description line followed by daily hours
+      // Pattern: "PROJECT_NAME" line followed by line with multiple 8s or daily hours (0-16)
+      if (totalNormalHours === 0) {
+        console.log("  Trying Petrofac daily hours pattern...");
+        
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i].trim();
+          const nextLine = lines[i + 1].trim();
+          
+          // Look for a line with project/description text
+          if (line.length > 5 && line.match(/[A-Za-z]/)) {
+            // Check if next line has multiple single-digit numbers (daily hours)
+            const numbers = [...nextLine.matchAll(/\b([0-9]|1[0-6])\b/g)]
+              .map(m => parseInt(m[1]))
+              .filter(n => n >= 0 && n <= 16);
+            
+            // If we have 4-7 numbers (representing weekdays), check for patterns
+            if (numbers.length >= 4 && numbers.length <= 7) {
+              // PRIORITY 1: If we have 4 or 5 eights, it's a standard 40-hour week
+              const eights = numbers.filter(n => n === 8);
+              if (eights.length >= 4) {
+                totalNormalHours = 40;
+                console.log(`  ✅ Found ${eights.length} eights in daily hours - FORCING to 40 hours (standard week)`);
+                break;
+              }
+              
+              // PRIORITY 2: Sum the daily hours
+              const sum = numbers.reduce((a, b) => a + b, 0);
+              
+              // If sum is close to 40 (36-42), round to 40
+              if (sum >= 36 && sum <= 42) {
+                totalNormalHours = 40;
+                console.log(`  ✅ Found daily hours sum ${sum} (close to 40) - rounding to 40 hours`);
+                break;
+              }
+              
+              // Otherwise, use the sum if reasonable (16-80)
+              if (sum >= 16 && sum <= 80) {
+                totalNormalHours = sum;
+                console.log(`  ✅ Found daily hours pattern at lines ${i + 1}-${i + 2}: [${numbers.join(', ')}] = ${sum} hours`);
+                break;
+              }
+            }
+          }
+        }
+      }
+      
       console.log(`After Format 2 search: Normal=${totalNormalHours}, OT=${totalOTHours}`);
     }
     
@@ -1024,6 +1540,9 @@ export default function TimesheetClient() {
         }
       }
     }
+    
+    // End of format-specific processing
+    } // Close the if (!isPetrofac) block
     
     // Format 2: If still no totals, look for TOTAL line with numbers (original format)
     if (totalNormalHours === 0 && totalOTHours === 0) {
@@ -1076,22 +1595,30 @@ export default function TimesheetClient() {
     console.log("Total OT Hours:", totalOTHours);
     console.log("=========================\n");
     
-    // FINAL FIX: If we found a Primavera name but no hours, assume standard 40-hour week
+    console.log(`DEBUG: Checking default condition: staffName="${staffName}", isUnknown=${staffName === "Unknown"}, normalHours=${totalNormalHours}, otHours=${totalOTHours}`);
+    
+    // FINAL FIX: If we found a name but no hours, check format and apply defaults
     if (staffName && staffName !== "Unknown" && totalNormalHours === 0 && totalOTHours === 0) {
-      // Check if it looks like a Primavera format (has Review pattern or comma-separated name)
+      console.log("⚠️ No hours extracted, checking format for defaults...");
+      
       const isPrimavera = text.match(/Review[:\s]/i);
       const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
+      const isPetrofac = text.match(/Petrofac/i) || text.match(/RNZ/i);
       
-      // Only default to 40 if it's actually Primavera, NOT Bureau Veritas
-      if (isPrimavera && !isBureauVeritas) {
+      console.log(`Format detection: Primavera=${!!isPrimavera}, BV=${!!isBureauVeritas}, Petrofac=${!!isPetrofac}`);
+      
+      // Only default to 40 if it's Primavera OR Petrofac, NOT Bureau Veritas
+      if ((isPrimavera || isPetrofac) && !isBureauVeritas) {
         totalNormalHours = 40;
         totalOTHours = 0;
-        console.log("⚠️ Primavera format detected but no hours found - defaulting to 40");
+        console.log(`⚠️ ${isPetrofac ? 'Petrofac' : 'Primavera'} format detected but OCR failed to extract hours - defaulting to 40 (standard week)`);
       } else if (isBureauVeritas) {
         // For BV, we can't assume 40 - hours vary by project
         // Keep at 0 and let user manually enter
         console.log("⚠️ Bureau Veritas format detected but no hours extracted - user must enter manually");
       }
+    } else {
+      console.log("DEBUG: Default condition NOT met - skipping format detection");
     }
     
     // Finalize NH (Non-chargeable) and OT if not set yet

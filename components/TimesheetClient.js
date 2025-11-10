@@ -54,6 +54,41 @@ export default function TimesheetClient() {
     throw new Error("PDF files are not currently supported. Please convert your PDF to an image file (PNG or JPG) and upload again. You can use online tools like pdf2png.com or take a screenshot of the PDF.");
   };
 
+  // Use Google Cloud Vision API for better OCR (fallback for complex documents)
+  const extractTextWithVision = async (file) => {
+    try {
+      console.log("Trying Google Cloud Vision API for better OCR...");
+      
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const base64Image = await base64Promise;
+
+      // Call our API endpoint
+      const response = await fetch("/api/ocr-vision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64Image }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Vision API request failed");
+      }
+
+      const data = await response.json();
+      console.log(`✅ Google Vision OCR completed - confidence: ${(data.confidence * 100).toFixed(1)}%, detections: ${data.detections}`);
+      return data.text || "";
+    } catch (error) {
+      console.error("❌ Google Vision OCR error:", error);
+      return null;
+    }
+  };
+
   // Preprocess image to improve OCR accuracy
   const preprocessImageForOCR = async (file) => {
     return new Promise((resolve, reject) => {
@@ -82,8 +117,9 @@ export default function TimesheetClient() {
           for (let i = 0; i < data.length; i += 4) {
             const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
             
-            // Lower threshold for clearer separation
-            const threshold = 128;
+            // Try adaptive threshold - darker threshold for table-heavy documents
+            // This helps with complex tables like BV format
+            const threshold = 140; // Slightly higher to reduce noise
             const value = gray > threshold ? 255 : 0;
             
             data[i] = data[i + 1] = data[i + 2] = value;
@@ -104,6 +140,7 @@ export default function TimesheetClient() {
 
   // Extract timesheet data from file using OCR
   const extractTimesheetData = async (file) => {
+    console.log("🔥🔥🔥 EXTRACT TIMESHEET DATA CALLED - NEW VERSION WITH GOOGLE VISION 🔥🔥🔥");
     setProcessing(true);
     setOcrProgress(0);
     
@@ -144,6 +181,35 @@ export default function TimesheetClient() {
           console.log(`OCR Confidence: ${result.data.confidence}%`);
 
           text = result?.data?.text || ""; // Ensure text is never undefined
+          
+          console.log("🔍 Checking if Google Vision fallback is needed...");
+          // Check if we should use Google Vision as fallback
+          const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
+          const lowConfidence = result?.data?.confidence < 60;
+          const shortText = text.trim().length < 100;
+          
+          console.log(`📊 isBureauVeritas: ${!!isBureauVeritas}, lowConfidence: ${lowConfidence} (${result?.data?.confidence}%), shortText: ${shortText} (${text.trim().length} chars)`);
+          
+          // If Bureau Veritas format detected OR low confidence, try Google Vision
+          if (isBureauVeritas || lowConfidence || shortText) {
+            if (isBureauVeritas) {
+              console.log("⚠️ Bureau Veritas timesheet detected - switching to Google Cloud Vision for better accuracy");
+            } else if (lowConfidence) {
+              console.log(`⚠️ Low Tesseract confidence (${result?.data?.confidence}%) - trying Google Vision`);
+            } else {
+              console.log("⚠️ Very short text extracted - trying Google Vision");
+            }
+            
+            setOcrProgress(50);
+            const visionText = await extractTextWithVision(file);
+            
+            if (visionText && visionText.length > text.length) {
+              console.log("✅ Google Vision extracted more text - using Vision results");
+              text = visionText;
+            } else if (visionText) {
+              console.log("ℹ️ Google Vision ran but Tesseract had more text - using Tesseract");
+            }
+          }
           
           console.log("=== OCR EXTRACTION COMPLETE ===");
           console.log("OCR Recognition confidence:", result?.data?.confidence);
@@ -225,6 +291,13 @@ export default function TimesheetClient() {
     const employeePattern = /EMPLOYEE\s+NAME[:\s]*([A-Z\s]+(?:BIN|BINTI)[A-Z\s]+)/i;
     const employeeApostrophePattern = /EMPLOYEE['']?S\s+NAME[:\s]*([A-Z\s]+(?:BIN|BINTI)\s+[A-Z\s]+)/i;
     const primaveraReviewPattern = /Rev[iu]ew[:\s]+([^C\n]+?)(?:,?\s*C?\d{5,}|\n|$)/i; // Flexible: handles "Review" or "Revuew" typo
+    
+    // NEW: Bureau Veritas format - name right after "EMPLOYEE NAME" field
+    const bvEmployeePattern = /EMPLOYEE\s+NAME[:\s]*[;:\-]*\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)(?=\s*(?:WORK\s+ORDER|POSITION|$))/i;
+    
+    // BV Fallback: If OCR mangles it, look for comma-separated names (BV often has "LAST, FIRST" format)
+    const bvCommaNamePattern = /([A-Z]+),\s*([A-Z]+)/;
+    
     const projectPattern = /PROJECT\s+CODE\s*\/\s*NAME[:\s]*([A-Z0-9\s\/\-\.]+?)(?:\n|WEEK|MONTH|LOCATION)/i;
     
     let staffName = "";
@@ -241,8 +314,13 @@ export default function TimesheetClient() {
     const empMatch = text.match(employeePattern);
     const empAposMatch = text.match(employeeApostrophePattern);
     const primaveraMatch = text.match(primaveraReviewPattern);
+    const bvMatch = text.match(bvEmployeePattern);
     
-    if (primaveraMatch) {
+    if (bvMatch) {
+      // Bureau Veritas format: "EMPLOYEE NAME : Santhosh Kumar Koottamannil"
+      staffName = bvMatch[1].trim().replace(/\s+/g, ' ').toUpperCase();
+      console.log("✓ Found Bureau Veritas Employee Name:", staffName);
+    } else if (primaveraMatch) {
       // Primavera format: "Review: Name, Name, ID"
       const fullText = primaveraMatch[1].trim();
       // Clean up: remove trailing commas, extra spaces, "Mr.", "Ms.", etc
@@ -574,6 +652,25 @@ export default function TimesheetClient() {
                     console.log("✓ Found Activity Name as project code:", poSoNumber);
                   }
                 }
+                
+                // Alternative 8: Bureau Veritas Contract number (8 digits)
+                if (!poSoNumber) {
+                  // First try to find explicit contract field
+                  const bvContractMatch = text.match(/Contract[:\s]+[A-Za-z\s]*?(\d{8})/i);
+                  if (bvContractMatch) {
+                    poSoNumber = bvContractMatch[1];
+                    console.log("✓ Found BV Contract number:", poSoNumber);
+                  } else {
+                    // Try to find ANY 8-digit number (likely a contract)
+                    // BV contracts are 8 digits like 03873016, 22391881
+                    const allEightDigits = [...text.matchAll(/\b(\d{8})\b/g)].map(m => m[1]);
+                    if (allEightDigits.length > 0) {
+                      // If multiple 8-digit numbers, take the first one
+                      poSoNumber = allEightDigits[0];
+                      console.log(`✓ Found 8-digit contract number: ${poSoNumber} (${allEightDigits.length} total found)`);
+                    }
+                  }
+                }
               }
             }
           }
@@ -619,6 +716,57 @@ export default function TimesheetClient() {
     }
     
     console.log(`After Format 1 search: Normal=${totalNormalHours}, OT=${totalOTHours}`);
+    
+    // Format 1a: Bureau Veritas format - "Total" column with Billable rows
+    // Look for lines with "Billable" followed by numbers, then "Total" with a number
+    if (totalNormalHours === 0 && totalOTHours === 0) {
+      console.log("Trying Bureau Veritas format (Billable rows with Total column)...");
+      
+      let bvTotalFound = false;
+      
+      // BV specific: Look for 8-digit contract numbers followed by small numbers (hours)
+      // Pattern: Line with 8-digit number, next line(s) have small numbers (1-20)
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        // Skip header lines
+        if (line.toLowerCase().includes('bureau veritas') || 
+            line.toLowerCase().includes('dayabumi') || 
+            line.toLowerCase().includes('kuala lumpur') ||
+            line.toLowerCase().includes('timesheet') ||
+            line.toLowerCase().includes('contract') ||
+            line.toLowerCase().includes('employee') ||
+            line.toLowerCase().includes('position')) {
+          continue;
+        }
+        
+        // Look for 8-digit contract numbers
+        const contractMatch = line.match(/\b(\d{8})\b/);
+        
+        if (contractMatch && i + 1 < lines.length) {
+          console.log(`  Found contract number at line ${i + 1}: ${contractMatch[1]}`);
+          
+          // Check ONLY the immediate next line for the total
+          const nextLine = lines[i + 1].trim();
+          const numbers = [...nextLine.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
+          
+          // Look for a SINGLE small number (0-20) which is the total for this contract
+          if (numbers.length === 1 && numbers[0] >= 0 && numbers[0] <= 20) {
+            const hours = numbers[0];
+            totalNormalHours += hours;
+            console.log(`  ✓ Found BV contract total at line ${i + 2}: +${hours} (running total: ${totalNormalHours})`);
+            bvTotalFound = true;
+          }
+        }
+      }
+      
+      if (bvTotalFound) {
+        totalOTHours = 0;
+        console.log(`  ✅ Bureau Veritas total: ${totalNormalHours} hours`);
+      }
+    }
+    
+    console.log(`After BV Format search: Normal=${totalNormalHours}, OT=${totalOTHours}`);
     
     // Format 1b: Primavera bottom total row (no label, just numbers in last row)
     // Look for a line with multiple small numbers (0-16) followed by a larger sum (30-100)
@@ -917,10 +1065,18 @@ export default function TimesheetClient() {
     // FINAL FIX: If we found a Primavera name but no hours, assume standard 40-hour week
     if (staffName && staffName !== "Unknown" && totalNormalHours === 0 && totalOTHours === 0) {
       // Check if it looks like a Primavera format (has Review pattern or comma-separated name)
-      if (text.match(/Review[:\s]/i) || staffName.includes(',')) {
+      const isPrimavera = text.match(/Review[:\s]/i);
+      const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
+      
+      // Only default to 40 if it's actually Primavera, NOT Bureau Veritas
+      if (isPrimavera && !isBureauVeritas) {
         totalNormalHours = 40;
         totalOTHours = 0;
-        console.log("⚠️ PRIMAVERA FORMAT DETECTED WITH 0 HOURS - FORCING TO 40");
+        console.log("⚠️ Primavera format detected but no hours found - defaulting to 40");
+      } else if (isBureauVeritas) {
+        // For BV, we can't assume 40 - hours vary by project
+        // Keep at 0 and let user manually enter
+        console.log("⚠️ Bureau Veritas format detected but no hours extracted - user must enter manually");
       }
     }
     

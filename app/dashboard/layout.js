@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }) {
 
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: "📊" },
-    { href: "/dashboard/manpower", label: "Manpower Database", icon: "�" },
+    { href: "/dashboard/manpower", label: "PO/SO Database", icon: "�" },
     { href: "/dashboard/timesheet", label: "Timesheet Management", icon: "🕒" },
     { href: "/dashboard/finance", label: "Finance & Invoicing", icon: "💰" },
     { href: "/dashboard/control", label: "Control Center", icon: "🧩" },

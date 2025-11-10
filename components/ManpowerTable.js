@@ -33,8 +33,8 @@ function emptyRow() {
     BIL: null,
     STAFF_NAME: "",
     POSITION: "",
-    STATUS: "",
-    STATUS_COLOR: "",
+    STATUS: "",  // Employment type: Permanent, Monthly, Hourly, etc.
+    STATUS_COLOR: "Active",  // Work situation: Active, Pending, Completed, Terminated
     LOCATION: "",
     PO_SO_No: "",
     START_DATE: "",
@@ -47,29 +47,80 @@ function emptyRow() {
   };
 }
 
-function StatusPill({ value, onChange, displayText, colorStatus }) {
+// Function to check if KLSB end date has been exceeded
+function isEndDateExceeded(endDateKlsb) {
+  if (!endDateKlsb) return false;
+  try {
+    const end = new Date(endDateKlsb);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+    return end < today;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Function to check if regular end date has been exceeded
+function isRegularEndDateExceeded(endDate) {
+  if (!endDate) return false;
+  try {
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return end < today;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Function to determine correct status color based on dates (for pill display)
+function computeStatusColorFromDates(row) {
+  const klsbExpired = isEndDateExceeded(row.END_DATE_KLSB);
+  const endDateExpired = isRegularEndDateExceeded(row.END_DATE);
+  
+  // If both dates exceeded → Terminated
+  if (klsbExpired && endDateExpired) {
+    return "Terminated";
+  }
+  // If KLSB end date exceeded but END_DATE not yet exceeded → Pending
+  if (klsbExpired && !endDateExpired) {
+    return "Pending";
+  }
+  // If END_DATE exceeded (but not KLSB) → Completed
+  if (endDateExpired) {
+    return "Completed";
+  }
+  // Default to Active if no dates exceeded
+  return row.STATUS_COLOR || "Active";
+}
+
+function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expiryLabel }) {
   const [editing, setEditing] = useState(false);
   const statuses = ["Active", "Pending", "Completed", "Terminated"];
-  
-  // Use colorStatus to determine pill color, not the display text
+
+  // Determine CSS class. If expired, show red/rose styling but remain editable.
   const v = String(colorStatus || "").trim().toLowerCase();
+  // Base color follows the explicit status color (or STATUS fallback).
   let cls = "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
   if (v === "active" || v === "ongoing") cls = "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
   else if (v === "pending") cls = "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
   else if (v === "completed") cls = "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   else if (v === "terminated") cls = "bg-rose-50 text-rose-700 ring-1 ring-rose-200";
 
+  // If the KLSB end date is exceeded, visually emphasize expiration but don't override the
+  // selected color — this allows users to change a terminated row back to another status/color.
+  if (isExpired) {
+    cls += " ring-2 ring-rose-300/60";
+  }
+
   if (editing) {
     return (
       <select
         className={`px-2 py-1 rounded text-xs font-medium border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]`}
         value={colorStatus || ""}
-        onChange={e => { 
-          console.log('Status color changed to:', e.target.value);
-          setEditing(false); 
-          if (typeof onChange === 'function') {
-            onChange(e.target.value);
-          }
+        onChange={e => {
+          setEditing(false);
+          if (typeof onChange === 'function') onChange(e.target.value);
         }}
         onBlur={() => setEditing(false)}
         autoFocus
@@ -80,20 +131,21 @@ function StatusPill({ value, onChange, displayText, colorStatus }) {
       </select>
     );
   }
+
   return (
     <span
       className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
-      title={`Status: ${colorStatus || 'Not set'} - Click to change`}
+  title={expiryLabel ? expiryLabel : (isExpired ? 'EXPIRED - Click to change' : `Status: ${colorStatus || 'Not set'} - Click to change`)}
       tabIndex={0}
-      onClick={(e) => { 
-        e.stopPropagation(); 
-        console.log('Status pill clicked!', colorStatus); 
-        setEditing(true); 
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditing(true);
       }}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditing(true); } }}
       role="button"
     >
-      {displayText || value || "Not set"}
+      {displayText || value || (isExpired ? 'EXPIRED' : 'Not set')}
+
     </span>
   );
 }
@@ -118,9 +170,25 @@ function ActionIconButton({ title, onClick, children }) {
 }
 
 function Row({ r, i, onEdit, onRemove }) {
-  // Keep the original STATUS text for display, use STATUS_COLOR for pill color
+  // STATUS = displayed text (can be employment type OR situation)
+  // STATUS_COLOR = pill color derived from STATUS
   const displayText = r.STATUS || "";
-  const colorStatus = r.STATUS_COLOR || "";
+  // Compute a dynamic color based on dates when STATUS_COLOR is missing.
+  // This ensures the pill reflects Pending/Terminated/Completed even before running the migration.
+  const computedColor = computeStatusColorFromDates(r);
+  // If a user explicitly set STATUS_COLOR, respect it. Otherwise use computedColor, otherwise fallback to STATUS text.
+  const colorStatus = r.STATUS_COLOR || computedColor || r.STATUS || "";
+
+  // Check if KLSB end date has been exceeded or regular end date
+  const isKlsbExpired = isEndDateExceeded(r.END_DATE_KLSB);
+  const isEndExpired = isRegularEndDateExceeded(r.END_DATE);
+  const isExpired = isKlsbExpired || isEndExpired;
+
+  // Build a clearer expiry label for the tooltip
+  let expiryLabel = null;
+  if (isKlsbExpired && isEndExpired) expiryLabel = 'Terminated (both KLSB and End Date exceeded) - Click to change';
+  else if (isKlsbExpired) expiryLabel = 'KLSB end date exceeded - Click to change';
+  else if (isEndExpired) expiryLabel = 'End date exceeded - Click to change';
   
   return (
     <tr
@@ -134,9 +202,16 @@ function Row({ r, i, onEdit, onRemove }) {
           value={r.STATUS}
           displayText={displayText}
           colorStatus={colorStatus}
+          isExpired={isExpired}
+          expiryLabel={expiryLabel}
           onChange={async newColorStatus => {
-            // Update only STATUS_COLOR, keep STATUS text unchanged
-            const updatedRow = { ...r, STATUS_COLOR: newColorStatus };
+            // Manual change: update STATUS_COLOR (work situation) and mark as manually changed
+            // so batch auto-updates won't overwrite this user's choice.
+            const updatedRow = { 
+              ...r, 
+              STATUS_COLOR: newColorStatus,
+              STATUS_LOCKED: true
+            };
             onEdit(i, updatedRow);
             try {
               await fetchWithAuth("/api/manpower", {
@@ -428,6 +503,65 @@ function sortByPoSoNoAndLocationAsc(list) {
     [rows]
   );
 
+  // Auto-update all statuses based on END_DATE and END_DATE_KLSB
+  const updateAllStatuses = useCallback(async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be signed in to update statuses.");
+      return;
+    }
+
+    if (!confirm("This will update all staff work statuses based on their end dates:\n• Both dates exceeded → Terminated\n• KLSB end date exceeded (but not END_DATE) → Pending\n• END_DATE exceeded → Completed\n• No dates exceeded → Active\n\nNote: Employment types (Permanent, Monthly, Hourly) will NOT be changed.\n\nContinue?")) {
+      return;
+    }
+
+    try {
+      let updatedCount = 0;
+      const updatedRows = [];
+
+      for (const row of rows) {
+        // If the row has been manually locked by a user, skip automatic updates
+        if (row.STATUS_LOCKED) {
+          updatedRows.push(row);
+          continue;
+        }
+
+        const newStatusColor = computeStatusColorFromDates(row);
+        const currentStatusColor = row.STATUS_COLOR || "";
+
+        // Update only STATUS_COLOR (work situation), keep STATUS (employment type) unchanged
+        const updatedRow = { 
+          ...row, 
+          STATUS_COLOR: newStatusColor
+        };
+        updatedRows.push(updatedRow);
+
+        // Only update in database if status color actually changed
+        if (newStatusColor !== currentStatusColor && row.id) {
+          try {
+            const res = await fetchWithAuth("/api/manpower", {
+              method: "PUT",
+              body: JSON.stringify(updatedRow),
+            });
+            if (res.ok) {
+              updatedCount++;
+            }
+          } catch (error) {
+            console.error("Failed to update row:", row.id, error);
+          }
+        }
+      }
+
+      // Update local state with all updated rows
+      setRows(updatedRows);
+      alert(`Successfully updated ${updatedCount} staff status${updatedCount !== 1 ? 'es' : ''} in the database.`);
+    } catch (err) {
+      console.error("Failed to update statuses:", err);
+      alert("Failed to update statuses: " + (err.message || err));
+    }
+  }, [rows]);
+
   // Basic CSV import (expects headers matching keys)
   const onFileChange = useCallback((e) => {
     const file = e.target?.files?.[0];
@@ -618,10 +752,10 @@ function sortByPoSoNoAndLocationAsc(list) {
 
   const filtered = rows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
 
-  // Reset to first page when filters or rows change
+  // Reset to first page when filters change (but not when rows are updated)
   useEffect(() => {
     setPage(1);
-  }, [q, nameFilter, positionFilter, statusFilter, rows]);
+  }, [q, nameFilter, positionFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -676,6 +810,17 @@ function sortByPoSoNoAndLocationAsc(list) {
                 <path d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {importing ? "Importing…" : "Import CSV"}
+            </button>
+
+            <button
+              onClick={updateAllStatuses}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white font-medium shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+              title="Update all statuses based on end dates"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Update Statuses
             </button>
 
             <button
@@ -804,6 +949,16 @@ function sortByPoSoNoAndLocationAsc(list) {
                   <option value="Completed">Completed (Gray)</option>
                   <option value="Terminated">Terminated (Red)</option>
                 </select>
+              </label>
+              {/* Lock to prevent automatic batch updates from overwriting manual status changes */}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.STATUS_LOCKED)}
+                  onChange={e => setForm({ ...form, STATUS_LOCKED: e.target.checked })}
+                  className="rounded border"
+                />
+                <span className="text-sm text-slate-600">Lock status from auto-updates</span>
               </label>
               {renderInput("Location", "LOCATION")}
               {renderInput("PO/SO No", "PO_SO_No")}

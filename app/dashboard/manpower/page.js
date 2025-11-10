@@ -1,7 +1,7 @@
 import { getManpowerData } from "../../../lib/manpower";
 import ManpowerClient from "../../../components/ManpowerClient";
 
-export const metadata = { title: "Manpower Database | KLSB Portal" };
+export const metadata = { title: "PO Database | KLSB Portal" };
 
 export default async function ManpowerPage({ searchParams }) {
   const data = await getManpowerData();
@@ -39,7 +39,7 @@ export default async function ManpowerPage({ searchParams }) {
           <ol className="flex items-center gap-2">
             <li>Dashboard</li>
             <li className="text-slate-400">/</li>
-            <li className="font-medium text-slate-700">Manpower</li>
+            <li className="font-medium text-slate-700">PO Database</li>
           </ol>
         </nav>
 
@@ -50,7 +50,7 @@ export default async function ManpowerPage({ searchParams }) {
 
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900">Manpower Database</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900">PO Database</h1>
           <p className="text-sm text-slate-600 mt-1">Employee directory — roles, locations and dates.</p>
         </div>
 

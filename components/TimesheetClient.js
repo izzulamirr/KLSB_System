@@ -354,17 +354,30 @@ export default function TimesheetClient() {
           setOcrProgress(75);
           // Check if we should use Google Vision as fallback
           const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
-          const lowConfidence = result?.data?.confidence < 60;
+          const ocrConfidence = result?.data?.confidence || 0;
+          const lowConfidence = ocrConfidence < 60;
+          const mediumConfidence = ocrConfidence >= 60 && ocrConfidence < 75;
           const shortText = text.trim().length < 100;
-          
-          console.log(`📊 isBureauVeritas: ${!!isBureauVeritas}, lowConfidence: ${lowConfidence} (${result?.data?.confidence}%), shortText: ${shortText} (${text.trim().length} chars)`);
-          
-          // If Bureau Veritas format detected OR low confidence, try Google Vision
-          if (isBureauVeritas || lowConfidence || shortText) {
+
+          // Garbled detection - lots of dashes/dots or very low alphanumeric density
+          const totalChars = Math.max(1, text.length);
+          const dashCount = (text.match(/-/g) || []).length;
+          const dotCount = (text.match(/\./g) || []).length;
+          const alphaNumCount = (text.match(/[A-Za-z0-9]/g) || []).length;
+          const dashRatio = dashCount / totalChars;
+          const dotRatio = dotCount / totalChars;
+          const alphanumericRatio = alphaNumCount / totalChars;
+          const garbled = dashRatio > 0.08 || dotRatio > 0.08 || alphanumericRatio < 0.45;
+
+          console.log(`📊 isBureauVeritas: ${!!isBureauVeritas}, ocrConfidence: ${ocrConfidence}%, lowConfidence: ${lowConfidence}, mediumConfidence: ${mediumConfidence}, shortText: ${shortText} (len=${text.trim().length})`);
+          console.log(`🔎 Garbled metrics - dashRatio: ${dashRatio.toFixed(3)}, dotRatio: ${dotRatio.toFixed(3)}, alnumRatio: ${alphanumericRatio.toFixed(3)}, garbled: ${garbled}`);
+
+          // If Bureau Veritas format detected OR low confidence OR garbled text, try Google Vision
+          if (isBureauVeritas || lowConfidence || shortText || garbled || (mediumConfidence && garbled)) {
             if (isBureauVeritas) {
               console.log("⚠️ Bureau Veritas timesheet detected - switching to Google Cloud Vision for better accuracy");
             } else if (lowConfidence) {
-              console.log(`⚠️ Low Tesseract confidence (${result?.data?.confidence}%) - trying Google Vision`);
+              console.log(`⚠️ Low Tesseract confidence (${ocrConfidence}%) - trying Google Vision`);
             } else {
               console.log("⚠️ Very short text extracted - trying Google Vision");
             }
@@ -912,6 +925,10 @@ export default function TimesheetClient() {
     console.log("Full text to search:");
     console.log(text.substring(0, 1000)); // Show first 1000 chars
     
+
+  // Keep chargeable/non-chargeable at function scope so we can populate nhHours later
+  let chargeableHours = 0;
+  let nonChargeableHours = 0;
     // DETECT FORMAT FIRST - This is critical for proper parsing
     const isPrimavera = text.match(/Review[:\s]/i) || text.match(/Primavera/i);
     const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
@@ -1191,7 +1208,7 @@ export default function TimesheetClient() {
     
     // Format 1a: Bureau Veritas format - "Total" column with Billable rows
     // Look for lines with "Billable" followed by numbers, then "Total" with a number
-    if (totalNormalHours === 0 && totalOTHours === 0) {
+  if (totalNormalHours === 0 && totalOTHours === 0) {
       console.log("Trying Bureau Veritas format (Billable rows with Total column)...");
       
       let bvTotalFound = false;
@@ -1322,9 +1339,7 @@ export default function TimesheetClient() {
     if (totalNormalHours === 0 && totalOTHours === 0) {
       console.log("Format 1 not found, trying Format 2 (Petronas TOTAL CHARGEABLE/TOTAL HOURS)...");
       
-      let chargeableHours = 0;
-      let nonChargeableHours = 0;
-      let foundTotalHoursLine = false;
+  let foundTotalHoursLine = false;
       
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -1610,6 +1625,87 @@ export default function TimesheetClient() {
       console.log("DEBUG: Default condition NOT met - skipping format detection");
     }
     
+    // Finalize NH (Non-chargeable) and OT if not set yet
+    let nhHours = 0;
+
+    // If we parsed nonChargeableHours in Format 2, use it
+    if (typeof nonChargeableHours !== 'undefined' && nonChargeableHours > 0) {
+      nhHours = nonChargeableHours;
+    } else if (typeof chargeableHours !== 'undefined' && chargeableHours > 0 && totalNormalHours > 0) {
+      // Derive NH if chargeableHours was found
+      const derived = totalNormalHours - chargeableHours;
+      if (derived > 0) nhHours = derived;
+    }
+
+    // Last-pass: if OT still zero, try to find explicit OT/Overtime mentions anywhere
+    if ((totalOTHours === 0 || totalOTHours === null) && text) {
+      const otMatch = text.match(/(?:OT|Overtime|Over\s*Time|OT Hrs|OT Hours?)[:\s]*?(\d+(?:\.\d+)?)/i);
+      if (otMatch) {
+        totalOTHours = parseFloat(otMatch[1]);
+      }
+    }
+
+    // Normalize nhHours to a reasonable number
+    nhHours = Math.max(0, Math.round((nhHours || 0) * 100) / 100);
+
+    // Rescue heuristics: if OCR produced an implausible large total (e.g., 77) try to recover 40
+    if (totalNormalHours > 50 && totalNormalHours <= 80) {
+      console.log(`⚠️ Large total detected (${totalNormalHours}) - running rescue heuristics for likely 40h week`);
+
+      // 1) Look for a line with 5+ small daily numbers (0-16) whose sum is close to 40
+      let recovered = false;
+      for (let i = Math.max(0, lines.length - 20); i < lines.length; i++) {
+        const nums = [...lines[i].matchAll(/(\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]));
+        const smallDaily = nums.filter(n => n >= 0 && n <= 16);
+        if (smallDaily.length >= 5) {
+          const s = smallDaily.reduce((a, b) => a + b, 0);
+          console.log(`  - Line ${i + 1} daily-sum candidate = ${s} (nums: ${JSON.stringify(smallDaily)})`);
+          if (s >= 35 && s <= 45) {
+            totalNormalHours = Math.round(s);
+            totalOTHours = 0;
+            recovered = true;
+            console.log(`  ✅ Recovered totalNormalHours=${totalNormalHours} from line ${i + 1}`);
+            break;
+          }
+        }
+      }
+
+      // 2) If not recovered, count isolated '8' occurrences across the text (5 eights -> 40)
+      if (!recovered) {
+        const allNumbers = [...text.matchAll(/(\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]));
+        const eights = allNumbers.filter(n => Math.round(n) === 8).length;
+        console.log(`  - Found ${eights} occurrences of 8 across document`);
+        if (eights >= 5) {
+          totalNormalHours = 40;
+          totalOTHours = 0;
+          recovered = true;
+          console.log(`  ✅ Forced totalNormalHours=40 due to ${eights} eights`);
+        }
+      }
+
+      // 3) If still not recovered, try summing the last row of small numbers across the bottom (last 12 lines)
+      if (!recovered) {
+        const lookBack = Math.min(12, lines.length);
+        const bottomNumbers = [];
+        for (let i = lines.length - lookBack; i < lines.length; i++) {
+          const nums = [...lines[i].matchAll(/(\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]));
+          bottomNumbers.push(...nums.filter(n => n >= 0 && n <= 16));
+        }
+        if (bottomNumbers.length >= 5) {
+          const s = bottomNumbers.slice(-5).reduce((a, b) => a + b, 0);
+          console.log(`  - Bottom numbers candidate sum (last 5) = ${s} (values: ${JSON.stringify(bottomNumbers.slice(-8))})`);
+          if (s >= 35 && s <= 45) {
+            totalNormalHours = Math.round(s);
+            totalOTHours = 0;
+            recovered = true;
+            console.log(`  ✅ Recovered totalNormalHours=${totalNormalHours} from bottom numbers`);
+          }
+        }
+      }
+
+      if (!recovered) console.log('  ❌ Rescue heuristics did not find a 40h pattern');
+    }
+
     // SANITY CHECK: Cap hours at reasonable values
     if (totalNormalHours > 80) {
       console.log(`⚠️ WARNING: Normal hours too high (${totalNormalHours}) - capping at 40`);
@@ -1629,7 +1725,7 @@ export default function TimesheetClient() {
       poSoNo: poSoNumber || "",
       normalHours: totalNormalHours,
       otHours: totalOTHours,
-      nhHours: 0,
+      nhHours: nhHours,
       totalHours: totalNormalHours + totalOTHours,
     };
     

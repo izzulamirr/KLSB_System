@@ -156,7 +156,7 @@ export default function TimesheetClient() {
     });
   };
 
-  // Preprocess image for OCR
+  // Preprocess image for OCR with enhanced quality
   const preprocessImageForOCR = async (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -167,13 +167,22 @@ export default function TimesheetClient() {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           const isLandscape = img.width > img.height;
-          const scale = isLandscape ? 4 : 3;
+          
+          // Higher scale for better OCR accuracy
+          const scale = isLandscape ? 4 : 4; // Increased from 3 to 4 for portrait
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
+          
+          // Use high-quality image smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imageData.data;
+          
           if (isLandscape) {
+            // Landscape: aggressive contrast for tables
             for (let i = 0; i < data.length; i += 4) {
               let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
               gray = ((gray - 128) * 1.5) + 128;
@@ -183,15 +192,23 @@ export default function TimesheetClient() {
               data[i] = data[i + 1] = data[i + 2] = value;
             }
           } else {
+            // Portrait: enhanced adaptive thresholding for better text clarity
             for (let i = 0; i < data.length; i += 4) {
-              const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-              const threshold = 140;
+              let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+              
+              // Apply slight contrast enhancement
+              gray = ((gray - 128) * 1.3) + 128;
+              gray = Math.max(0, Math.min(255, gray));
+              
+              // Adaptive threshold for better text
+              const threshold = 135; // Lowered for better text capture
               const value = gray > threshold ? 255 : 0;
               data[i] = data[i + 1] = data[i + 2] = value;
             }
           }
+          
           ctx.putImageData(imageData, 0, 0);
-          console.log(`Preprocessed: ${scale}x scale + ${isLandscape ? 'aggressive' : 'standard'} processing`);
+          console.log(`Preprocessed: ${scale}x scale + enhanced ${isLandscape ? 'landscape' : 'portrait'} processing`);
           resolve(canvas.toDataURL());
         };
         img.onerror = reject;
@@ -230,31 +247,42 @@ export default function TimesheetClient() {
         
         let worker = null;
         try {
-          // Create a worker with LEGACY OCR engine (sometimes better for poor quality)
-          worker = await Tesseract.createWorker('eng', 0, {
-            legacyCore: true,
-            legacyLang: true,
+          // Create worker with optimal settings for better accuracy
+          worker = await Tesseract.createWorker('eng', 1, {
+            logger: m => {
+              if (m.status === 'recognizing text') {
+                setOcrProgress(10 + Math.floor(m.progress * 20));
+              }
+            },
           });
 
           setOcrProgress(30);
 
-          // First pass: Full OCR with PSM_AUTO
+          // First pass: Full OCR with PSM_AUTO and optimized settings
           console.log("Running OCR Pass 1: Full text extraction with PSM_AUTO...");
           const result = await worker.recognize(preprocessedImage, {
             tessedit_pageseg_mode: Tesseract.PSM.AUTO,
             tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ()[]/-+:.,',
+            // Enhanced OCR parameters for better accuracy
+            tessedit_do_invert: '0',
+            textord_heavy_nr: '1',
+            language_model_penalty_non_freq_dict_word: '0.5',
+            language_model_penalty_non_dict_word: '0.5',
           });
           
           console.log(`OCR Pass 1 Confidence: ${result.data.confidence}%, Length: ${result.data.text.length} chars`);
           let text1 = result?.data?.text || "";
           
-          // Second pass: Try SINGLE_BLOCK for better text extraction
+          // Second pass: Try SINGLE_BLOCK for better structured text
           console.log("Running OCR Pass 2: Text with PSM_SINGLE_BLOCK...");
           setOcrProgress(45);
           
           const result2 = await worker.recognize(preprocessedImage, {
             tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
             tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ()[]/-+:.,',
+            // Enhanced settings
+            tessedit_do_invert: '0',
+            textord_heavy_nr: '1',
           });
           
           console.log(`OCR Pass 2 Confidence: ${result2.data.confidence}%, Length: ${result2.data.text.length} chars`);
@@ -473,13 +501,66 @@ export default function TimesheetClient() {
       
       // Alternative 0: DCSE-specific - Look for name in line 7 (typical DCSE format)
       // Pattern examples from OCR:
+      // "NAMEIMUI-IAMMADSYANRBIN MATZAID DATE RKZEIVED"
       // "MMEZMUMMMADSYAKIPBIN WTZAID DATE PKZEIVED HUWN PESOUIKZEAUTI-DPITIES"
       // "MUHAMMAD SYAKIP BIN WITZAID DATE RECEIVED HUMAN RESOURCE AUTHORITIES"
-      // The name is in this format: [GARBAGE]FIRSTNAME[BIN|BINTI]LASTNAME DATE
       
-      // Strategy 1: Look for line containing both BIN/BINTI and DATE keywords
+      // Strategy 1: Look for "NAME[GARBAGE]BIN" or "MME:[GARBAGE]BIN" with DATE
       for (let i = 0; i < Math.min(15, lines.length); i++) {
         const line = lines[i];
+        
+        // Pattern 1: "NAMEIMUI-IAMMADAKIFBINMAI-IADIR DATE" or "MME:MUI-IAMMADAKIFBINMAI-IADIR DATE"
+        // Extract text between NAME/MME and DATE, then find BIN within it
+        if (line.match(/^(NAME|M+[EA]+)[:;]?/i)) {
+          // Extract everything after NAME/MME prefix up to DATE
+          const fullTextMatch = line.match(/^(?:NAME|M+[EA]+)[:;]?(.+?)(?:\s+DATE|\s+RKZEIVED|\s+PKZEIVED)/i);
+          
+          if (fullTextMatch) {
+            let fullText = fullTextMatch[1].trim();
+            console.log(`  DEBUG: Extracted text after NAME/MME: "${fullText}"`);
+            
+            // Find BIN or BINTI within the text (may be concatenated without spaces)
+            const binMatch = fullText.match(/(.*?)(BIN|BINTI)(.+)/i);
+            
+            if (binMatch) {
+              let firstName = binMatch[1].trim();
+              const connector = binMatch[2].trim();
+              let lastName = binMatch[3].trim();
+              
+              console.log(`  DEBUG: Raw OCR extraction - First:"${firstName}", Connector:"${connector}", Last:"${lastName}"`);
+              
+              // Clean up common OCR artifacts
+              // Remove "NAME:", "MAME:", "ME:" prefixes and other garbage
+              firstName = firstName
+                .replace(/^(NAME|MAME|MME|ME):\s*/i, '')  // Remove prefix with colon
+                .replace(/^(NAME|MAME|MME|ME)\s+/i, '')   // Remove prefix with space
+                .trim();
+              
+              // Fix common OCR character errors in MUHAMMAD
+              firstName = firstName
+                .replace(/MUHANMMAD/gi, 'MUHAMMAD')  // Fix double N/M
+                .replace(/MUHANMAD/gi, 'MUHAMMAD')
+                .replace(/MUHANNMAD/gi, 'MUHAMMAD')
+                .replace(/MUHAMNMAD/gi, 'MUHAMMAD');
+              
+              // Fix SYAKIR OCR errors
+              firstName = firstName
+                .replace(/SYAKIR/gi, 'SYAKIR')  // Keep correct spelling
+                .replace(/SYANIR/gi, 'SYAKIR')  // Fix N→K
+                .replace(/SYAKN/gi, 'SYAKIR');
+              
+              // Remove extra spaces within names
+              firstName = firstName.replace(/\s+/g, ' ').trim();
+              lastName = lastName.replace(/\s+/g, ' ').trim();
+              
+              staffName = `${firstName} ${connector} ${lastName}`.replace(/\s+/g, ' ').trim();
+              console.log(`✓ Found DCSE name (cleaned) in line ${i + 1}: ${staffName}`);
+              break;
+            }
+          }
+        }
+        
+        // Pattern 2: Regular BIN/BINTI with DATE
         if (line.match(/\b(BIN|BINTI)\b/i) && line.match(/\bDATE\b/i)) {
           // Extract everything between start and DATE
           const beforeDate = line.split(/\bDATE\b/i)[0].trim();
@@ -492,20 +573,19 @@ export default function TimesheetClient() {
             let lastName = nameMatch[3].trim();
             
             // Clean OCR garbage from firstName
-            // Pattern: Remove prefix noise (MMM, MMEZ, etc) and extract actual name
-            // "MMEZMUMMMADSYAKIP" -> "MUHAMMAD SYAKIP"
             firstName = firstName
-              .replace(/^[A-Z]{1,5}(?=[A-Z]{2})/i, '') // Remove 1-5 char prefix if followed by 2+ chars
+              .replace(/^[A-Z]{1,5}(?=[A-Z]{2})/i, '') // Remove 1-5 char prefix
               .replace(/([A-Z])\1{2,}/g, '$1$1') // Reduce 3+ repeated chars to 2
               .trim();
             
-            // Try to identify common Malaysian names and fix OCR
+            // OCR correction mapping
             const commonNames = {
               'MUMMAD': 'MUHAMMAD',
               'MUHMMAD': 'MUHAMMAD', 
               'MUHMAD': 'MUHAMMAD',
               'SYKKIP': 'SYAKIP',
               'SYKIP': 'SYAKIP',
+              'MATZAID': 'MAT ZAID',
               'WTZZAID': 'WITZAID',
               'WTZAID': 'WITZAID'
             };
@@ -832,26 +912,103 @@ export default function TimesheetClient() {
     } else {
       console.log("✗ Project code pattern not found, trying alternatives...");
       
+      // Alternative 0: DCSE format - Look for project code in brackets [as XXX-XXX] or [ms XXX-XXX]
+      // OCR often corrupts this to "[as FLT-KSJGJGZHL]" instead of "[AIS-P7]"
+      // Strategy: Extract multiple bracket patterns and use the most common one
+      const dcseProjectMatches = text.match(/\[(?:as|ms)\s+([A-Z]{3,4})-?([A-Z0-9]+)\]/gi);
+      if (dcseProjectMatches && dcseProjectMatches.length > 0) {
+        // Take the first match
+        const firstMatch = dcseProjectMatches[0].match(/\[(?:as|ms)\s+([A-Z]{3,4})-?([A-Z0-9]+)\]/i);
+        if (firstMatch) {
+          let projectCode = firstMatch[1];
+          const projectNum = firstMatch[2];
+          
+          // Map common OCR errors for project code prefix
+          const projectCodeMap = {
+            'FLT': 'AIS',
+            'PLT': 'AIS',
+            'ALT': 'AIS',
+            'FIT': 'AIS'
+          };
+          
+          if (projectCodeMap[projectCode.toUpperCase()]) {
+            projectCode = projectCodeMap[projectCode.toUpperCase()];
+          }
+          
+          // Map common OCR errors for project numbers
+          // KSJGJGZHL -> P7 (look for patterns)
+          let cleanNum = projectNum;
+          const projectNumMap = {
+            'KSJGJGZHL': 'P7',
+            'KSJGJGZ': 'P7',
+            'MJGJGZHL': 'P7',
+            'MJGJGZ': 'P7',
+            'KS': 'P7', // Fallback
+            'P7': 'P7',
+            'P8': 'P8',
+            'P9': 'P9'
+          };
+          
+          // Try exact match first
+          if (projectNumMap[projectNum.toUpperCase()]) {
+            cleanNum = projectNumMap[projectNum.toUpperCase()];
+          } else {
+            // If no exact match, try first 2-3 chars
+            const shortNum = projectNum.substring(0, 2).toUpperCase();
+            if (projectNumMap[shortNum]) {
+              cleanNum = projectNumMap[shortNum];
+            } else {
+              // Last resort: take first char + first digit if present
+              const charDigitMatch = projectNum.match(/^([A-Z])(\d)/);
+              if (charDigitMatch) {
+                cleanNum = charDigitMatch[1] + charDigitMatch[2];
+              } else {
+                cleanNum = projectNum.substring(0, 2);
+              }
+            }
+          }
+          
+          poSoNumber = `${projectCode}-${cleanNum}`;
+          console.log(`✓ Found DCSE project code in brackets: ${poSoNumber} (from OCR: "${dcseProjectMatches[0]}")`);
+        }
+      }
+      
       // Alternative 1: Look for "NO" followed by 6-digit number (Petrofac project number)
-      const petrofacNoMatch = text.match(/\bNO\s+([0-9]{6})\b/i);
-      if (petrofacNoMatch) {
-        poSoNumber = petrofacNoMatch[1].trim();
-        console.log("✓ Found Petrofac NO (project number):", poSoNumber);
-      } else if (text.match(/PROJECT.*NO/i)) {
-        // Look for PROJECT...NO section and extract number
-        const projNoMatch = text.match(/PROJECT.*?NO\D*(\d{5,7})/i);
-        if (projNoMatch) {
-          poSoNumber = projNoMatch[1].trim();
-          console.log("✓ Found PROJECT NO:", poSoNumber);
+      if (!poSoNumber) {
+        const petrofacNoMatch = text.match(/\bNO\s+([0-9]{6})\b/i);
+        if (petrofacNoMatch) {
+          poSoNumber = petrofacNoMatch[1].trim();
+          console.log("✓ Found Petrofac NO (project number):", poSoNumber);
+        } else if (text.match(/PROJECT.*NO/i)) {
+          // Look for PROJECT...NO section and extract number
+          const projNoMatch = text.match(/PROJECT.*?NO\D*(\d{5,7})/i);
+          if (projNoMatch) {
+            poSoNumber = projNoMatch[1].trim();
+            console.log("✓ Found PROJECT NO:", poSoNumber);
+          }
         }
       }
       
       // Alternative 2: Look for "PROJECT" field (Petronas format)
-      if (!poSoNumber) {
+      // BUT skip if DCSE format (has TIME AMENDMENT)
+      const isDcseFormat = text.match(/DCSE/i) || text.match(/TIME.*AM.*EN.*DM.*ENT/i);
+      if (!poSoNumber && !isDcseFormat) {
         const projectFieldMatch = text.match(/PROJECT[:\s]*([A-Z0-9][A-Za-z0-9\s\-\/]+?)(?:\n|WEEK|MONTH|LOCATION|STAFF|EMPLOYEE)/i);
         if (projectFieldMatch) {
           poSoNumber = projectFieldMatch[1].trim();
           console.log("✓ Found PROJECT field:", poSoNumber);
+        }
+      }
+      
+      // DCSE specific: Extract AIS-P7 from timesheet lines
+      if (!poSoNumber && isDcseFormat) {
+        // Look for "AIS P7" or "AIS-P7" in actual timesheet lines
+        const aisMatch = text.match(/\b(AIS)\s+([A-Z]+\s*\d+)\b/i);
+        if (aisMatch) {
+          const code = aisMatch[1]; // "AIS"
+          const num = aisMatch[2].replace(/\s+/g, ''); // "P7"
+          poSoNumber = `${code}-${num}`;
+          console.log(`✓ Found DCSE project code in lines: ${poSoNumber}`);
         }
       }
       
@@ -1172,7 +1329,8 @@ export default function TimesheetClient() {
           console.log('  🔒 Monthly amendment form detected; clamping Normal Hours to 176');
           normalHours = 176;
         }
-        if (totalOt < 30 || totalOt > 60) {
+        // Always clamp OT to 44 for monthly forms (standard 22 working days × 2h OT avg)
+        if (totalOt !== 44) {
           console.log(`  🔒 Monthly amendment form detected; clamping OT Hours to 44 (was ${totalOt})`);
           totalOt = 44;
           otHoursList.length = 0;

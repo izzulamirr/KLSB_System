@@ -947,6 +947,9 @@ export default function TimesheetClient() {
       }
     }
 
+    console.log("\n" + "🔥".repeat(40));
+    console.log("🔥 START PARSING TIMESHEET TEXT");
+    console.log("🔥".repeat(40));
     console.log("\n=== SEARCHING FOR TOTAL HOURS ===");
     console.log("Full text to search:");
     console.log(text.substring(0, 1000)); // Show first 1000 chars
@@ -960,7 +963,18 @@ export default function TimesheetClient() {
     const isBureauVeritas = text.match(/Bureau\s+Veritas/i) || text.match(/bureauveritas\.com/i);
     const isPetrofac = text.match(/Petrofac/i) || text.match(/RNZ/i);
     const isPetronas = text.match(/Petronas/i);
-    const isWorleyRW = text.match(/Review[:\s]/i) && (text.match(/N[ao]rm[ae]l\s+H[rs]s?/i) || text.match(/Overtime\s+H[rs]s?/i));
+    
+    // Detect Worley/RW format - ONLY if we see activity rows with Normal/Overtime Hrs
+    // AND we DON'T see "Total Regular" or "Total Overtime" (which indicates standard Primavera)
+    const hasNormalHrsPattern = text.match(/\d+\s*N[ao]rm[ae]l[\s\-_]*H[rse]+s?/i);
+    const hasOvertimeHrsPattern = text.match(/\d+\s*Overtime[\s\-_]*H[rse]+s?/i);
+    const hasTotalRegularOrOT = text.match(/Total\s+(Regular|Overtime)/i);
+    const hasReview = text.match(/Review[:\s]/i);
+    
+    // CRITICAL FIX: Only treat as Worley/RW if:
+    // 1. Has activity code + Normal/Overtime Hrs pattern
+    // 2. AND does NOT have "Total Regular" or "Total Overtime" (standard Primavera)
+    const isWorleyRW = (hasNormalHrsPattern || hasOvertimeHrsPattern) && !hasTotalRegularOrOT;
     
     console.log(`\n=== FORMAT DETECTION ===`);
     console.log(`Petrofac: ${!!isPetrofac}`);
@@ -968,6 +982,10 @@ export default function TimesheetClient() {
     console.log(`Primavera: ${!!isPrimavera}`);
     console.log(`Bureau Veritas: ${!!isBureauVeritas}`);
     console.log(`Worley/RW (Primavera with Normal/OT Hrs rows): ${!!isWorleyRW}`);
+    console.log(`  - hasNormalHrsPattern: ${!!hasNormalHrsPattern}`);
+    console.log(`  - hasOvertimeHrsPattern: ${!!hasOvertimeHrsPattern}`);
+    console.log(`  - hasTotalRegularOrOT: ${!!hasTotalRegularOrOT} (if TRUE, use standard Primavera)`);
+    console.log(`  - hasReview: ${!!hasReview}`);
     console.log(`========================\n`);
     
     // Look for TOTAL line which has Normal Hours and OT Hours totals
@@ -983,6 +1001,13 @@ export default function TimesheetClient() {
     if (isWorleyRW && !isPetrofac && !isBureauVeritas) {
       console.log("✅ WORLEY/RW FORMAT DETECTED v2.0 - Extracting ALL Normal Hrs and Overtime Hrs rows...");
       
+      // DUMP ENTIRE OCR TEXT FOR DEBUGGING
+      console.log("\n📄 FULL OCR TEXT DUMP (first 2000 chars):");
+      console.log("═".repeat(80));
+      console.log(text.substring(0, 2000));
+      console.log("═".repeat(80));
+      console.log(`Total OCR text length: ${text.length} characters\n`);
+      
       // Combine all available OCR text sources for maximum coverage
       let combinedText = text;
       if (window._ocrRWTable) {
@@ -997,7 +1022,7 @@ export default function TimesheetClient() {
       // Log all lines containing "Normal Hrs" or "Overtime Hrs" for debugging
       console.log("\n🔍 DEBUG: Lines containing Normal/OT Hrs:");
       combinedLines.forEach((line, idx) => {
-        if (line.match(/n[ao]rm[ae]l\s+h[rs]s?|overtime\s+h[rs]s?/i)) {
+        if (line.match(/n[ao]rm[ae]l[\s\-_]*h[rse]+s?|overtime[\s\-_]*h[rse]+s?/i)) {
           console.log(`  Line ${idx + 1}: "${line}"`);
         }
       });
@@ -1009,8 +1034,30 @@ export default function TimesheetClient() {
         const line = combinedLines[i].trim();
         if (!line || line.length < 5) continue;
         
-        // Look for "10 Normal Hrs" or "Normal Hrs" pattern (with OCR variations like "Narmal", "HS")
-        const normalHrsMatch = line.match(/(\d+)\s*n[ao]rm[ae]l\s+h[rs]s?/i);
+        // Look for "10 Normal Hrs" or "Normal Hrs" pattern (with OCR variations like "Narmal", "HS", "Hre", "Hr")
+        // Also match variations like "Normal-Hrs", "Normal_Hrs", "NormalHrs"
+        // Pattern 1: Look for leading number + "Normal Hrs" (e.g., "10 Normal Hrs")
+        let normalHrsMatch = line.match(/(\d+)\s*n[ao]rm[ae]l[\s\-_]*h[rse]+s?/i);
+        
+        // Pattern 2: If no leading number, look for "Normal Hrs" anywhere in the line
+        // This catches lines like "MY-14    10 Normal Hrs    4 4 4 4 4    20"
+        if (!normalHrsMatch) {
+          normalHrsMatch = line.match(/n[ao]rm[ae]l[\s\-_]*h[rse]+s?/i);
+          if (normalHrsMatch) {
+            // Try to find a number BEFORE "Normal Hrs" on the same line (the activity code)
+            const beforePattern = line.substring(0, normalHrsMatch.index);
+            const leadingNumMatch = beforePattern.match(/(\d+)\s*$/);
+            if (leadingNumMatch) {
+              // Found it, create a match object similar to Pattern 1
+              normalHrsMatch = {
+                0: leadingNumMatch[1] + ' ' + normalHrsMatch[0],
+                1: leadingNumMatch[1],
+                index: leadingNumMatch.index
+              };
+            }
+          }
+        }
+        
         if (normalHrsMatch) {
           const leadingNum = parseInt(normalHrsMatch[1]);
           
@@ -1019,60 +1066,130 @@ export default function TimesheetClient() {
           const afterPattern = line.substring(normalHrsMatch.index + normalHrsMatch[0].length);
           
           // Strategy 1: Find the LAST standalone number on the line (the Total column)
-          // This handles format: "10 Normal Hrs 8 8 8 8 8 40"
+          // This handles format: "10 Normal Hrs 4 4 4 4 4 20" or "MY-14 10 Normal Hrs 4 4 4 4 4 20"
           const allNumbers = [...afterPattern.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
           
           console.log(`    🔍 Row ${i + 1} afterPattern: "${afterPattern}"`);
           console.log(`    🔍 Numbers found: [${allNumbers.join(', ')}]`);
           
           if (allNumbers.length > 0) {
+            // Check if we have daily numbers (0-16 range) followed by a total
+            const dailyNumbers = allNumbers.filter(n => n >= 0 && n <= 16);
             const lastNum = allNumbers[allNumbers.length - 1];
-            // If last number is in valid total range (15-80), use it
-            if (lastNum >= 15 && lastNum <= 80) {
+            
+            // Strategy 1a: If last number is 15-80 and we have 3+ smaller numbers before it, it's likely the total
+            if (lastNum >= 15 && lastNum <= 80 && dailyNumbers.length >= 3) {
+              // Check if last number equals sum of daily numbers (excluding itself)
+              const dailySum = dailyNumbers.slice(0, -1).reduce((a, b) => a + b, 0);
+              if (Math.abs(dailySum - lastNum) <= 2) { // Allow small OCR error
+                total = lastNum;
+                console.log(`    ✅ Last number matches sum of daily numbers: ${lastNum}`);
+              } else {
+                total = lastNum;
+                console.log(`    ✅ Using last number as Total: ${total}`);
+              }
+            }
+            // Strategy 1b: If we only have daily numbers (all 0-16), sum them
+            else if (dailyNumbers.length >= 5 && dailyNumbers.length === allNumbers.length) {
+              total = dailyNumbers.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ Summing all daily numbers: ${dailyNumbers.join('+')} = ${total}`);
+            }
+            // Strategy 1c: Last number is in valid range, use it
+            else if (lastNum >= 15 && lastNum <= 80) {
               total = lastNum;
               console.log(`    ✅ Using last number as Total: ${total}`);
             }
-            // Otherwise, sum all the daily numbers (assuming they're 0-16 each)
-            else {
-              const dailyNumbers = allNumbers.filter(n => n >= 0 && n <= 16);
-              if (dailyNumbers.length >= 3) {
-                total = dailyNumbers.reduce((a, b) => a + b, 0);
-                console.log(`    ✅ Summing daily numbers: ${dailyNumbers.join('+')} = ${total}`);
-              }
-            }
           }
           
-          // Strategy 2: Check next 3 lines for numbers that could be the Total
+          // Strategy 2: Check next 10 lines (increased from 3) for numbers that could be the Total
+          // OCR often splits table rows across multiple text lines
           if (total === 0) {
-            for (let j = 1; j <= 3 && i + j < combinedLines.length; j++) {
+            console.log(`    🔍 Total not found on same line, searching next 10 lines...`);
+            let collectedDailyNumbers = [...allNumbers.filter(n => n >= 0 && n <= 16)];
+            
+            for (let j = 1; j <= 10 && i + j < combinedLines.length; j++) {
               const nextLine = combinedLines[i + j].trim();
               console.log(`    🔍 Checking next line +${j}: "${nextLine}"`);
               
-              // Check for standalone number
-              const standaloneMatch = nextLine.match(/^(\d+)$/);
-              if (standaloneMatch) {
-                const num = parseInt(standaloneMatch[1]);
-                if (num >= 15 && num <= 80) {
-                  total = num;
-                  console.log(`    ✅ Found Total on next line: ${total}`);
-                  break;
-                }
+              // Stop if we hit another activity row
+              if (nextLine.match(/\d+\s*(normal|overtime|public\s+holiday)/i)) {
+                console.log(`    ⛔ Hit another activity row, stopping search`);
+                break;
               }
               
-              // Check for line with multiple daily numbers
+              // Collect all numbers from this line
               const lineNumbers = [...nextLine.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
-              if (lineNumbers.length >= 3) {
-                const lastLineNum = lineNumbers[lineNumbers.length - 1];
-                if (lastLineNum >= 15 && lastLineNum <= 80) {
-                  total = lastLineNum;
-                  console.log(`    ✅ Found Total in next line (last number): ${total}`);
+              if (lineNumbers.length > 0) {
+                console.log(`    🔢 Line has numbers: [${lineNumbers.join(', ')}]`);
+                
+                // ⚠️ CRITICAL: Filter out invalid numbers:
+                // - Account numbers (5+ digits like "412029")
+                // - Year numbers (1900-2099 like "2022")  
+                // - Numbers surrounded by large account numbers (like "30" from "412029-00030-2022")
+                const validNumbers = lineNumbers.filter((n, idx) => {
+                  // Filter 1: Exclude 5+ digit numbers (account numbers)
+                  if (n.toString().length >= 5) return false;
+                  
+                  // Filter 2: Exclude year numbers
+                  if (n >= 1900 && n <= 2099) return false;
+                  
+                  // Filter 3: If surrounded by large numbers (5+ digits), likely part of account pattern
+                  const prevNum = idx > 0 ? lineNumbers[idx - 1] : null;
+                  const nextNum = idx < lineNumbers.length - 1 ? lineNumbers[idx + 1] : null;
+                  if ((prevNum && prevNum.toString().length >= 5) || (nextNum && nextNum.toString().length >= 5)) {
+                    console.log(`    🚫 Rejecting ${n} (surrounded by account number)`);
+                    return false;
+                  }
+                  
+                  return true;
+                });
+                console.log(`    🔧 After filtering account/year numbers: [${validNumbers.join(', ')}]`);
+                
+                // Check if this line has a total (15-80 range)
+                const largeNumbers = validNumbers.filter(n => n >= 15 && n <= 80);
+                const dailyLineNumbers = validNumbers.filter(n => n >= 0 && n <= 16);
+                
+                // If we find a large number (and it's NOT an account number), it's likely the total
+                if (largeNumbers.length > 0) {
+                  total = largeNumbers[largeNumbers.length - 1]; // Use last one
+                  console.log(`    ✅ Found Total in next line: ${total}`);
                   break;
                 }
-                const dailyLineNumbers = lineNumbers.filter(n => n >= 0 && n <= 16);
-                if (dailyLineNumbers.length >= 3) {
-                  total = dailyLineNumbers.reduce((a, b) => a + b, 0);
-                  console.log(`    ✅ Summing from next line: ${dailyLineNumbers.join('+')} = ${total}`);
-                  break;
+                
+                // Collect daily numbers to sum later
+                if (dailyLineNumbers.length > 0) {
+                  collectedDailyNumbers.push(...dailyLineNumbers);
+                  console.log(`    📥 Collected daily numbers: [${dailyLineNumbers.join(', ')}], total so far: [${collectedDailyNumbers.join(', ')}]`);
+                }
+              }
+            }
+            
+            // If we collected enough daily numbers but no total, sum them
+            if (total === 0 && collectedDailyNumbers.length >= 5) {
+              total = collectedDailyNumbers.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ Summing all collected daily numbers: ${collectedDailyNumbers.join('+')} = ${total}`);
+            }
+            
+            // 🔧 RESCUE 1: If we have 3-4 identical daily numbers (e.g., [4,4,4]), estimate 5-day week
+            if (total === 0 && collectedDailyNumbers.length >= 3 && collectedDailyNumbers.length <= 4) {
+              const uniqueNumbers = [...new Set(collectedDailyNumbers)];
+              if (uniqueNumbers.length === 1) {
+                const dailyHours = uniqueNumbers[0];
+                if (dailyHours >= 4 && dailyHours <= 8) {
+                  total = dailyHours * 5; // Estimate 5-day week
+                  console.log(`    🔧 RESCUE 1: Found ${collectedDailyNumbers.length} identical daily hours (${dailyHours}h each), estimating 5-day week: ${dailyHours} × 5 = ${total}h`);
+                }
+              }
+            }
+            
+            // 🔧 RESCUE 2: If we have only 1-2 identical daily numbers (e.g., [4] or [4,4]), also estimate 5-day week
+            if (total === 0 && collectedDailyNumbers.length >= 1 && collectedDailyNumbers.length < 3) {
+              const uniqueNumbers = [...new Set(collectedDailyNumbers)];
+              if (uniqueNumbers.length === 1) {
+                const dailyHours = uniqueNumbers[0];
+                if (dailyHours >= 4 && dailyHours <= 8) {
+                  total = dailyHours * 5; // Estimate 5-day week
+                  console.log(`    🔧 RESCUE 2: Found only ${collectedDailyNumbers.length} daily hours (${dailyHours}h each), estimating 5-day week: ${dailyHours} × 5 = ${total}h`);
                 }
               }
             }
@@ -1083,6 +1200,7 @@ export default function TimesheetClient() {
             const originalTotal = total;
             // Snap to common weekly totals
             if (total >= 18 && total <= 22) total = 20;
+            else if (total >= 28 && total <= 32) total = 30;
             else if (total >= 38 && total <= 42) total = 40;
             else if (total >= 58 && total <= 62) total = 60;
             
@@ -1105,8 +1223,31 @@ export default function TimesheetClient() {
           }
         }
         
-        // Look for "20 Overtime Hrs" or "Overtime Hrs" pattern (with OCR variations like "HS")
-        const overtimeHrsMatch = line.match(/(\d+)\s*overtime\s+h[rs]s?/i);
+        // Look for "20 Overtime Hrs" or "Overtime Hrs 1/2" or "Overtime Hrs 1/0" pattern (with OCR variations)
+        // Pattern now captures optional rate suffixes like "1/2", "1/0", "1.5", "2", etc.
+        // Also match variations like "Overtime-Hrs", "Overtime_Hrs", "OvertimeHrs"
+        // Pattern 1: Look for leading number + "Overtime Hrs" (e.g., "20 Overtime Hrs 1/0")
+        let overtimeHrsMatch = line.match(/(\d+)\s*overtime[\s\-_]*h[rse]+s?(?:\s+[\d\/\.]+)?/i);
+        
+        // Pattern 2: If no leading number, look for "Overtime Hrs" anywhere in the line
+        // This catches lines like "MY-12    20 Overtime Hrs 1/0    0 0 4 4 4 4 4    20"
+        if (!overtimeHrsMatch) {
+          overtimeHrsMatch = line.match(/overtime[\s\-_]*h[rse]+s?(?:\s+[\d\/\.]+)?/i);
+          if (overtimeHrsMatch) {
+            // Try to find a number BEFORE "Overtime Hrs" on the same line (the activity code)
+            const beforePattern = line.substring(0, overtimeHrsMatch.index);
+            const leadingNumMatch = beforePattern.match(/(\d+)\s*$/);
+            if (leadingNumMatch) {
+              // Found it, create a match object similar to Pattern 1
+              overtimeHrsMatch = {
+                0: leadingNumMatch[1] + ' ' + overtimeHrsMatch[0],
+                1: leadingNumMatch[1],
+                index: leadingNumMatch.index
+              };
+            }
+          }
+        }
+        
         if (overtimeHrsMatch) {
           const leadingNum = parseInt(overtimeHrsMatch[1]);
           
@@ -1115,60 +1256,135 @@ export default function TimesheetClient() {
           const afterPattern = line.substring(overtimeHrsMatch.index + overtimeHrsMatch[0].length);
           
           // Strategy 1: Find the LAST standalone number on the line (the Total column)
-          // This handles format: "20 Overtime Hrs 100 4 4 4 4 4 20"
+          // This handles format: "20 Overtime Hrs 1/0 0 0 4 4 4 4 4 20"
           const allNumbers = [...afterPattern.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
           
           console.log(`    🔍 OT Row ${i + 1} afterPattern: "${afterPattern}"`);
-          console.log(`    🔍 Numbers found: [${allNumbers.join(', ')}]`);
+          console.log(`    🔍 OT Numbers found: [${allNumbers.join(', ')}]`);
           
           if (allNumbers.length > 0) {
+            // Check if we have daily numbers (0-16 range) followed by a total
+            const dailyNumbers = allNumbers.filter(n => n >= 0 && n <= 16);
             const lastNum = allNumbers[allNumbers.length - 1];
-            // If last number is in valid total range (15-80), use it
-            if (lastNum >= 15 && lastNum <= 80) {
-              total = lastNum;
-              console.log(`    ✅ Using last number as Total: ${total}`);
-            }
-            // Otherwise, sum daily numbers (filter out large numbers like 100)
-            else {
-              const dailyNumbers = allNumbers.filter(n => n >= 0 && n <= 16);
-              if (dailyNumbers.length >= 3) {
-                total = dailyNumbers.reduce((a, b) => a + b, 0);
-                console.log(`    ✅ Summing daily numbers: ${dailyNumbers.join('+')} = ${total}`);
+            
+            console.log(`    🔍 OT dailyNumbers: [${dailyNumbers.join(', ')}], lastNum: ${lastNum}`);
+            
+            // Strategy 1a: If last number is 15-80 and we have 3+ smaller numbers before it, it's likely the total
+            if (lastNum >= 15 && lastNum <= 80 && dailyNumbers.length >= 3) {
+              // Check if last number equals sum of daily numbers (excluding itself)
+              const dailySum = dailyNumbers.slice(0, -1).reduce((a, b) => a + b, 0);
+              console.log(`    🔍 OT Strategy 1a: dailySum=${dailySum}, lastNum=${lastNum}, diff=${Math.abs(dailySum - lastNum)}`);
+              if (Math.abs(dailySum - lastNum) <= 2) { // Allow small OCR error
+                total = lastNum;
+                console.log(`    ✅ OT Last number matches sum of daily numbers: ${lastNum}`);
+              } else {
+                total = lastNum;
+                console.log(`    ✅ OT Using last number as Total: ${total}`);
               }
+            }
+            // Strategy 1b: If we only have daily numbers (all 0-16), sum them
+            else if (dailyNumbers.length >= 5 && dailyNumbers.length === allNumbers.length) {
+              total = dailyNumbers.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ OT Summing all daily numbers: ${dailyNumbers.join('+')} = ${total}`);
+            }
+            // Strategy 1c: Last number is in valid range, use it
+            else if (lastNum >= 15 && lastNum <= 80) {
+              total = lastNum;
+              console.log(`    ✅ OT Strategy 1c - Using last number as Total: ${total}`);
+            } else {
+              console.log(`    ⚠️ OT Strategy 1 failed - lastNum=${lastNum}, dailyNumbers.length=${dailyNumbers.length}, allNumbers.length=${allNumbers.length}`);
             }
           }
           
-          // Strategy 2: Check next 3 lines for the Total
+          // Strategy 2: Check next 10 lines (increased from 3) for the Total
+          // OCR often splits table rows across multiple text lines
           if (total === 0) {
-            for (let j = 1; j <= 3 && i + j < combinedLines.length; j++) {
+            console.log(`    🔍 Total not found on same line, searching next 10 lines...`);
+            let collectedDailyNumbers = [...allNumbers.filter(n => n >= 0 && n <= 16)];
+            
+            for (let j = 1; j <= 10 && i + j < combinedLines.length; j++) {
               const nextLine = combinedLines[i + j].trim();
               console.log(`    🔍 Checking next line +${j}: "${nextLine}"`);
               
-              // Check for standalone number
-              const standaloneMatch = nextLine.match(/^(\d+)$/);
-              if (standaloneMatch) {
-                const num = parseInt(standaloneMatch[1]);
-                if (num >= 15 && num <= 80) {
-                  total = num;
-                  console.log(`    ✅ Found Total on next line: ${total}`);
-                  break;
-                }
+              // Stop if we hit another activity row
+              if (nextLine.match(/\d+\s*(normal|overtime|public\s+holiday)/i)) {
+                console.log(`    ⛔ Hit another activity row, stopping search`);
+                break;
               }
               
-              // Check for line with multiple daily numbers
+              // Collect all numbers from this line
               const lineNumbers = [...nextLine.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
-              if (lineNumbers.length >= 3) {
-                const lastLineNum = lineNumbers[lineNumbers.length - 1];
-                if (lastLineNum >= 15 && lastLineNum <= 80) {
-                  total = lastLineNum;
-                  console.log(`    ✅ Found Total in next line (last number): ${total}`);
+              if (lineNumbers.length > 0) {
+                console.log(`    🔢 Line has numbers: [${lineNumbers.join(', ')}]`);
+                
+                // ⚠️ CRITICAL: Filter out invalid numbers:
+                // - Account numbers (5+ digits like "412029")
+                // - Year numbers (1900-2099 like "2022")  
+                // - Numbers surrounded by large account numbers (like "30" from "412029-00030-2022")
+                const validNumbers = lineNumbers.filter((n, idx) => {
+                  // Filter 1: Exclude 5+ digit numbers (account numbers)
+                  if (n.toString().length >= 5) return false;
+                  
+                  // Filter 2: Exclude year numbers
+                  if (n >= 1900 && n <= 2099) return false;
+                  
+                  // Filter 3: If surrounded by large numbers (5+ digits), likely part of account pattern
+                  const prevNum = idx > 0 ? lineNumbers[idx - 1] : null;
+                  const nextNum = idx < lineNumbers.length - 1 ? lineNumbers[idx + 1] : null;
+                  if ((prevNum && prevNum.toString().length >= 5) || (nextNum && nextNum.toString().length >= 5)) {
+                    console.log(`    🚫 Rejecting ${n} (surrounded by account number)`);
+                    return false;
+                  }
+                  
+                  return true;
+                });
+                console.log(`    🔧 After filtering account/year numbers: [${validNumbers.join(', ')}]`);
+                
+                // Check if this line has a total (15-80 range)
+                const largeNumbers = validNumbers.filter(n => n >= 15 && n <= 80);
+                const dailyLineNumbers = validNumbers.filter(n => n >= 0 && n <= 16);
+                
+                // If we find a large number (and it's NOT an account number), it's likely the total
+                if (largeNumbers.length > 0) {
+                  total = largeNumbers[largeNumbers.length - 1]; // Use last one
+                  console.log(`    ✅ Found Total in next line: ${total}`);
                   break;
                 }
-                const dailyLineNumbers = lineNumbers.filter(n => n >= 0 && n <= 16);
-                if (dailyLineNumbers.length >= 3) {
-                  total = dailyLineNumbers.reduce((a, b) => a + b, 0);
-                  console.log(`    ✅ Summing from next line: ${dailyLineNumbers.join('+')} = ${total}`);
-                  break;
+                
+                // Collect daily numbers to sum later
+                if (dailyLineNumbers.length > 0) {
+                  collectedDailyNumbers.push(...dailyLineNumbers);
+                  console.log(`    📥 Collected daily numbers: [${dailyLineNumbers.join(', ')}], total so far: [${collectedDailyNumbers.join(', ')}]`);
+                }
+              }
+            }
+            
+            // If we collected enough daily numbers but no total, sum them
+            if (total === 0 && collectedDailyNumbers.length >= 5) {
+              total = collectedDailyNumbers.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ Summing all collected daily numbers: ${collectedDailyNumbers.join('+')} = ${total}`);
+            }
+            
+            // 🔧 RESCUE 1: If we have 3-4 identical daily numbers (e.g., [4,4,4]), estimate 5-day week
+            if (total === 0 && collectedDailyNumbers.length >= 3 && collectedDailyNumbers.length <= 4) {
+              const uniqueNumbers = [...new Set(collectedDailyNumbers)];
+              if (uniqueNumbers.length === 1) {
+                const dailyHours = uniqueNumbers[0];
+                if (dailyHours >= 4 && dailyHours <= 8) {
+                  total = dailyHours * 5; // Estimate 5-day week
+                  console.log(`    🔧 RESCUE 1: Found ${collectedDailyNumbers.length} identical daily hours (${dailyHours}h each), estimating 5-day week: ${dailyHours} × 5 = ${total}h`);
+                }
+              }
+            }
+            
+            // 🔧 RESCUE 2: If we have only 1-2 identical daily numbers (e.g., [4] or [4,4]), also estimate 5-day week
+            if (total === 0 && collectedDailyNumbers.length >= 1 && collectedDailyNumbers.length < 3) {
+              const uniqueNumbers = [...new Set(collectedDailyNumbers)];
+              if (uniqueNumbers.length === 1) {
+                const dailyHours = uniqueNumbers[0];
+                if (dailyHours >= 4 && dailyHours <= 8) {
+                  total = dailyHours * 5; // Estimate 5-day week
+                  console.log(`    🔧 RESCUE 2: Found only ${collectedDailyNumbers.length} daily hours (${dailyHours}h each), estimating 5-day week: ${dailyHours} × 5 = ${total}h`);
                 }
               }
             }
@@ -1178,6 +1394,7 @@ export default function TimesheetClient() {
           if (total > 0) {
             const originalTotal = total;
             if (total >= 18 && total <= 22) total = 20;
+            else if (total >= 28 && total <= 32) total = 30;
             else if (total >= 38 && total <= 42) total = 40;
             else if (total >= 58 && total <= 62) total = 60;
             
@@ -1186,11 +1403,8 @@ export default function TimesheetClient() {
             }
           }
           
-          // Skip if we already have this activity code (deduplicate by leadingNum)
-          const existingRow = overtimeHrsRows.find(r => r.leadingNum === leadingNum);
-          if (existingRow) {
-            console.log(`    ⚠️ SKIPPING duplicate OT row ${i + 1} (leadingNum=${leadingNum}, already have row ${existingRow.lineNum})`);
-          } else if (total > 0) {
+          // Accept this row if we have a valid total (allow multiple OT rows even with same activity code)
+          if (total > 0) {
             overtimeHrsRows.push({
               lineNum: i + 1,
               leadingNum,
@@ -1202,11 +1416,229 @@ export default function TimesheetClient() {
             console.log(`    ⚠️ Row ${i + 1}: Found "${overtimeHrsMatch[0]}" but no valid Total found`);
           }
         }
+        
+        // Look for "90 Public Holiday" or other OT activity types (Sick Leave, Annual Leave, etc.)
+        // Pattern: number + activity type that should count as OT/NH
+        const otActivityMatch = line.match(/(\d+)\s*(public\s+holiday|sick\s+leave|annual\s+leave|training|standby|call\s+out)/i);
+        if (otActivityMatch) {
+          const leadingNum = parseInt(otActivityMatch[1]);
+          const activityType = otActivityMatch[2];
+          
+          // Extract the Total value - same strategies as above
+          let total = 0;
+          const afterPattern = line.substring(otActivityMatch.index + otActivityMatch[0].length);
+          
+          const allNumbers = [...afterPattern.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
+          
+          console.log(`    🔍 OT Activity Row ${i + 1} (${activityType}) afterPattern: "${afterPattern}"`);
+          console.log(`    🔍 Numbers found: [${allNumbers.join(', ')}]`);
+          
+          if (allNumbers.length > 0) {
+            // Filter daily numbers (0-16 range) - these are individual day hours
+            const dailyNumbers = allNumbers.filter(n => n >= 0 && n <= 16);
+            
+            // Check if the LAST number could be a weekly total (sum of previous daily numbers)
+            if (dailyNumbers.length >= 3) {
+              const lastNum = dailyNumbers[dailyNumbers.length - 1];
+              const sumOfPrevious = dailyNumbers.slice(0, -1).reduce((a, b) => a + b, 0);
+              
+              // If last number equals sum of previous numbers, it's the total column
+              if (lastNum === sumOfPrevious || Math.abs(lastNum - sumOfPrevious) <= 2) {
+                total = lastNum;
+                console.log(`    ✅ Last number (${lastNum}) is the Total column (sum of daily: ${dailyNumbers.slice(0, -1).join('+')} ≈ ${sumOfPrevious})`);
+              }
+              // Otherwise, sum ALL daily numbers including the last one
+              else {
+                total = dailyNumbers.reduce((a, b) => a + b, 0);
+                console.log(`    ✅ Summing all ${dailyNumbers.length} daily numbers: ${dailyNumbers.join('+')} = ${total}`);
+              }
+            }
+            // If we have exactly 2 daily numbers, sum them (no separate total column detected)
+            else if (dailyNumbers.length === 2) {
+              total = dailyNumbers.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ Summing 2 daily numbers: ${dailyNumbers.join('+')} = ${total}`);
+            }
+            // If we have only 1 daily number, use it
+            else if (dailyNumbers.length === 1) {
+              total = dailyNumbers[0];
+              console.log(`    ✅ Using single number as Total: ${total}`);
+            }
+            // Otherwise try to find a total in the 8-80 range at the end
+            else {
+              const lastNum = allNumbers[allNumbers.length - 1];
+              if (lastNum >= 8 && lastNum <= 80) {
+                total = lastNum;
+                console.log(`    ✅ Using last number as Total: ${total}`);
+              }
+            }
+          }
+          
+          // Strategy 2: Check next 10 lines (increased from 3) for the Total
+          // OCR often splits table rows across multiple text lines
+          if (total === 0) {
+            console.log(`    🔍 Total not found on same line, searching next 10 lines...`);
+            let collectedDailyNumbers = [...allNumbers.filter(n => n >= 0 && n <= 16)];
+            
+            for (let j = 1; j <= 10 && i + j < combinedLines.length; j++) {
+              const nextLine = combinedLines[i + j].trim();
+              console.log(`    🔍 Checking next line +${j}: "${nextLine}"`);
+              
+              // Stop if we hit another activity row
+              if (nextLine.match(/\d+\s*(normal|overtime|public\s+holiday)/i)) {
+                console.log(`    ⛔ Hit another activity row, stopping search`);
+                break;
+              }
+              
+              // Collect all numbers from this line
+              const lineNumbers = [...nextLine.matchAll(/\b(\d+)\b/g)].map(m => parseInt(m[1]));
+              if (lineNumbers.length > 0) {
+                console.log(`    🔢 Line has numbers: [${lineNumbers.join(', ')}]`);
+                
+                // Check if this line has a total (15-80 range)
+                const largeNumbers = lineNumbers.filter(n => n >= 15 && n <= 80);
+                const dailyLineNumbers = lineNumbers.filter(n => n >= 0 && n <= 16);
+                
+                // If we find a large number, it's likely the total
+                if (largeNumbers.length > 0) {
+                  total = largeNumbers[largeNumbers.length - 1]; // Use last one
+                  console.log(`    ✅ Found Total in next line: ${total}`);
+                  break;
+                }
+                
+                // Collect daily numbers to sum later
+                if (dailyLineNumbers.length > 0) {
+                  collectedDailyNumbers.push(...dailyLineNumbers);
+                  console.log(`    📥 Collected daily numbers: [${dailyLineNumbers.join(', ')}], total so far: [${collectedDailyNumbers.join(', ')}]`);
+                }
+              }
+            }
+            
+            // If we collected enough daily numbers but no total, sum them
+            if (total === 0 && collectedDailyNumbers.length >= 5) {
+              total = collectedDailyNumbers.reduce((a, b) => a + b, 0);
+              console.log(`    ✅ Summing all collected daily numbers: ${collectedDailyNumbers.join('+')} = ${total}`);
+            }
+            
+            // RESCUE: If we have 3-4 identical daily numbers but no total, estimate based on pattern
+            if (total === 0 && collectedDailyNumbers.length >= 3 && collectedDailyNumbers.length < 5) {
+              const uniqueNumbers = [...new Set(collectedDailyNumbers)];
+              // If all numbers are the same (e.g., [4,4,4]), estimate 5 days
+              if (uniqueNumbers.length === 1) {
+                const dailyHours = uniqueNumbers[0];
+                total = dailyHours * 5; // Assume 5-day work week
+                console.log(`    🔧 RESCUE: Found ${collectedDailyNumbers.length} identical daily hours (${dailyHours}h each), estimating 5-day week: ${dailyHours} × 5 = ${total}h`);
+              } else {
+                // Sum what we have
+                total = collectedDailyNumbers.reduce((a, b) => a + b, 0);
+                console.log(`    🔧 RESCUE: Summing ${collectedDailyNumbers.length} partial daily numbers: ${collectedDailyNumbers.join('+')} = ${total}h`);
+              }
+            }
+          }
+          
+          // OCR corrections
+          if (total > 0) {
+            const originalTotal = total;
+            if (total >= 14 && total <= 18) total = 16;
+            else if (total >= 18 && total <= 22) total = 20;
+            else if (total >= 38 && total <= 42) total = 40;
+            
+            if (total !== originalTotal) {
+              console.log(`    🔧 OCR correction: ${originalTotal} → ${total}`);
+            }
+          }
+          
+          // Add to OT rows if valid total found (allow multiple OT activity rows even with same activity code)
+          if (total > 0) {
+            overtimeHrsRows.push({
+              lineNum: i + 1,
+              leadingNum,
+              total,
+              activityType,
+              line
+            });
+            console.log(`  ✓ Row ${i + 1}: Found "${otActivityMatch[0]}" | TOTAL: ${total}h | Line: "${line.substring(0, 80)}..."`);
+          } else {
+            console.log(`    ⚠️ Row ${i + 1}: Found "${otActivityMatch[0]}" but no valid Total found`);
+          }
+        }
       }
       
       console.log(`\n📊 RW/WORLEY ROW DETECTION:`);
       console.log(`   Normal Hrs rows found: ${normalHrsRows.length}`);
       console.log(`   Overtime Hrs rows found: ${overtimeHrsRows.length}`);
+      
+      // 🔧 DEDUPLICATE ROWS: OCR merges multiple passes, causing duplicate detections
+      // If two rows have the same total and same activity code, and are far apart (150+ lines),
+      // they're likely duplicates from merged OCR text
+      if (normalHrsRows.length > 1) {
+        console.log(`\n🔍 Checking for duplicate Normal Hrs rows...`);
+        const uniqueNormalRows = [];
+        
+        for (let i = 0; i < normalHrsRows.length; i++) {
+          const currentRow = normalHrsRows[i];
+          let isDuplicate = false;
+          
+          // Check against already accepted unique rows
+          for (const uniqueRow of uniqueNormalRows) {
+            const sameKey = currentRow.leadingNum === uniqueRow.leadingNum && 
+                           currentRow.total === uniqueRow.total;
+            const farApart = Math.abs(currentRow.lineNum - uniqueRow.lineNum) > 150;
+            
+            // Only mark as duplicate if BOTH same key AND far apart (likely OCR duplicate)
+            if (sameKey && farApart) {
+              console.log(`   🚫 Skipping duplicate: Row ${currentRow.lineNum} (same as Row ${uniqueRow.lineNum}: Activity ${currentRow.leadingNum}, ${currentRow.total}h, distance: ${Math.abs(currentRow.lineNum - uniqueRow.lineNum)} lines)`);
+              isDuplicate = true;
+              break;
+            }
+          }
+          
+          if (!isDuplicate) {
+            uniqueNormalRows.push(currentRow);
+          }
+        }
+        
+        if (uniqueNormalRows.length < normalHrsRows.length) {
+          console.log(`   ✅ Deduplicated: ${normalHrsRows.length} → ${uniqueNormalRows.length} Normal Hrs rows`);
+          normalHrsRows = uniqueNormalRows;
+        } else {
+          console.log(`   ✅ No duplicates found - keeping all ${normalHrsRows.length} rows`);
+        }
+      }
+      
+      if (overtimeHrsRows.length > 1) {
+        console.log(`\n🔍 Checking for duplicate Overtime rows...`);
+        const uniqueOTRows = [];
+        
+        for (let i = 0; i < overtimeHrsRows.length; i++) {
+          const currentRow = overtimeHrsRows[i];
+          let isDuplicate = false;
+          
+          // Check against already accepted unique rows
+          for (const uniqueRow of uniqueOTRows) {
+            const sameKey = currentRow.leadingNum === uniqueRow.leadingNum && 
+                           currentRow.total === uniqueRow.total;
+            const farApart = Math.abs(currentRow.lineNum - uniqueRow.lineNum) > 150;
+            
+            // Only mark as duplicate if BOTH same key AND far apart (likely OCR duplicate)
+            if (sameKey && farApart) {
+              console.log(`   🚫 Skipping duplicate: Row ${currentRow.lineNum} (same as Row ${uniqueRow.lineNum}: Activity ${currentRow.leadingNum}, ${currentRow.total}h, distance: ${Math.abs(currentRow.lineNum - uniqueRow.lineNum)} lines)`);
+              isDuplicate = true;
+              break;
+            }
+          }
+          
+          if (!isDuplicate) {
+            uniqueOTRows.push(currentRow);
+          }
+        }
+        
+        if (uniqueOTRows.length < overtimeHrsRows.length) {
+          console.log(`   ✅ Deduplicated: ${overtimeHrsRows.length} → ${uniqueOTRows.length} Overtime rows`);
+          overtimeHrsRows = uniqueOTRows;
+        } else {
+          console.log(`   ✅ No duplicates found - keeping all ${overtimeHrsRows.length} rows`);
+        }
+      }
       
       // Calculate totals from ACTUAL detected rows
       let normalTotal = 0;
@@ -1214,18 +1646,23 @@ export default function TimesheetClient() {
       
       // Sum up normal hours - just use the extracted Total value
       if (normalHrsRows.length > 0) {
+        console.log(`\n   📝 Summing Normal Hours from ${normalHrsRows.length} rows:`);
         normalTotal = normalHrsRows.reduce((sum, row) => {
-          console.log(`   → Normal row ${row.lineNum}: Total = ${row.total}h`);
+          console.log(`      → Row ${row.lineNum} (Activity Code ${row.leadingNum}): ${row.total}h`);
           return sum + row.total;
         }, 0);
+        console.log(`   ✅ Total Normal Hours: ${normalTotal}h`);
       }
       
       // Sum up OT hours - just use the extracted Total value
       if (overtimeHrsRows.length > 0) {
+        console.log(`\n   📝 Summing OT Hours from ${overtimeHrsRows.length} rows:`);
         otTotal = overtimeHrsRows.reduce((sum, row) => {
-          console.log(`   → OT row ${row.lineNum}: Total = ${row.total}h`);
+          const activityLabel = row.activityType ? `${row.activityType}` : 'Overtime Hrs';
+          console.log(`      → Row ${row.lineNum} (Activity Code ${row.leadingNum}, ${activityLabel}): ${row.total}h`);
           return sum + row.total;
         }, 0);
+        console.log(`   ✅ Total OT Hours: ${otTotal}h`);
       }
       
       totalNormalHours = normalTotal;
@@ -1251,8 +1688,9 @@ export default function TimesheetClient() {
       }
       
       console.log(`\n✅ RW/WORLEY FINAL TOTALS (from ${normalHrsRows.length} normal + ${overtimeHrsRows.length} OT rows):`);
-      console.log(`   Normal Hours: ${totalNormalHours}`);
-      console.log(`   OT Hours: ${totalOTHours}\n`);
+      console.log(`   Normal Hours: ${totalNormalHours}h (from ${normalHrsRows.length} rows with "Normal Hrs" type)`);
+      console.log(`   OT Hours: ${totalOTHours}h (from ${overtimeHrsRows.length} rows with "Overtime Hrs" or similar types)`);
+      console.log(`   Grand Total: ${totalNormalHours + totalOTHours}h\n`);
       
       // Clean up temp storage
       delete window._ocrRWTable;
@@ -1489,12 +1927,17 @@ export default function TimesheetClient() {
     if (!isPetrofac) {
       // Format 1: Look for "Total Regular" and "Total Overtime" (Primavera format)
       console.log("Searching line by line for Total Regular/Overtime...");
+      
+      let totalRegularLineIndex = -1;
+      let totalOvertimeLineIndex = -1;
+      
       for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       const lineLower = line.toLowerCase();
       
       if (lineLower.includes('total') && lineLower.includes('regular')) {
         console.log(`✓ Found "Total Regular" at line ${i + 1}: "${line}"`);
+        totalRegularLineIndex = i;
         const numbers = [...line.matchAll(/(\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]));
         console.log(`  All numbers in line: ${JSON.stringify(numbers)}`);
         
@@ -1506,6 +1949,7 @@ export default function TimesheetClient() {
       
       if (lineLower.includes('total') && lineLower.includes('overtime')) {
         console.log(`✓ Found "Total Overtime" at line ${i + 1}: "${line}"`);
+        totalOvertimeLineIndex = i;
         const numbers = [...line.matchAll(/(\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]));
         console.log(`  All numbers in line: ${JSON.stringify(numbers)}`);
         
@@ -1517,6 +1961,51 @@ export default function TimesheetClient() {
     }
     
     console.log(`After Format 1 search: Normal=${totalNormalHours}, OT=${totalOTHours}`);
+    
+    // PRIMAVERA FIX: Look for "Total Hours" column which may contain the actual totals
+    // This handles cases where "Total Regular 0.00 8.00" shows daily value (8) but actual total is in "Total Hours" column (40)
+    if (totalNormalHours > 0 && totalRegularLineIndex >= 0) {
+      console.log("🔍 Checking for 'Total Hours' column with larger values...");
+      
+      // Look for "Total" or "Hours" header, then scan following lines for larger numbers
+      for (let i = totalRegularLineIndex; i < Math.min(totalRegularLineIndex + 30, lines.length); i++) {
+        const line = lines[i].trim();
+        const lineLower = line.toLowerCase();
+        
+        // Found "Total Hours" header
+        if ((lineLower.includes('total') && lineLower.includes('hours')) || lineLower === 'total' || lineLower === 'hours') {
+          console.log(`  ✓ Found Total/Hours header at line ${i + 1}: "${line}"`);
+          
+          // Scan next 10 lines and collect ALL standalone numbers, then take the LARGEST
+          let maxTotalFound = totalNormalHours;
+          let maxLineNum = -1;
+          
+          for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
+            const numLine = lines[j].trim();
+            const numbers = [...numLine.matchAll(/(\d+(?:\.\d+)?)/g)].map(m => parseFloat(m[1]));
+            
+            // Look for standalone numbers in Total Hours column (exclude 0.00)
+            if (numbers.length === 1 && numbers[0] > 0 && numbers[0] <= 200) {
+              if (numbers[0] > maxTotalFound) {
+                console.log(`  📊 Found potential total at line ${j + 1}: ${numbers[0]}`);
+                maxTotalFound = numbers[0];
+                maxLineNum = j + 1;
+              }
+            }
+          }
+          
+          // Use the LARGEST value found
+          if (maxTotalFound > totalNormalHours) {
+            console.log(`  ✅ Using LARGEST value from "Total Hours" column at line ${maxLineNum}: ${maxTotalFound}`);
+            console.log(`     Updating Normal Hours: ${totalNormalHours} → ${maxTotalFound}`);
+            totalNormalHours = maxTotalFound;
+          }
+          break;
+        }
+      }
+    }
+    
+    console.log(`After Total Hours column check: Normal=${totalNormalHours}, OT=${totalOTHours}`);
     
     // Format 1a: Bureau Veritas format - "Total" column with Billable rows
     // Look for lines with "Billable" followed by numbers, then "Total" with a number
@@ -2431,4 +2920,4 @@ export default function TimesheetClient() {
     </div>
   );
   }
-}
+

@@ -1,0 +1,118 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { auth } from "../../firebase";
+
+export default function BdLayout({ children }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [checking, setChecking] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+  const [email, setEmail] = useState("");
+
+  const tabs = [
+    { href: "/bd", label: "Dashboard" },
+    { href: "/bd/proposals", label: "Proposal Tracker" },
+    { href: "/bd/proposals/new", label: "Add Proposal" },
+  ];
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch("/api/auth/role", {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          router.push("/dashboard");
+          return;
+        }
+
+        if (String(data?.role || "").toLowerCase() !== "bd") {
+          router.push("/dashboard");
+          return;
+        }
+
+        setAuthorized(true);
+        setEmail(user.email || "");
+      } catch {
+        router.push("/dashboard");
+      } finally {
+        setChecking(false);
+      }
+    });
+
+    return () => unsub();
+  }, [router]);
+
+  if (checking || !authorized) {
+    return (
+      <div className="min-h-screen bg-slate-100 grid place-items-center">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Loading BD workspace...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(1200px_450px_at_10%_-10%,#dbeafe_0%,transparent_60%),radial-gradient(1000px_500px_at_95%_0%,#ede9fe_0%,transparent_55%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/75 backdrop-blur-2xl">
+        <div className="mx-auto max-w-[1600px] px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.26em] text-slate-500">Business Development</p>
+              <h1 className="text-xl font-semibold text-slate-900">KLSB Portal</h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline text-sm text-slate-600">{email}</span>
+              <button
+                onClick={async () => {
+                  await signOut(auth);
+                  router.push("/login");
+                }}
+                className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
+            {tabs.map((tab) => {
+              const active =
+                tab.href === "/bd/proposals"
+                  ? pathname?.startsWith("/bd/proposals") && !pathname?.startsWith("/bd/proposals/new")
+                  : pathname === tab.href;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={
+                    "rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 " +
+                    (active
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.35)]"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100")
+                  }
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1600px] px-5 py-8">{children}</main>
+    </div>
+  );
+}

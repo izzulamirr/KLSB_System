@@ -16,6 +16,22 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## BD Proposal Module Setup
+
+To enable the separate Business Development (BD) proposal tracker (`/bd`), set these environment variables:
+
+```bash
+BD_PROPOSALS_COLLECTION=bd_proposals
+USER_ROLES_COLLECTION=user_roles
+BD_ROLE_NAME=bd
+DEFAULT_USER_ROLE=staff
+BD_EMAILS=bd1@yourcompany.com,bd2@yourcompany.com
+```
+
+- `BD_PROPOSALS_COLLECTION` stores BD tracker data in its own Firestore collection.
+- `USER_ROLES_COLLECTION` should contain documents keyed by Firebase `uid` with `{ role: "bd" }` for BD users.
+- `BD_EMAILS` is an optional fallback list for quick role assignment.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

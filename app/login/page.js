@@ -18,8 +18,25 @@ export default function Page() {
     setError("");
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push("/dashboard");
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await credential.user.getIdToken();
+
+      let targetRoute = "/dashboard";
+      try {
+        const roleRes = await fetch("/api/auth/role", {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (roleRes.ok) {
+          const roleData = await roleRes.json();
+          if (String(roleData?.role || "").toLowerCase() === "bd") {
+            targetRoute = "/bd";
+          }
+        }
+      } catch {
+        targetRoute = "/dashboard";
+      }
+
+      router.push(targetRoute);
     } catch (err) {
       console.error(err.code, err.message);
       setError(err.code || "Login failed");

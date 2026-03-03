@@ -51,8 +51,7 @@ export default function BDDashboardPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200/80 bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 px-7 py-6 shadow-[0_18px_40px_rgba(15,23,42,0.30)]">
-        <h2 className="text-2xl font-semibold text-slate-900">Dashboard</h2>
-        <p className="text-3xl font-semibold text-white">Dashboard</p>
+        <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
         <p className="text-sm text-blue-100/90 mt-1">Business Development proposal summary.</p>
       </section>
 

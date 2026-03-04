@@ -20,10 +20,12 @@ function getCollectionName() {
 }
 
 function normalizePayload(body) {
-  const numericFields = ["bidValidity", "maturityDays", "valueRM"];
+  const numericFields = ["bidValidity", "valueRM"];
+  const ignoredFields = ["maturityDays"];
   const out = {};
 
   for (const [key, value] of Object.entries(body || {})) {
+    if (ignoredFields.includes(key)) continue;
     if (value === "" || value === null || value === undefined) continue;
     if (numericFields.includes(key)) {
       const num = Number(value);
@@ -101,6 +103,7 @@ export async function PUT(req) {
     await db.collection(getCollectionName()).doc(id).set(
       {
         ...payload,
+          maturityDays: admin.firestore.FieldValue.delete(),
         updatedBy: decoded.uid,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },

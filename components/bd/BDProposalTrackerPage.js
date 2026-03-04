@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { bdFetch, formatCurrency, statusClass } from "./api";
+import { bdFetch, statusClass } from "./api";
 
 export default function BDProposalTrackerPage() {
   const [rows, setRows] = useState([]);
@@ -39,6 +39,37 @@ export default function BDProposalTrackerPage() {
     }
   }
 
+  function getMaturationDays(deadline) {
+    if (!deadline) return "-";
+
+    let targetDate = null;
+    if (typeof deadline === "string") {
+      const trimmed = deadline.trim();
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [year, month, day] = trimmed.split("-").map(Number);
+        targetDate = new Date(year, month - 1, day);
+      } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+        const [day, month, year] = trimmed.split("/").map(Number);
+        targetDate = new Date(year, month - 1, day);
+      } else {
+        targetDate = new Date(trimmed);
+      }
+    } else {
+      targetDate = new Date(deadline);
+    }
+
+    if (Number.isNaN(targetDate.getTime())) return "-";
+
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const daysRemaining = Math.ceil((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
+
+    if (daysRemaining <= 0) return "0 days";
+    return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
+  }
+
   return (
     <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
       <div className="flex items-center justify-between gap-3 mb-4">
@@ -65,7 +96,7 @@ export default function BDProposalTrackerPage() {
               <th className="px-3 py-2 text-left">Title / Project</th>
               <th className="px-3 py-2 text-left">Client</th>
               <th className="px-3 py-2 text-left">Deadline</th>
-              <th className="px-3 py-2 text-left">Value (RM)</th>
+              <th className="px-3 py-2 text-left">Maturation Date</th>
               <th className="px-3 py-2 text-left">Status</th>
               <th className="px-3 py-2 text-left">PIC</th>
               <th className="px-3 py-2 text-left">Action</th>
@@ -88,7 +119,7 @@ export default function BDProposalTrackerPage() {
                   <td className="px-3 py-2 max-w-[280px] truncate" title={item.titleProjectName || ""}>{item.titleProjectName || "-"}</td>
                   <td className="px-3 py-2">{item.client || "-"}</td>
                   <td className="px-3 py-2">{item.deadline || "-"}</td>
-                  <td className="px-3 py-2">{formatCurrency(item.valueRM)}</td>
+                  <td className="px-3 py-2">{getMaturationDays(item.maturityOnDate)}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>
                       {item.status || "PENDING"}

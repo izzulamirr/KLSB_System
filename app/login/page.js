@@ -46,35 +46,14 @@ export default function Page() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-[#0b1e3a] via-[#0e2b57] to-[#0b1e3a]">
-      {/* Subtle top yellow accent line */}
-      <div className="pointer-events-none absolute top-0 left-0 h-[3px] w-full bg-gradient-to-r from-yellow-400/90 via-yellow-400 to-yellow-400/90" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4">
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#f8fafc_0%,#eef2f7_100%)]" />
 
-      {/* Cosmic star dots for depth */}
-      <div className="absolute inset-0 opacity-20 [background:radial-gradient(white_1px,transparent_1px)] [background-size:20px_20px]" />
-
-      {/* Big soft diamond glow behind card */}
-      <div className="absolute w-[820px] h-[820px] bg-white/5 rounded-[3rem] rotate-45 blur-3xl" style={{
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%) rotate(45deg)",
-      }} />
-
-      {/* Layered diamond accents (brand motif) */}
-      <div className="absolute -right-40 -top-40 w-[420px] h-[420px] rotate-45 rounded-3xl bg-gradient-to-br from-white/10 to-white/0 border border-white/20 shadow-[0_0_60px_rgba(255,255,255,0.08)]" />
-      <div className="absolute -left-44 -bottom-44 w-[520px] h-[520px] rotate-45 rounded-3xl bg-gradient-to-tr from-white/10 to-transparent border border-white/10" />
-
-      {/* Animated thin yellow orbit line hint */}
-      <div className="absolute h-px w-[140%] left-1/2 -translate-x-1/2 -rotate-2 bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent animate-pulse [animation-duration:2400ms]" style={{ top: "18%" }} />
-
-      {/* Login Card */}
       <form
         onSubmit={handleLogin}
-        className="relative z-10 w-full max-w-md bg-white/90 backdrop-blur-xl rounded-2xl border border-white/30 shadow-2xl px-8 sm:px-10 py-10 sm:py-12"
+        className="relative z-10 w-full max-w-md portal-shell px-8 sm:px-10 py-10 sm:py-12"
         aria-labelledby="klsb-login-title"
       >
-       
-
         <div className="flex flex-col items-center gap-3 mb-6 text-center">
           <Image
             src="/logo/KLSB_icon.png"
@@ -93,11 +72,10 @@ export default function Page() {
           KLSB Portal Login
         </h2>
 
-        {/* Divider with yellow dash */}
         <div className="mt-4 mb-8 flex items-center gap-3">
-          <span className="h-px flex-1 bg-gradient-to-r from-transparent via-[#0e2b57]/20 to-transparent" />
-          <span className="w-10 h-[3px] rounded-full bg-yellow-400" />
-          <span className="h-px flex-1 bg-gradient-to-r from-transparent via-[#0e2b57]/20 to-transparent" />
+          <span className="h-px flex-1 bg-slate-200" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Secure Access</span>
+          <span className="h-px flex-1 bg-slate-200" />
         </div>
 
         <label className="block text-sm font-medium text-[#0e2b57]">Email</label>
@@ -107,7 +85,7 @@ export default function Page() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="mt-1 mb-5 w-full px-4 py-3 rounded-xl border border-[#7aa4cf]/60 bg-white/80 text-[#0b1e3a] placeholder-[#0b1e3a]/40 shadow-inner focus:outline-none focus:ring-4 focus:ring-[#7aa4cf]/40 focus:border-[#0e2b57] transition"
+          className="mt-1 mb-5 w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-[#0b1e3a] placeholder-[#0b1e3a]/40 focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/25 focus:border-[#0e2b57] transition"
           autoComplete="email"
           inputMode="email"
         />
@@ -122,11 +100,9 @@ export default function Page() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="mt-1 mb-4 w-full px-4 py-3 rounded-xl border border-[#7aa4cf]/60 bg-white/80 text-[#0b1e3a] placeholder-[#0b1e3a]/40 shadow-inner focus:outline-none focus:ring-4 focus:ring-[#7aa4cf]/40 focus:border-[#0e2b57] transition"
+            className="mt-1 mb-4 w-full px-4 py-3 rounded-xl border border-slate-300 bg-white text-[#0b1e3a] placeholder-[#0b1e3a]/40 focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/25 focus:border-[#0e2b57] transition"
             autoComplete="current-password"
           />
-
-          {/* Small floating diamond ornament */}
         </div>
 
         <div className="mb-4 text-right">
@@ -152,29 +128,18 @@ export default function Page() {
         <button
           type="submit"
           disabled={loading}
-          className="group relative w-full py-3 rounded-xl font-medium text-white bg-gradient-to-r from-[#0e2b57] to-[#0b1e3a] shadow-lg hover:shadow-xl transition disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full py-3 rounded-xl font-medium text-white bg-[#0f3d7a] hover:bg-[#0c3368] transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <span className="relative z-10">{loading ? "Signing in…" : "Login"}</span>
-          {/* sheen */}
-          <span className="absolute inset-0 overflow-hidden rounded-xl">
-            <span className="absolute -inset-10 -skew-x-12 opacity-0 group-hover:opacity-30 bg-white/60 blur-2xl transition-opacity duration-500" />
-          </span>
+          <span>{loading ? "Signing in…" : "Login"}</span>
         </button>
 
-        {/* Helper links */}
         <div className="mt-4 flex items-center justify-between text-xs text-[#0e2b57]/70">
           <a className="hover:underline" href="#" onClick={(e) => e.preventDefault()}>
             Forgot password?
           </a>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-1.5 h-1.5 rotate-45 bg-yellow-400" />
-            <span>v0.0.1</span>
-          </div>
+          <span>v0.0.1</span>
         </div>
       </form>
-
-      {/* Bottom-right subtle yellow accent line */}
-      <div className="pointer-events-none absolute bottom-6 right-8 h-[2px] w-40 bg-gradient-to-r from-yellow-400/0 via-yellow-400 to-yellow-400/0" />
     </div>
   );
 }

@@ -328,7 +328,7 @@ export default function DashboardPage() {
                             ? `/dashboard/manpower?company=${encodeURIComponent(project.location)}`
                             : `/dashboard/manpower?po=${encodeURIComponent(project.name)}`
                         }
-                        className="px-3 py-2 bg-[#0e2b57] text-white rounded-lg text-sm hover:bg-[#0a1f3d] transition"
+                        className="inline-flex min-w-[68px] items-center justify-center px-3 py-2 bg-[#0e2b57] !text-white font-semibold rounded-lg text-sm hover:bg-[#0a1f3d] focus:outline-none focus:ring-2 focus:ring-[#0e2b57]/40 transition"
                       >
                         View
                       </Link>

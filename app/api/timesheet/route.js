@@ -9,6 +9,7 @@ export async function GET(request) {
     
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
+    const countOnly = searchParams.get("countOnly") === "1";
 
     // Get single record
     if (id) {
@@ -17,6 +18,11 @@ export async function GET(request) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
       return NextResponse.json({ id: doc.id, ...doc.data() });
+    }
+
+    if (countOnly) {
+      const countSnap = await db.collection("timesheets").count().get();
+      return NextResponse.json({ total: countSnap.data().count || 0 });
     }
 
     // Get all records

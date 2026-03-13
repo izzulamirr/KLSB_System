@@ -101,11 +101,11 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
   // Determine CSS class. If expired, show red/rose styling but remain editable.
   const v = String(colorStatus || "").trim().toLowerCase();
   // Base color follows the explicit status color (or STATUS fallback).
-  let cls = "bg-blue-50 text-blue-700 ring-1 ring-blue-200";
-  if (v === "active" || v === "ongoing") cls = "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-  else if (v === "pending") cls = "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
-  else if (v === "completed") cls = "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
-  else if (v === "terminated") cls = "bg-rose-50 text-rose-700 ring-1 ring-rose-200";
+  let cls = "bg-sky-50 text-sky-800 ring-1 ring-sky-200";
+  if (v === "active" || v === "ongoing") cls = "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200";
+  else if (v === "pending") cls = "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
+  else if (v === "completed") cls = "bg-slate-100 text-slate-700 ring-1 ring-slate-300";
+  else if (v === "terminated") cls = "bg-rose-50 text-rose-800 ring-1 ring-rose-200";
 
   // If the KLSB end date is exceeded, visually emphasize expiration but don't override the
   // selected color — this allows users to change a terminated row back to another status/color.
@@ -134,7 +134,7 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${cls}`}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold cursor-pointer hover:opacity-85 transition-opacity ${cls}`}
   title={expiryLabel ? expiryLabel : (isExpired ? 'EXPIRED - Click to change' : `Status: ${colorStatus || 'Not set'} - Click to change`)}
       tabIndex={0}
       onClick={(e) => {
@@ -152,7 +152,7 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
 
 function Cell({ children, className = "", onClick }) {
   return (
-    <td className={`px-4 py-3 align-top text-sm text-slate-700 ${className}`} onClick={onClick}>{children}</td>
+    <td className={`px-4 py-3 align-top text-[13px] leading-5 text-slate-700 ${className}`} onClick={onClick}>{children}</td>
   );
 }
 
@@ -162,7 +162,7 @@ function ActionIconButton({ title, onClick, children }) {
       onClick={onClick}
       aria-label={title}
       title={title}
-      className="p-2 rounded-lg hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"
+      className="p-2 rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"
     >
       {children}
     </button>
@@ -192,7 +192,7 @@ function Row({ r, i, onEdit, onRemove }) {
   
   return (
     <tr
-      className={`border-t border-slate-100 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/50"} hover:bg-slate-50 transition-colors`}
+      className={`border-t border-slate-200/90 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/45"} hover:bg-[#eef4fd] transition-colors`}
     >
       <Cell className="whitespace-nowrap text-slate-800 font-medium">{r.BIL}</Cell>
       <Cell>{r.STAFF_NAME || "-"}</Cell>
@@ -283,6 +283,7 @@ export default function ManpowerTable({ initial = [] }) {
   const [nameFilter, setNameFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [projectFilter, setProjectFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRow());
   const [editingIndex, setEditingIndex] = useState(-1);
@@ -294,93 +295,41 @@ export default function ManpowerTable({ initial = [] }) {
   const [mapping, setMapping] = useState({}); // mapping[fromHeader] = targetField
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 30;
-  const dirtyRef = useRef(false);
-  const syncTimer = useRef(null);
   const fileInputRef = useRef(null);
 
   // Initial load
   useEffect(() => {
     (async () => {
+      if (Array.isArray(initial) && initial.length) {
+        setRows(sortByPoSoNoAndLocationAsc(initial));
+        return;
+      }
+
       try {
-        const res = await fetchWithAuth("/api/manpower");
+        const res = await fetchWithAuth("/api/manpower?limit=2000");
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
-            // Default table sort: ascending by PO/SO No, then LOCATION
             setRows(sortByPoSoNoAndLocationAsc(data));
             return;
           }
         }
-    // fall back to localStorage or initial
-    const cached = getLocal();
-  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
-  else setRows(sortByPoSoNoAndLocationAsc(initial));
+        const cached = getLocal();
+        if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
+        else setRows(sortByPoSoNoAndLocationAsc(initial));
       } catch (e) {
         const cached = getLocal();
-  if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
-  else setRows(sortByPoSoNoAndLocationAsc(initial));
-// Sort by PO_SO_No ascending (alphanumeric)
-// Sort by PO_SO_No, then LOCATION (both ascending, alphanumeric)
-function sortByPoSoNoAndLocationAsc(list) {
-  if (!Array.isArray(list)) return list;
-  return list.slice().sort((a, b) => {
-    const aPo = String(a?.PO_SO_No ?? '').toLowerCase();
-    const bPo = String(b?.PO_SO_No ?? '').toLowerCase();
-    if (aPo < bPo) return -1;
-    if (aPo > bPo) return 1;
-    // If PO/SO No is equal, sort by LOCATION
-    const aLoc = String(a?.LOCATION ?? '').toLowerCase();
-    const bLoc = String(b?.LOCATION ?? '').toLowerCase();
-    if (aLoc < bLoc) return -1;
-    if (aLoc > bLoc) return 1;
-    return 0;
-  });
-}
+        if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
+        else setRows(sortByPoSoNoAndLocationAsc(initial));
       }
     })();
-  }, []);
+  }, [initial]);
 
   // Local backup
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
     } catch {}
-  }, [rows]);
-
-  // Debounced background sync
-  useEffect(() => {
-    dirtyRef.current = true;
-    if (syncTimer.current) clearTimeout(syncTimer.current);
-    syncTimer.current = setTimeout(() => {
-      (async () => {
-        try {
-          for (const r of rows) {
-            if (r.id) {
-              await fetchWithAuth("/api/manpower", {
-                method: "PUT",
-                body: JSON.stringify(r),
-              });
-            } else {
-              const res = await fetchWithAuth("/api/manpower", {
-                method: "POST",
-                body: JSON.stringify(r),
-              });
-              if (res.ok) {
-                const json = await res.json();
-                if (json.id) r.id = json.id;
-              }
-            }
-          }
-          dirtyRef.current = false;
-        } catch (e) {
-          console.error("Background sync failed", e);
-        }
-      })();
-    }, 800);
-
-    return () => {
-      if (syncTimer.current) clearTimeout(syncTimer.current);
-    };
   }, [rows]);
 
   const submitForm = useCallback(
@@ -519,6 +468,7 @@ function sortByPoSoNoAndLocationAsc(list) {
     try {
       let updatedCount = 0;
       const updatedRows = [];
+      const changedRows = [];
 
       for (const row of rows) {
         // If the row has been manually locked by a user, skip automatic updates
@@ -539,18 +489,20 @@ function sortByPoSoNoAndLocationAsc(list) {
 
         // Only update in database if status color actually changed
         if (newStatusColor !== currentStatusColor && row.id) {
-          try {
-            const res = await fetchWithAuth("/api/manpower", {
-              method: "PUT",
-              body: JSON.stringify(updatedRow),
-            });
-            if (res.ok) {
-              updatedCount++;
-            }
-          } catch (error) {
-            console.error("Failed to update row:", row.id, error);
-          }
+          changedRows.push(updatedRow);
         }
+      }
+
+      if (changedRows.length) {
+        const res = await fetchWithAuth("/api/manpower", {
+          method: "PUT",
+          body: JSON.stringify({ rows: changedRows }),
+        });
+        if (!res.ok) {
+          const err = await safeJson(res);
+          throw new Error(err?.error || "Bulk status update failed");
+        }
+        updatedCount = changedRows.length;
       }
 
       // Update local state with all updated rows
@@ -698,34 +650,26 @@ function sortByPoSoNoAndLocationAsc(list) {
       const failures = [];
 
       if (user) {
-        // Persist each row to backend so we get document ids immediately
-        const createdRows = [];
-        const localFailures = [];
-        for (let i = 0; i < normalized.length; i++) {
-          const row = normalized[i];
-          try {
-            const res = await fetchWithAuth("/api/manpower", {
-              method: "POST",
-              body: JSON.stringify(row),
-            });
-            if (res.ok) {
-              const json = await res.json();
-              createdRows.push({ ...row, id: json.id });
-              successes.push({ ...row, id: json.id });
-            } else {
-              const err = await safeJson(res);
-              console.error("Import row failed", err || res.statusText);
-              localFailures.push({ row, error: err || res.statusText });
-              failures.push({ row, error: err || res.statusText });
-            }
-          } catch (err) {
-            console.error("Import row error", err);
-            localFailures.push({ row, error: err });
-            failures.push({ row, error: err });
+        try {
+          const res = await fetchWithAuth("/api/manpower", {
+            method: "POST",
+            body: JSON.stringify({ rows: normalized }),
+          });
+
+          if (!res.ok) {
+            const err = await safeJson(res);
+            throw new Error(err?.error || res.statusText);
           }
+
+          const json = await res.json();
+          const createdRows = Array.isArray(json?.rows) ? json.rows : [];
+          successes.push(...createdRows);
+          setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...createdRows]));
+        } catch (err) {
+          console.error("Bulk import failed", err);
+          failures.push(...normalized.map((row) => ({ row, error: err })));
+          setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...normalized]));
         }
-        // Batch update UI once
-  setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...createdRows, ...localFailures.map((f) => f.row)]));
       } else {
         // Not signed-in: keep rows locally and let background sync attempt when user signs in
   setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...normalized]));
@@ -750,30 +694,38 @@ function sortByPoSoNoAndLocationAsc(list) {
     }
   }, [rawCsvRows, rows]);
 
-  const filtered = rows.filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter));
+  // Derive unique sorted project list from all rows for the dropdown
+  const projectOptions = Array.from(
+    new Set(rows.map((r) => String(r?.PO_SO_No ?? "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+  const filtered = rows
+    .filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter))
+    .filter((r) => !projectFilter || String(r?.PO_SO_No ?? "").trim() === projectFilter);
+  const sortedFiltered = filtered;
 
   // Reset to first page when filters change (but not when rows are updated)
   useEffect(() => {
     setPage(1);
-  }, [q, nameFilter, positionFilter, statusFilter]);
+  }, [q, nameFilter, positionFilter, statusFilter, projectFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
+  const paginated = sortedFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/80 overflow-hidden">
+    <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/40 ring-1 ring-slate-200 overflow-hidden">
       {/* Top bar */}
-      <div className="bg-gradient-to-r from-[#0e2b57] via-[#12386f] to-[#0e2b57] px-5 py-4 text-white">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-5 py-5 text-slate-900">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/10 ring-1 ring-white/20">
+            <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-[#0f3d7a] text-white ring-1 ring-[#0f3d7a]/20 shadow-sm">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
                 <path d="M3 5h18M3 12h18M3 19h18" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </div>
             <div>
-              <div className="text-sm/5 text-white/80">KLSB · Manpower Registry</div>
-              <div className="text-lg font-semibold tracking-tight">Records: {filtered.length} / {rows.length}</div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">KLSB Workforce Register</div>
+              <div className="text-xl font-semibold tracking-tight text-slate-900">Records: {filtered.length} / {rows.length}</div>
             </div>
           </div>
 
@@ -783,7 +735,7 @@ function sortByPoSoNoAndLocationAsc(list) {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search anywhere (BIL, Name, Position, PO, Location)"
-                className="w-72 max-w-[70vw] pl-9 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                className="w-80 max-w-[75vw] pl-9 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
               />
               <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5.5 5.5a7.5 7.5 0 0 0 11.2 11.2Z" />
@@ -792,7 +744,7 @@ function sortByPoSoNoAndLocationAsc(list) {
 
             <button
               onClick={() => openAddForm()}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white text-[#0e2b57] font-medium shadow-sm hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0f3d7a] text-white font-semibold shadow-sm hover:bg-[#0c3368] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M12 5v14M5 12h14" strokeWidth="1.8" strokeLinecap="round" />
@@ -804,7 +756,7 @@ function sortByPoSoNoAndLocationAsc(list) {
             <button
               disabled={importing}
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-slate-800 border border-slate-300 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40 disabled:opacity-60"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -814,7 +766,7 @@ function sortByPoSoNoAndLocationAsc(list) {
 
             <button
               onClick={updateAllStatuses}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white font-medium shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
               title="Update all statuses based on end dates"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
@@ -829,8 +781,9 @@ function sortByPoSoNoAndLocationAsc(list) {
                 setNameFilter("");
                 setPositionFilter("");
                 setStatusFilter("");
+                setProjectFilter("");
               }}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/0 text-white ring-1 ring-white/25 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-slate-700 border border-slate-300 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40"
             >
               Clear
             </button>
@@ -838,31 +791,46 @@ function sortByPoSoNoAndLocationAsc(list) {
         </div>
 
         {/* Filter row */}
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
           <input
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             placeholder="Filter by Name"
-            className="pl-3 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           />
           <input
             value={positionFilter}
             onChange={(e) => setPositionFilter(e.target.value)}
             placeholder="Filter by Position"
-            className="pl-3 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           />
-          <input
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            placeholder="Filter by Status (Active, Pending, Completed…)"
-            className="pl-3 pr-3 py-2 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 bg-white/95 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-          />
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
+          >
+            <option value="">Filter by Status</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+            <option value="terminated">Terminated</option>
+          </select>
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
+          >
+            <option value="">All Projects</option>
+            {projectOptions.map((po) => (
+              <option key={po} value={po}>{po}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-auto">
-        <table className="w-full table-auto text-sm">
+        <div className="overflow-auto border-t border-slate-200 bg-white">
+          <table className="w-full min-w-[1180px] table-auto text-sm">
           <thead className="sticky top-0 z-10 shadow-sm">
             <tr>
               {[
@@ -883,7 +851,7 @@ function sortByPoSoNoAndLocationAsc(list) {
               ].map((h, i) => (
                 <th
                   key={i}
-                  className="text-left px-4 py-3 bg-[#0e2b57] text-white font-semibold first:rounded-tl-2xl last:rounded-tr-2xl"
+                  className="text-left px-4 py-3 bg-slate-100 text-slate-700 border-b border-slate-300 font-semibold text-[11px] uppercase tracking-[0.1em] first:rounded-tl-xl last:rounded-tr-xl"
                 >
                   {h}
                 </th>
@@ -897,7 +865,7 @@ function sortByPoSoNoAndLocationAsc(list) {
               ))
             ) : (
               <tr>
-                <td colSpan={13} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={14} className="px-4 py-12 text-center text-slate-500">
                   No matching records. Try adjusting your filters.
                 </td>
               </tr>
@@ -906,12 +874,16 @@ function sortByPoSoNoAndLocationAsc(list) {
         </table>
       </div>
       {/* Pagination controls */}
-      <div className="flex items-center justify-between px-5 py-3 bg-white/80 border-t border-slate-100">
-        <div className="text-sm text-slate-600">Showing {Math.min(filtered.length, (page-1)*PAGE_SIZE+1)}–{Math.min(filtered.length, page*PAGE_SIZE)} of {filtered.length}</div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-5 py-3 bg-slate-50/80 border-t border-slate-200">
+        <div className="text-sm text-slate-600">
+          {sortedFiltered.length
+            ? `Showing ${Math.min(sortedFiltered.length, (page - 1) * PAGE_SIZE + 1)}-${Math.min(sortedFiltered.length, page * PAGE_SIZE)} of ${sortedFiltered.length}`
+            : "Showing 0 of 0"}
+        </div>
         <div className="inline-flex items-center gap-2">
-          <button onClick={() => setPage((p) => Math.max(1, p-1))} disabled={page <= 1} className="px-3 py-1 rounded-md border bg-white/50 disabled:opacity-50">Prev</button>
-          <div className="text-sm">Page {page} / {totalPages}</div>
-          <button onClick={() => setPage((p) => Math.min(totalPages, p+1))} disabled={page >= totalPages} className="px-3 py-1 rounded-md border bg-white/50 disabled:opacity-50">Next</button>
+          <button onClick={() => setPage((p) => Math.max(1, p-1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50">Prev</button>
+          <div className="text-sm font-medium text-slate-700">Page {page} / {totalPages}</div>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p+1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50">Next</button>
         </div>
       </div>
 
@@ -976,9 +948,9 @@ function sortByPoSoNoAndLocationAsc(list) {
                   <option value="H">Hourly</option>
                 </select>
               </label>
-              {/* Editable END_DATE (KLSB) */}
+              {/* Editable END_DATE */}
               <label className="flex flex-col">
-                <span className="text-xs text-slate-500 mb-1">End Date (KLSB)</span>
+                <span className="text-xs text-slate-500 mb-1">End Date</span>
                 <input
                   type="date"
                   value={form.END_DATE || ""}
@@ -1133,6 +1105,24 @@ function getLocal() {
   }
 }
 
+function sortByPoSoNoAndLocationAsc(list) {
+  if (!Array.isArray(list)) return list;
+  return list.slice().sort((a, b) => {
+    const aPo = String(a?.PO_SO_No ?? "").toLowerCase();
+    const bPo = String(b?.PO_SO_No ?? "").toLowerCase();
+    if (aPo < bPo) return -1;
+    if (aPo > bPo) return 1;
+
+    const aLoc = String(a?.LOCATION ?? "").toLowerCase();
+    const bLoc = String(b?.LOCATION ?? "").toLowerCase();
+    if (aLoc < bLoc) return -1;
+    if (aLoc > bLoc) return 1;
+    return 0;
+  });
+}
+
+
+
 function sortByBilAsc(list) {
   if (!Array.isArray(list)) return list;
   return list.slice().sort((a, b) => {
@@ -1222,7 +1212,11 @@ function matchFilter(row, q, nameQ, positionQ, statusQ) {
 
     if (statusQ) {
       const s = String(statusQ).trim().toLowerCase();
-      if (!String(row.STATUS ?? "").toLowerCase().includes(s)) return false;
+      // Match against STATUS_COLOR (Active/Pending/Completed/Terminated) with computed fallback
+      const colorStatus = String(
+        row.STATUS_COLOR || computeStatusColorFromDates(row) || ""
+      ).trim().toLowerCase();
+      if (!colorStatus.includes(s)) return false;
     }
 
     return true;

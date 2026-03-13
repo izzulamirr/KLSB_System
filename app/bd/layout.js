@@ -58,14 +58,14 @@ export default function BdLayout({ children }) {
   if (checking || !authorized) {
     return (
       <div className="min-h-screen bg-slate-100 grid place-items-center">
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Loading BD workspace...</div>
+        <div className="portal-shell px-4 py-2 text-sm text-slate-600">Loading BD workspace...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(1200px_450px_at_10%_-10%,#dbeafe_0%,transparent_60%),radial-gradient(1000px_500px_at_95%_0%,#ede9fe_0%,transparent_55%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]">
-      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/75 backdrop-blur-2xl">
+    <div className="min-h-screen bg-slate-100">
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-[1600px] px-5 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -80,14 +80,14 @@ export default function BdLayout({ children }) {
                   await signOut(auth);
                   router.push("/login");
                 }}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
               >
                 Logout
               </button>
             </div>
           </div>
 
-          <div className="mt-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200/80 bg-white/80 p-1.5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
+          <div className="mt-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
             {tabs.map((tab) => {
               const active =
                 tab.href === "/bd/proposals"
@@ -100,7 +100,7 @@ export default function BdLayout({ children }) {
                   className={
                     "rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all duration-200 " +
                     (active
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.35)]"
+                      ? "bg-[#0f3d7a] text-white"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-100")
                   }
                 >
@@ -112,7 +112,9 @@ export default function BdLayout({ children }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] px-5 py-8">{children}</main>
+      <main className="mx-auto max-w-[1600px] px-5 py-8">
+        <div className="portal-shell p-5 md:p-7">{children}</div>
+      </main>
     </div>
   );
 }

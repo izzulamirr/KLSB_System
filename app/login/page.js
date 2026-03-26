@@ -1,17 +1,19 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase";
 import Image from "next/image";
 
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const sessionTimedOut = searchParams.get("reason") === "idle-timeout";
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -77,6 +79,15 @@ export default function Page() {
           <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Secure Access</span>
           <span className="h-px flex-1 bg-slate-200" />
         </div>
+
+        {sessionTimedOut && (
+          <div
+            role="status"
+            className="text-amber-700 text-sm mb-4 text-center bg-amber-50/90 border border-amber-200 px-3 py-2 rounded-lg"
+          >
+            Session ended due to 5 minutes of inactivity. Please sign in again.
+          </div>
+        )}
 
         <label className="block text-sm font-medium text-[#0e2b57]">Email</label>
         <input

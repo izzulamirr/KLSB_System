@@ -45,6 +45,7 @@ export default function ControlClient() {
   // users fetched from Firebase Auth — each has { uid, name, email, disabled, lastSignInTime, customClaims }
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [togglingUserId, setTogglingUserId] = useState("");
   // Tick every 30s so relative timestamps stay fresh
   const [, setTick] = useState(0);
   const [apiEndpoints, setApiEndpoints] = useState([
@@ -253,12 +254,41 @@ export default function ControlClient() {
     alert(`✓ Password reset email sent to user ${userId}`);
   };
 
-  const handleToggleUserStatus = (userId) => {
-    setUsers(
-      users.map((u) =>
-        u.id === userId ? { ...u, status: u.status === "active" ? "inactive" : "active" } : u
+  const handleToggleUserStatus = async (targetUser) => {
+    const nextDisabled = targetUser.status === "active";
+
+    if (
+      !confirm(
+        `${nextDisabled ? "Deactivate" : "Activate"} ${targetUser.email || targetUser.name}?`
       )
-    );
+    ) {
+      return;
+    }
+
+    try {
+      setTogglingUserId(targetUser.id);
+      const res = await fetchWithAuth("/api/auth/users", {
+        method: "PATCH",
+        body: JSON.stringify({ uid: targetUser.id, disabled: nextDisabled }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to update user status");
+      }
+
+      setUsers((curr) =>
+        curr.map((u) =>
+          u.id === targetUser.id
+            ? { ...u, status: nextDisabled ? "inactive" : "active" }
+            : u
+        )
+      );
+    } catch (err) {
+      alert(`Unable to update user status: ${err.message || err}`);
+    } finally {
+      setTogglingUserId("");
+    }
   };
 
   const handleDismissAlert = (alertId) => {
@@ -552,8 +582,12 @@ export default function ControlClient() {
                         <button onClick={() => handleResetUserPassword(u.id)} className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
                           Reset
                         </button>
-                        <button onClick={() => handleToggleUserStatus(u.id)} className={`px-3 py-1 text-xs rounded ${u.status === "active" ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}>
-                          {u.status === "active" ? "Deactivate" : "Activate"}
+                        <button
+                          onClick={() => handleToggleUserStatus(u)}
+                          disabled={togglingUserId === u.id}
+                          className={`px-3 py-1 text-xs rounded ${u.status === "active" ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"} ${togglingUserId === u.id ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          {togglingUserId === u.id ? "Updating..." : u.status === "active" ? "Deactivate" : "Activate"}
                         </button>
                       </div>
                     </td>

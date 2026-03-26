@@ -1,23 +1,73 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { auth } from "../../firebase";
+import useIdleLogout from "../../lib/useIdleLogout";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const [checking, setChecking] = useState(true);
+  const [role, setRole] = useState("");
+
+  const handleIdleTimeout = useCallback(async () => {
+    await signOut(auth);
+    router.replace("/login?reason=idle-timeout");
+  }, [router]);
+
+  useIdleLogout({
+    enabled: !checking,
+    timeoutMs: 5 * 60 * 1000,
+    onTimeout: handleIdleTimeout,
+  });
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
-      if (!u) router.push("/login");
-      setChecking(false);
+      if (!u) {
+        router.push("/login");
+        setChecking(false);
+        return;
+      }
+
+      (async () => {
+        try {
+          const token = await u.getIdToken();
+          const res = await fetch("/api/auth/role", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            setChecking(false);
+            return;
+          }
+
+          const data = await res.json();
+          const resolvedRole = String(data?.role || "").toLowerCase();
+          setRole(resolvedRole);
+
+          // BD users are strictly scoped to BD portal only.
+          if (resolvedRole === "bd") {
+            router.replace("/bd");
+            return;
+          }
+
+          // Non-sysdev users cannot open control center directly.
+          if (pathname?.startsWith("/dashboard/control") && resolvedRole !== "sysdev") {
+            router.replace("/dashboard");
+            return;
+          }
+        } catch {
+          // Keep default route behavior when role API is unavailable.
+        } finally {
+          setChecking(false);
+        }
+      })();
     });
     return () => unsub();
-  }, [router]);
+  }, [router, pathname]);
 
   if (checking) {
     return (
@@ -34,7 +84,7 @@ export default function DashboardLayout({ children }) {
     { href: "/dashboard/manpower", label: "PO/SO Database", icon: "PO" },
     { href: "/dashboard/timesheet", label: "Timesheet Management", icon: "TS" },
     { href: "/dashboard/finance", label: "Finance & Invoicing", icon: "FN" },
-    { href: "/dashboard/control", label: "Control Center", icon: "CT" },
+    ...(role === "sysdev" ? [{ href: "/dashboard/control", label: "Control Center", icon: "CT" }] : []),
     { href: "/dashboard/settings", label: "System Settings", icon: "ST" },
   ];
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { auth } from "../../firebase";
+import useIdleLogout from "../../lib/useIdleLogout";
 
 export default function BdLayout({ children }) {
   const router = useRouter();
@@ -12,6 +13,17 @@ export default function BdLayout({ children }) {
   const [checking, setChecking] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [email, setEmail] = useState("");
+
+  const handleIdleTimeout = useCallback(async () => {
+    await signOut(auth);
+    router.replace("/login?reason=idle-timeout");
+  }, [router]);
+
+  useIdleLogout({
+    enabled: !checking && authorized,
+    timeoutMs: 5 * 60 * 1000,
+    onTimeout: handleIdleTimeout,
+  });
 
   const tabs = [
     { href: "/bd", label: "Dashboard" },

@@ -159,7 +159,10 @@ function Cell({ children, className = "", onClick }) {
 function ActionIconButton({ title, onClick, children }) {
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(e);
+      }}
       aria-label={title}
       title={title}
       className="p-2 rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"
@@ -169,7 +172,7 @@ function ActionIconButton({ title, onClick, children }) {
   );
 }
 
-function Row({ r, i, onEdit, onRemove }) {
+function Row({ r, i, onEdit, onRemove, onSelect }) {
   // STATUS = displayed text (can be employment type OR situation)
   // STATUS_COLOR = pill color derived from STATUS
   const displayText = r.STATUS || "";
@@ -192,6 +195,7 @@ function Row({ r, i, onEdit, onRemove }) {
   
   return (
     <tr
+      onClick={() => onSelect?.(r)}
       className={`border-t border-slate-200/90 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/45"} hover:bg-[#eef4fd] transition-colors`}
     >
       <Cell className="whitespace-nowrap text-slate-800 font-medium">{r.BIL}</Cell>
@@ -282,8 +286,8 @@ export default function ManpowerTable({ initial = [] }) {
   const [q, setQ] = useState("");
   const [nameFilter, setNameFilter] = useState("");
   const [positionFilter, setPositionFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
+  const [viewMode, setViewMode] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRow());
   const [editingIndex, setEditingIndex] = useState(-1);
@@ -294,7 +298,11 @@ export default function ManpowerTable({ initial = [] }) {
   const [csvHeaders, setCsvHeaders] = useState([]);
   const [mapping, setMapping] = useState({}); // mapping[fromHeader] = targetField
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 30;
+  const [pageSize, setPageSize] = useState(30);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [statusSyncing, setStatusSyncing] = useState(false);
+  const [statusLastSyncedAt, setStatusLastSyncedAt] = useState(null);
+  const PAGE_SIZE = pageSize;
   const fileInputRef = useRef(null);
 
   // Initial load
@@ -456,19 +464,11 @@ export default function ManpowerTable({ initial = [] }) {
   const updateAllStatuses = useCallback(async () => {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user) {
-      alert("You must be signed in to update statuses.");
-      return;
-    }
-
-    if (!confirm("This will update all staff work statuses based on their end dates:\n• Both dates exceeded → Terminated\n• KLSB end date exceeded (but not END_DATE) → Pending\n• END_DATE exceeded → Completed\n• No dates exceeded → Active\n\nNote: Employment types (Permanent, Monthly, Hourly) will NOT be changed.\n\nContinue?")) {
-      return;
-    }
-
+    setStatusSyncing(true);
     try {
-      let updatedCount = 0;
       const updatedRows = [];
       const changedRows = [];
+      let localChanged = false;
 
       for (const row of rows) {
         // If the row has been manually locked by a user, skip automatic updates
@@ -487,13 +487,14 @@ export default function ManpowerTable({ initial = [] }) {
         };
         updatedRows.push(updatedRow);
 
-        // Only update in database if status color actually changed
-        if (newStatusColor !== currentStatusColor && row.id) {
-          changedRows.push(updatedRow);
+        // Only update when status color actually changed
+        if (newStatusColor !== currentStatusColor) {
+          localChanged = true;
+          if (row.id) changedRows.push(updatedRow);
         }
       }
 
-      if (changedRows.length) {
+      if (changedRows.length && user) {
         const res = await fetchWithAuth("/api/manpower", {
           method: "PUT",
           body: JSON.stringify({ rows: changedRows }),
@@ -502,17 +503,28 @@ export default function ManpowerTable({ initial = [] }) {
           const err = await safeJson(res);
           throw new Error(err?.error || "Bulk status update failed");
         }
-        updatedCount = changedRows.length;
       }
 
-      // Update local state with all updated rows
-      setRows(updatedRows);
-      alert(`Successfully updated ${updatedCount} staff status${updatedCount !== 1 ? 'es' : ''} in the database.`);
+      if (localChanged) {
+        setRows(updatedRows);
+      }
+      setStatusLastSyncedAt(Date.now());
     } catch (err) {
       console.error("Failed to update statuses:", err);
-      alert("Failed to update statuses: " + (err.message || err));
+    } finally {
+      setStatusSyncing(false);
     }
   }, [rows]);
+
+  // Keep statuses automatically synchronized in the background.
+  useEffect(() => {
+    if (!rows.length) return;
+    updateAllStatuses();
+    const id = setInterval(() => {
+      updateAllStatuses();
+    }, 60000);
+    return () => clearInterval(id);
+  }, [rows.length, updateAllStatuses]);
 
   // Basic CSV import (expects headers matching keys)
   const onFileChange = useCallback((e) => {
@@ -700,14 +712,24 @@ export default function ManpowerTable({ initial = [] }) {
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
   const filtered = rows
-    .filter((r) => matchFilter(r, q, nameFilter, positionFilter, statusFilter))
+    .filter((r) => matchFilter(r, q, nameFilter, positionFilter))
     .filter((r) => !projectFilter || String(r?.PO_SO_No ?? "").trim() === projectFilter);
-  const sortedFiltered = filtered;
+
+  const statusCounters = {
+    all: filtered.length,
+    active: filtered.filter((r) => isRowInView(r, "active")).length,
+    pending: filtered.filter((r) => isRowInView(r, "pending")).length,
+    closed: filtered.filter((r) => isRowInView(r, "closed")).length,
+    expiring: filtered.filter((r) => isRowInView(r, "expiring")).length,
+  };
+
+  const scopedFiltered = filtered.filter((r) => isRowInView(r, viewMode));
+  const sortedFiltered = scopedFiltered;
 
   // Reset to first page when filters change (but not when rows are updated)
   useEffect(() => {
     setPage(1);
-  }, [q, nameFilter, positionFilter, statusFilter, projectFilter]);
+  }, [q, nameFilter, positionFilter, projectFilter, viewMode, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const paginated = sortedFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -725,7 +747,7 @@ export default function ManpowerTable({ initial = [] }) {
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">KLSB Workforce Register</div>
-              <div className="text-xl font-semibold tracking-tight text-slate-900">Records: {filtered.length} / {rows.length}</div>
+              <div className="text-xl font-semibold tracking-tight text-slate-900">Records: {sortedFiltered.length} / {rows.length}</div>
             </div>
           </div>
 
@@ -764,23 +786,22 @@ export default function ManpowerTable({ initial = [] }) {
               {importing ? "Importing…" : "Import CSV"}
             </button>
 
-            <button
-              onClick={updateAllStatuses}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold shadow-sm hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-              title="Update all statuses based on end dates"
+            <div
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold"
+              title="Statuses are updated automatically every 60 seconds and on load"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Update Statuses
-            </button>
+              <span>{statusSyncing ? "Auto-syncing status..." : "Status auto-sync on"}</span>
+              <span className="text-[11px] font-medium text-emerald-700/80">{formatRelativeTime(statusLastSyncedAt)}</span>
+            </div>
 
             <button
               onClick={() => {
                 setQ("");
                 setNameFilter("");
                 setPositionFilter("");
-                setStatusFilter("");
                 setProjectFilter("");
               }}
               className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-slate-700 border border-slate-300 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40"
@@ -790,8 +811,35 @@ export default function ManpowerTable({ initial = [] }) {
           </div>
         </div>
 
+        {/* Scoped views */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {[
+            { key: "all", label: "All Records" },
+            { key: "active", label: "Active" },
+            { key: "pending", label: "Pending" },
+            { key: "closed", label: "Closed" },
+            { key: "expiring", label: "Expiring Soon" },
+          ].map((v) => {
+            const active = viewMode === v.key;
+            return (
+              <button
+                key={v.key}
+                onClick={() => setViewMode(v.key)}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
+                  active
+                    ? "bg-[#0f3d7a] text-white border-[#0f3d7a]"
+                    : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <span>{v.label}</span>
+                <span className={`rounded-full px-1.5 py-0.5 ${active ? "bg-white/20" : "bg-slate-100"}`}>{statusCounters[v.key]}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Filter row */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
@@ -804,17 +852,6 @@ export default function ManpowerTable({ initial = [] }) {
             placeholder="Filter by Position"
             className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
-          >
-            <option value="">Filter by Status</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="completed">Completed</option>
-            <option value="terminated">Terminated</option>
-          </select>
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
@@ -861,7 +898,7 @@ export default function ManpowerTable({ initial = [] }) {
           <tbody>
             {paginated.length ? (
               paginated.map((r, i) => (
-                <MemoRow key={r.id ?? `${r.BIL}-${(page-1)*PAGE_SIZE + i}`} r={r} i={(page-1)*PAGE_SIZE + i} onEdit={openEditForm} onRemove={remove} />
+                <MemoRow key={r.id ?? `${r.BIL}-${(page-1)*PAGE_SIZE + i}`} r={r} i={(page-1)*PAGE_SIZE + i} onEdit={openEditForm} onRemove={remove} onSelect={setSelectedRow} />
               ))
             ) : (
               <tr>
@@ -881,11 +918,73 @@ export default function ManpowerTable({ initial = [] }) {
             : "Showing 0 of 0"}
         </div>
         <div className="inline-flex items-center gap-2">
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value) || 30)}
+            className="px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-sm"
+            title="Rows per page"
+          >
+            <option value={30}>30 rows</option>
+            <option value={50}>50 rows</option>
+            <option value={100}>100 rows</option>
+          </select>
           <button onClick={() => setPage((p) => Math.max(1, p-1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50">Prev</button>
           <div className="text-sm font-medium text-slate-700">Page {page} / {totalPages}</div>
           <button onClick={() => setPage((p) => Math.min(totalPages, p+1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50">Next</button>
         </div>
       </div>
+
+      {/* Row detail drawer */}
+      {selectedRow && (
+        <div className="fixed inset-0 z-40 bg-slate-900/40" onClick={() => setSelectedRow(null)}>
+          <aside
+            className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 p-5 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Staff Detail</p>
+                <h3 className="text-xl font-semibold text-slate-900 mt-1">{selectedRow.STAFF_NAME || "Unnamed"}</h3>
+              </div>
+              <button onClick={() => setSelectedRow(null)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">✕</button>
+            </div>
+
+            <div className="mt-5 space-y-3 text-sm">
+              {[
+                ["BIL", selectedRow.BIL],
+                ["Position", selectedRow.POSITION],
+                ["Status", selectedRow.STATUS_COLOR || computeStatusColorFromDates(selectedRow) || selectedRow.STATUS],
+                ["Location", selectedRow.LOCATION],
+                ["PO/SO", selectedRow.PO_SO_No],
+                ["Start Date", formatDate(selectedRow.START_DATE)],
+                ["End Date", formatDate(selectedRow.END_DATE)],
+                ["End Date KLSB", formatDate(selectedRow.END_DATE_KLSB)],
+                ["Extension", selectedRow.EXTENSION_STATUS],
+                ["Pay Type", computePayType(selectedRow) === "M" ? "Monthly" : "Hourly"],
+                ["NH", selectedRow.NH],
+                ["OT", selectedRow.OT],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-4 border-b border-slate-100 pb-2">
+                  <span className="text-slate-500">{label}</span>
+                  <span className="text-slate-900 font-medium text-right">{value || "-"}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => {
+                  const idx = rows.findIndex((x) => x === selectedRow || (x.id && x.id === selectedRow.id));
+                  if (idx >= 0) openEditForm(idx);
+                }}
+                className="px-3 py-2 rounded-lg bg-[#0f3d7a] text-white text-sm font-semibold hover:bg-[#0c3368]"
+              >
+                Edit Record
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* Modal */}
       {showForm && (
@@ -1188,7 +1287,7 @@ async function safeJson(res) {
   }
 }
 
-function matchFilter(row, q, nameQ, positionQ, statusQ) {
+function matchFilter(row, q, nameQ, positionQ) {
   try {
     if (q) {
       const s = String(q).trim().toLowerCase();
@@ -1210,19 +1309,19 @@ function matchFilter(row, q, nameQ, positionQ, statusQ) {
       if (!String(row.POSITION ?? "").toLowerCase().includes(s)) return false;
     }
 
-    if (statusQ) {
-      const s = String(statusQ).trim().toLowerCase();
-      // Match against STATUS_COLOR (Active/Pending/Completed/Terminated) with computed fallback
-      const colorStatus = String(
-        row.STATUS_COLOR || computeStatusColorFromDates(row) || ""
-      ).trim().toLowerCase();
-      if (!colorStatus.includes(s)) return false;
-    }
-
     return true;
   } catch (e) {
     return false;
   }
+}
+
+function formatRelativeTime(ts) {
+  if (!ts) return "waiting...";
+  const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ago`;
 }
 
 function parseCSV(text) {
@@ -1333,4 +1432,27 @@ function guessMapping(headers) {
     }
   });
   return m;
+}
+
+function isRowInView(row, viewMode) {
+  if (!viewMode || viewMode === "all") return true;
+
+  const status = String(row?.STATUS_COLOR || computeStatusColorFromDates(row) || row?.STATUS || "")
+    .trim()
+    .toLowerCase();
+
+  if (viewMode === "active") return status.includes("active") || status.includes("ongoing");
+  if (viewMode === "pending") return status.includes("pending");
+  if (viewMode === "closed") {
+    return status.includes("completed") || status.includes("terminated") || status.includes("closed");
+  }
+  if (viewMode === "expiring") {
+    const klsbTs = parseTimestamp(row?.END_DATE_KLSB);
+    if (klsbTs == null) return false;
+    const now = Date.now();
+    const in14Days = now + 14 * 24 * 60 * 60 * 1000;
+    return klsbTs >= now && klsbTs <= in14Days;
+  }
+
+  return true;
 }

@@ -15,6 +15,7 @@ export default function BdLayout({ children }) {
 
   const tabs = [
     { href: "/bd", label: "Dashboard" },
+    { href: "/bd/scope", label: "Summary" },
     { href: "/bd/proposals", label: "Proposal Tracker" },
     { href: "/bd/proposals/new", label: "Add Proposal" },
   ];

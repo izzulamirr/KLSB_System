@@ -15,8 +15,6 @@ export const BD_SCOPE_OPTIONS = [
   "Construction",
   "AWP",
   "Engineering Design",
-  "Digitalisation / ICT",
-  "Supply",
   "Digitalization & ICT",
   "Event Management",
   "Software",

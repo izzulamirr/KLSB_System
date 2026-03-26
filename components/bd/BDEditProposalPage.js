@@ -18,7 +18,6 @@ function normalizeForm(data = {}) {
     scopeBusiness: data.scopeBusiness || "",
     deadline: data.deadline || "",
     bidValidity: data.bidValidity ?? "",
-    maturityDays: data.maturityDays ?? "",
     maturityOnDate: data.maturityOnDate || "",
     valueRM: data.valueRM ?? "",
     status: data.status || "PENDING",
@@ -157,7 +156,6 @@ export default function BDEditProposalPage({ proposalId }) {
           </label>
           <Field label="Deadline" type="date" value={form.deadline} onChange={(value) => setForm((current) => ({ ...current, deadline: value }))} />
           <Field label="Bid Validity" type="number" value={form.bidValidity} onChange={(value) => setForm((current) => ({ ...current, bidValidity: value }))} />
-          <Field label="Maturity Days" type="number" value={form.maturityDays} onChange={(value) => setForm((current) => ({ ...current, maturityDays: value }))} />
           <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={(value) => setForm((current) => ({ ...current, maturityOnDate: value }))} />
           <Field label="Value (RM)" type="number" value={form.valueRM} onChange={(value) => setForm((current) => ({ ...current, valueRM: value }))} />
 

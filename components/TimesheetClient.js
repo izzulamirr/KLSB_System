@@ -14,10 +14,330 @@ export default function TimesheetClient() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
+  const [editableData, setEditableData] = useState(null);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [filterPoSo, setFilterPoSo] = useState("");
   const [filterStaff, setFilterStaff] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const toNumberOrZero = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const extractDateFromText = (text) => {
+    if (!text || typeof text !== "string") return "";
+
+    // Match common formats like 6/02/2026, 06-02-2026, 6.2.2026
+    const dateMatch = text.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2})\b/);
+    if (!dateMatch) return "";
+
+    const day = String(parseInt(dateMatch[1], 10)).padStart(2, "0");
+    const month = String(parseInt(dateMatch[2], 10)).padStart(2, "0");
+    const year = dateMatch[3];
+
+    // Return ISO format so it works with <input type="date">.
+    return `${year}-${month}-${day}`;
+  };
+
+  const extractAllDatesFromText = (text) => {
+    if (!text || typeof text !== "string") return [];
+
+    const matches = [...text.matchAll(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2})\b/g)];
+    if (matches.length === 0) return [];
+
+    const isoDates = matches.map((m) => {
+      const day = String(parseInt(m[1], 10)).padStart(2, "0");
+      const month = String(parseInt(m[2], 10)).padStart(2, "0");
+      const year = m[3];
+      return `${year}-${month}-${day}`;
+    });
+
+    // Unique and sorted ascending.
+    return Array.from(new Set(isoDates)).sort((a, b) => new Date(a) - new Date(b));
+  };
+
+  const extractWeekRangeFromText = (text) => {
+    if (!text || typeof text !== "string") return { weekStart: "", weekEnd: "" };
+
+    // Prefer explicit DATE range lines, e.g. "DATE 20/02/2026 02.03.2026"
+    const explicitRange = text.match(
+      /DATE\s*(?:RANGE)?\s*[:\-]?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]20\d{2})\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]20\d{2})/i
+    );
+
+    if (explicitRange) {
+      return {
+        weekStart: normalizeDateValue(explicitRange[1]) || "",
+        weekEnd: normalizeDateValue(explicitRange[2]) || "",
+      };
+    }
+
+    // Fallback: infer from earliest/latest dates on page.
+    const pageDates = extractAllDatesFromText(text);
+    return {
+      weekStart: pageDates[0] || "",
+      weekEnd: pageDates[pageDates.length - 1] || "",
+    };
+  };
+
+  const extractPrimaryWorkDateFromText = (text) => {
+    if (!text || typeof text !== "string") return "";
+
+    // Prefer activity row dates, e.g. "13/02/2026 Billable ..."
+    const rowDateMatch = text.match(
+      /\b(\d{1,2}[\/\-.]\d{1,2}[\/\-.]20\d{2})\b\s+(?:Billable|PH|Public\s+Holiday|Overtime|Normal|NH)\b/i
+    );
+    if (rowDateMatch) {
+      return normalizeDateValue(rowDateMatch[1]) || "";
+    }
+
+    // Next, use DATE range start if present.
+    const weekRange = extractWeekRangeFromText(text);
+    if (weekRange.weekStart) return weekRange.weekStart;
+
+    // Fallback to first detected date.
+    const allDates = extractAllDatesFromText(text);
+    return allDates[0] || "";
+  };
+
+  const normalizeDateValue = (value) => {
+    if (!value || typeof value !== "string") return "";
+
+    // Already ISO yyyy-mm-dd
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+    // dd/mm/yyyy | dd-mm-yyyy | dd.mm.yyyy
+    let match = value.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d{2})$/);
+    if (match) {
+      const day = String(parseInt(match[1], 10)).padStart(2, "0");
+      const month = String(parseInt(match[2], 10)).padStart(2, "0");
+      const year = match[3];
+      return `${year}-${month}-${day}`;
+    }
+
+    // Fallback to native Date parsing where possible.
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().split("T")[0];
+    }
+
+    return "";
+  };
+
+  const getWeekRangeFromDate = (dateIso) => {
+    const normalized = normalizeDateValue(dateIso);
+    if (!normalized) return { weekStart: "", weekEnd: "" };
+
+    const date = new Date(`${normalized}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return { weekStart: "", weekEnd: "" };
+
+    const day = date.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return {
+      weekStart: monday.toISOString().split("T")[0],
+      weekEnd: sunday.toISOString().split("T")[0],
+    };
+  };
+
+  const formatDateDisplay = (dateIso) => {
+    const normalized = normalizeDateValue(dateIso);
+    if (!normalized) return "N/A";
+    const [year, month, day] = normalized.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
+  const getWeekLabel = (entry) => {
+    const weekStart = normalizeDateValue(entry.weekStart);
+    const weekEnd = normalizeDateValue(entry.weekEnd);
+
+    if (weekStart && weekEnd) {
+      return `${formatDateDisplay(weekStart)} - ${formatDateDisplay(weekEnd)}`;
+    }
+
+    const fallbackRange = getWeekRangeFromDate(entry.date);
+    if (fallbackRange.weekStart && fallbackRange.weekEnd) {
+      return `${formatDateDisplay(fallbackRange.weekStart)} - ${formatDateDisplay(fallbackRange.weekEnd)}`;
+    }
+
+    return "Unknown Week";
+  };
+
+  const groupEntriesByWeek = (entries) => {
+    if (!Array.isArray(entries) || entries.length === 0) return [];
+
+    const groups = new Map();
+
+    entries.forEach((entry, idx) => {
+      const weekStart = normalizeDateValue(entry.weekStart) || getWeekRangeFromDate(entry.date).weekStart;
+      const weekEnd = normalizeDateValue(entry.weekEnd) || getWeekRangeFromDate(entry.date).weekEnd;
+      const pageNumber = Number(entry.sourcePage || 1);
+      const key = `${pageNumber}__${weekStart || "unknown"}__${weekEnd || "unknown"}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          pageNumber,
+          weekStart,
+          weekEnd,
+          label: `Page ${pageNumber} - ${getWeekLabel({ ...entry, weekStart, weekEnd })}`,
+          rows: [],
+        });
+      }
+
+      groups.get(key).rows.push({ index: idx, entry });
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.pageNumber !== b.pageNumber) return a.pageNumber - b.pageNumber;
+      return (a.weekStart || "9999-99-99").localeCompare(b.weekStart || "9999-99-99");
+    });
+  };
+
+  const normalizeMultiPageEntries = (entries) => {
+    if (!Array.isArray(entries) || entries.length === 0) return [];
+
+    // Preserve page coverage: keep at least one candidate row for every scanned page.
+    const rowsByPage = new Map();
+    entries.forEach((entry) => {
+      const page = Number(entry.sourcePage || 1);
+      if (!rowsByPage.has(page)) rowsByPage.set(page, []);
+      rowsByPage.get(page).push(entry);
+    });
+
+    const source = [];
+    rowsByPage.forEach((rows) => {
+      const nonEmptyRows = rows.filter((entry) => {
+        const total = toNumberOrZero(entry.totalHours);
+        const normal = toNumberOrZero(entry.normalHours);
+        const ot = toNumberOrZero(entry.otHours);
+        const nh = toNumberOrZero(entry.nhHours);
+        return total > 0 || normal > 0 || ot > 0 || nh > 0;
+      });
+
+      if (nonEmptyRows.length > 0) {
+        source.push(...nonEmptyRows);
+      } else {
+        // Keep one 0h placeholder row so the user can manually adjust this page.
+        source.push(rows[0]);
+      }
+    });
+
+    // Remove likely OCR noise rows (e.g. isolated 8h daily value) only within a page that already has a strong weekly row.
+    const noiseFiltered = [];
+    const sourceByPage = new Map();
+    source.forEach((entry) => {
+      const page = Number(entry.sourcePage || 1);
+      if (!sourceByPage.has(page)) sourceByPage.set(page, []);
+      sourceByPage.get(page).push(entry);
+    });
+
+    sourceByPage.forEach((pageRows) => {
+      const hasStrongWeekly = pageRows.some((entry) => toNumberOrZero(entry.totalHours) >= 35);
+      if (!hasStrongWeekly) {
+        noiseFiltered.push(...pageRows);
+        return;
+      }
+
+      const cleaned = pageRows.filter((entry) => {
+        const total = toNumberOrZero(entry.totalHours);
+        const normal = toNumberOrZero(entry.normalHours);
+        const ot = toNumberOrZero(entry.otHours);
+        const nh = toNumberOrZero(entry.nhHours);
+        const looksLikeDailyNoise = total > 0 && total <= 12 && ot === 0 && nh === 0 && normal === total;
+        return !looksLikeDailyNoise;
+      });
+
+      noiseFiltered.push(...(cleaned.length > 0 ? cleaned : pageRows));
+    });
+
+    // De-duplicate by date + staff + PO/SO and keep the entry with the highest total.
+    const bestByKey = new Map();
+    noiseFiltered.forEach((entry) => {
+      const page = Number(entry.sourcePage || 1);
+      const date = normalizeDateValue(entry.date) || "";
+      const weekStart = normalizeDateValue(entry.weekStart) || "";
+      const weekEnd = normalizeDateValue(entry.weekEnd) || "";
+      const staff = (entry.staffName || "Unknown").toUpperCase();
+      const po = (entry.poSoNo || "").toUpperCase();
+      const key = `${page}__${weekStart}__${weekEnd}__${date}__${staff}__${po}`;
+
+      const currentTotal =
+        toNumberOrZero(entry.totalHours) ||
+        toNumberOrZero(entry.normalHours) + toNumberOrZero(entry.otHours) + toNumberOrZero(entry.nhHours);
+
+      if (!bestByKey.has(key)) {
+        bestByKey.set(key, { ...entry, totalHours: currentTotal });
+        return;
+      }
+
+      const prev = bestByKey.get(key);
+      const prevTotal =
+        toNumberOrZero(prev.totalHours) ||
+        toNumberOrZero(prev.normalHours) + toNumberOrZero(prev.otHours) + toNumberOrZero(prev.nhHours);
+
+      if (currentTotal > prevTotal) {
+        bestByKey.set(key, { ...entry, totalHours: currentTotal });
+      }
+    });
+
+    return Array.from(bestByKey.values()).sort((a, b) => {
+      const pageA = Number(a.sourcePage || 1);
+      const pageB = Number(b.sourcePage || 1);
+      if (pageA !== pageB) return pageA - pageB;
+      return (a.date || "9999-99-99").localeCompare(b.date || "9999-99-99");
+    });
+  };
+
+  const createEditableData = (data) => {
+    const safeEntries = Array.isArray(data?.entries) && data.entries.length > 0
+      ? data.entries
+      : [{
+          date: new Date().toISOString().split("T")[0],
+          staffName: data?.staffName || "Unknown",
+          poSoNo: data?.poSoNo || "",
+          normalHours: 0,
+          otHours: 0,
+          nhHours: 0,
+          totalHours: 0,
+        }];
+
+    return {
+      staffName: data?.staffName || "Unknown",
+      poSoNo: data?.poSoNo || "",
+      rawText: data?.rawText || "",
+      needsManualReview: !!data?.needsManualReview,
+      entries: safeEntries.map((entry) => {
+        const normalHours = toNumberOrZero(entry.normalHours);
+        const otHours = toNumberOrZero(entry.otHours);
+        const nhHours = toNumberOrZero(entry.nhHours);
+        const normalizedDate = normalizeDateValue(entry.date) || new Date().toISOString().split("T")[0];
+        const weekRange = getWeekRangeFromDate(normalizedDate);
+        return {
+          date: normalizedDate,
+          weekStart: normalizeDateValue(entry.weekStart) || weekRange.weekStart,
+          weekEnd: normalizeDateValue(entry.weekEnd) || weekRange.weekEnd,
+          sourcePage: Number(entry.sourcePage || 1),
+          staffName: entry.staffName || data?.staffName || "Unknown",
+          poSoNo: entry.poSoNo || data?.poSoNo || "",
+          normalHours,
+          otHours,
+          nhHours,
+          totalHours: normalHours + otHours + nhHours,
+        };
+      }).sort((a, b) => {
+        if (Number(a.sourcePage || 1) !== Number(b.sourcePage || 1)) {
+          return Number(a.sourcePage || 1) - Number(b.sourcePage || 1);
+        }
+        return (a.date || "9999-99-99").localeCompare(b.date || "9999-99-99");
+      }),
+    };
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -47,11 +367,45 @@ export default function TimesheetClient() {
     if (user) fetchTimesheets();
   }, [user, fetchTimesheets]);
 
-  // Extract text from PDF - Currently not supported, ask user to convert to image
+  // Extract text from PDF:
+  // 1) extract embedded text server-side via /api/extract-pdf
+  // 2) if scanned and no text, return a clear actionable error
   const extractPdfText = async (file) => {
-    // PDF processing has compatibility issues with Next.js
-    // Ask user to convert PDF to image instead
-    throw new Error("PDF files are not currently supported. Please convert your PDF to an image file (PNG or JPG) and upload again. You can use online tools like pdf2png.com or take a screenshot of the PDF.");
+    try {
+      console.log("Starting PDF extraction...");
+      setOcrProgress(20);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/extract-pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.details || err?.error || "PDF extraction request failed");
+      }
+
+      const data = await res.json();
+      const text = (data?.text || "").trim();
+      window._pdfPageTexts = Array.isArray(data?.pageTexts) ? data.pageTexts : [];
+
+      setOcrProgress(100);
+
+      if (text.length >= 50) {
+        console.log(`Server PDF extraction complete (${text.length} chars, pages=${data?.numPages || 0})`);
+        return text;
+      }
+
+      throw new Error(
+        "This PDF appears to be scanned/image-only. Please upload a clear image (JPG/PNG) of the timesheet page for OCR."
+      );
+    } catch (error) {
+      console.error("PDF extraction failed:", error);
+      throw new Error(`PDF OCR failed: ${error?.message || "Unknown error"}`);
+    }
   };
 
   // Use Google Cloud Vision API for better OCR (fallback for complex documents)
@@ -259,6 +613,7 @@ export default function TimesheetClient() {
     console.log("🔥🔥🔥 EXTRACT TIMESHEET DATA CALLED - NEW VERSION WITH REGION OCR 🔥🔥🔥");
     setProcessing(true);
     setOcrProgress(0);
+    delete window._pdfPageTexts;
     
     try {
       let text = "";
@@ -467,6 +822,8 @@ export default function TimesheetClient() {
       // Parse the text to extract timesheet information
       const parsed = parseTimesheetText(text);
       setExtractedData(parsed);
+      setEditableData(createEditableData(parsed));
+      delete window._pdfPageTexts;
       
       return parsed;
     } catch (err) {
@@ -480,11 +837,74 @@ export default function TimesheetClient() {
   };
 
   // Parse extracted text to find timesheet data
-  const parseTimesheetText = (text) => {
+  const parseTimesheetText = (text, options = {}) => {
     // Validate input text
     if (!text || typeof text !== 'string') {
       console.warn("parseTimesheetText received invalid text:", text);
       return [];
+    }
+
+    // For PDF documents, parse each page separately so all pages are keyed in.
+    if (!options.skipPageSplit && Array.isArray(window._pdfPageTexts) && window._pdfPageTexts.length > 1) {
+      console.log(`Detected multi-page PDF with ${window._pdfPageTexts.length} pages. Parsing page-by-page...`);
+
+      const allEntries = [];
+      let bestStaffName = "";
+      let bestPoSoNo = "";
+      const rawParts = [];
+
+      window._pdfPageTexts.forEach((pageText, pageIndex) => {
+        if (!pageText || pageText.trim().length < 10) return;
+
+        const pageParsed = parseTimesheetText(pageText, { skipPageSplit: true, pageIndex: pageIndex + 1 });
+        const explicitWeekRange = extractWeekRangeFromText(pageText);
+        const pageDates = extractAllDatesFromText(pageText);
+        const pageDate = extractPrimaryWorkDateFromText(pageText) || pageDates[0] || extractDateFromText(pageText);
+        const pageWeekStart = explicitWeekRange.weekStart || pageDates[0] || getWeekRangeFromDate(pageDate).weekStart;
+        const pageWeekEnd = explicitWeekRange.weekEnd || pageDates[pageDates.length - 1] || getWeekRangeFromDate(pageDate).weekEnd;
+        rawParts.push(`--- PAGE ${pageIndex + 1} ---\n${pageText}`);
+
+        if (pageParsed?.staffName && pageParsed.staffName !== "Unknown" && !bestStaffName) {
+          bestStaffName = pageParsed.staffName;
+        }
+
+        if (pageParsed?.poSoNo && !bestPoSoNo) {
+          bestPoSoNo = pageParsed.poSoNo;
+        }
+
+        if (Array.isArray(pageParsed?.entries)) {
+          pageParsed.entries.forEach((entry) => {
+            const normalHours = toNumberOrZero(entry.normalHours);
+            const otHours = toNumberOrZero(entry.otHours);
+            const nhHours = toNumberOrZero(entry.nhHours);
+            allEntries.push({
+              ...entry,
+              date: normalizeDateValue(entry.date) || pageDate || new Date().toISOString().split("T")[0],
+              weekStart: normalizeDateValue(entry.weekStart) || pageWeekStart || "",
+              weekEnd: normalizeDateValue(entry.weekEnd) || pageWeekEnd || "",
+              sourcePage: Number(entry.sourcePage || pageIndex + 1),
+              staffName: entry.staffName || pageParsed.staffName || "Unknown",
+              poSoNo: entry.poSoNo || pageParsed.poSoNo || "",
+              normalHours,
+              otHours,
+              nhHours,
+              totalHours: toNumberOrZero(entry.totalHours) || normalHours + otHours + nhHours,
+            });
+          });
+        }
+      });
+
+      if (allEntries.length > 0) {
+        const cleanedEntries = normalizeMultiPageEntries(allEntries);
+        console.log(`✅ Multi-page parse complete. Total entries created: ${allEntries.length}, cleaned: ${cleanedEntries.length}`);
+        return {
+          staffName: bestStaffName || "Unknown",
+          poSoNo: bestPoSoNo || "",
+          entries: cleanedEntries,
+          rawText: rawParts.join("\n\n"),
+          needsManualReview: cleanedEntries.every((e) => toNumberOrZero(e.totalHours) === 0),
+        };
+      }
     }
     
     console.log("\n=== PARSING TIMESHEET TEXT ===");
@@ -2507,6 +2927,49 @@ export default function TimesheetClient() {
       if (!recovered) console.log('  ❌ Rescue heuristics did not find a 40h pattern');
     }
 
+    // LOW-TOTAL RESCUE: first-page OCR often captures a daily value (e.g., 8) instead of weekly total.
+    if (totalNormalHours > 0 && totalNormalHours <= 12 && totalOTHours === 0) {
+      console.log(`⚠️ Low total detected (${totalNormalHours}) - checking for weekly-hour patterns`);
+
+      let lineBasedCandidate = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const letterCount = (line.match(/[A-Za-z]/g) || []).length;
+
+        // Skip verbose text lines; we only want table-like rows.
+        if (letterCount > 20) continue;
+
+        const dailyNumbers = [...line.matchAll(/(\d+(?:\.\d+)?)/g)]
+          .map((m) => parseFloat(m[1]))
+          .filter((n) => n >= 0 && n <= 16);
+
+        if (dailyNumbers.length >= 5) {
+          const sum = Math.round(dailyNumbers.reduce((a, b) => a + b, 0));
+          if (sum >= 20 && sum <= 80) {
+            lineBasedCandidate = Math.max(lineBasedCandidate, sum);
+            console.log(`  - Weekly candidate from line ${i + 1}: ${sum} (nums: ${JSON.stringify(dailyNumbers)})`);
+          }
+        }
+      }
+
+      // If we found a stronger weekly candidate than the low extracted total, use it.
+      if (lineBasedCandidate > totalNormalHours) {
+        console.log(`  ✅ Low-total correction: ${totalNormalHours} → ${lineBasedCandidate}`);
+        totalNormalHours = lineBasedCandidate;
+      } else {
+        // Last fallback for common "8 vs 40" OCR issue in weekly sheets.
+        const hasWeeklyContext = /total\s+regular|total\s+hours|normal\s+hrs/i.test(text);
+        const hasForty = /\b40(?:\.0+)?\b/.test(text);
+        const eightCount = (text.match(/\b8(?:\.0+)?\b/g) || []).length;
+
+        if (hasWeeklyContext && (hasForty || eightCount >= 5)) {
+          console.log(`  ✅ Context-based correction: ${totalNormalHours} → 40 (hasForty=${hasForty}, eightCount=${eightCount})`);
+          totalNormalHours = 40;
+        }
+      }
+    }
+
     // SANITY CHECK: Cap hours at reasonable values
     if (totalNormalHours > 80) {
       console.log(`⚠️ WARNING: Normal hours too high (${totalNormalHours}) - capping at 40`);
@@ -2520,14 +2983,25 @@ export default function TimesheetClient() {
     console.log(`FINAL HOURS AFTER SANITY CHECK: Normal=${totalNormalHours}, OT=${totalOTHours}`);
     
     // Return single entry with totals
+    const detectedDates = extractAllDatesFromText(text);
+    const explicitWeekRange = extractWeekRangeFromText(text);
+    const detectedDate =
+      extractPrimaryWorkDateFromText(text) ||
+      detectedDates[0] ||
+      extractDateFromText(text) ||
+      new Date().toISOString().split('T')[0];
+    const fallbackWeek = getWeekRangeFromDate(detectedDate);
     const entry = {
-      date: new Date().toISOString().split('T')[0], // Use current date
+      date: normalizeDateValue(detectedDate) || new Date().toISOString().split('T')[0],
+      weekStart: explicitWeekRange.weekStart || detectedDates[0] || fallbackWeek.weekStart,
+      weekEnd: explicitWeekRange.weekEnd || detectedDates[detectedDates.length - 1] || fallbackWeek.weekEnd,
+      sourcePage: Number(options.pageIndex || 1),
       staffName: staffName || "Unknown",
       poSoNo: poSoNumber || "",
       normalHours: totalNormalHours,
       otHours: totalOTHours,
       nhHours: nhHours,
-      totalHours: totalNormalHours + totalOTHours,
+      totalHours: totalNormalHours + totalOTHours + nhHours,
     };
     
     return {
@@ -2594,24 +3068,31 @@ export default function TimesheetClient() {
   // Process the uploaded file
   const handleProcessFile = async () => {
     if (!selectedFile) return;
-    
-    const data = await extractTimesheetData(selectedFile);
-    if (data) {
-      // Auto-save if data looks good
-      if (data.entries && data.entries.length > 0) {
-        await saveTimesheetData(data);
-      }
+
+    // Step 1: OCR scan and populate editable fields.
+    if (!extractedData) {
+      await extractTimesheetData(selectedFile);
+      return;
+    }
+
+    // Step 2: Save user-adjusted data.
+    if (editableData && editableData.entries && editableData.entries.length > 0) {
+      await saveTimesheetData(editableData);
+    } else {
+      alert("No extracted entries to save. Please scan the document first.");
     }
   };
 
   // Save timesheet data to database
   const saveTimesheetData = async (data) => {
     try {
+      const normalized = createEditableData(data);
+
       const res = await fetch("/api/timesheet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...data,
+          ...normalized,
           uploadedBy: user?.email,
           uploadedAt: new Date().toISOString(),
         }),
@@ -2636,6 +3117,7 @@ export default function TimesheetClient() {
     setSelectedFile(null);
     setPreviewUrl(null);
     setExtractedData(null);
+    setEditableData(null);
     setOcrProgress(0);
   };
 
@@ -2654,8 +3136,98 @@ export default function TimesheetClient() {
     }
   };
 
-  // Filter timesheets
-  const filteredTimesheets = timesheets.filter((ts) => {
+  // Group timesheets by saved document so each upload appears as one line.
+  const groupedTimesheets = (() => {
+    const byDocument = new Map();
+
+    timesheets.forEach((ts) => {
+      const docId = ts.parentId || ts.id;
+      if (!byDocument.has(docId)) {
+        byDocument.set(docId, {
+          id: docId,
+          staffName: ts.staffName || "Unknown",
+          poSoNo: ts.poSoNo || "",
+          uploadedAt: ts.uploadedAt || "",
+          entries: [],
+        });
+      }
+
+      const doc = byDocument.get(docId);
+      doc.entries.push(ts);
+
+      // Keep latest non-empty metadata.
+      if ((!doc.staffName || doc.staffName === "Unknown") && ts.staffName) doc.staffName = ts.staffName;
+      if (!doc.poSoNo && ts.poSoNo) doc.poSoNo = ts.poSoNo;
+      if (!doc.uploadedAt && ts.uploadedAt) doc.uploadedAt = ts.uploadedAt;
+    });
+
+    return Array.from(byDocument.values())
+      .map((doc) => {
+        const entryDates = doc.entries
+          .map((e) => normalizeDateValue(e.date))
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b));
+
+        const firstDate = entryDates[0] || "";
+        const lastDate = entryDates[entryDates.length - 1] || "";
+
+        const weekMap = new Map();
+        doc.entries.forEach((entry) => {
+          const weekStart = normalizeDateValue(entry.weekStart) || getWeekRangeFromDate(entry.date).weekStart;
+          const weekEnd = normalizeDateValue(entry.weekEnd) || getWeekRangeFromDate(entry.date).weekEnd;
+          const sourcePage = Number(entry.sourcePage || 1);
+          const weekKey = `${sourcePage}__${weekStart}__${weekEnd}`;
+          if (!weekMap.has(weekKey)) {
+            weekMap.set(weekKey, {
+              sourcePage,
+              weekStart,
+              weekEnd,
+              label: `Page ${sourcePage}: ${formatDateDisplay(weekStart)} - ${formatDateDisplay(weekEnd)}`,
+              normalHours: 0,
+              otHours: 0,
+              nhHours: 0,
+              totalHours: 0,
+            });
+          }
+
+          const wk = weekMap.get(weekKey);
+          wk.normalHours += toNumberOrZero(entry.normalHours);
+          wk.otHours += toNumberOrZero(entry.otHours);
+          wk.nhHours += toNumberOrZero(entry.nhHours);
+          wk.totalHours += toNumberOrZero(entry.totalHours) ||
+            toNumberOrZero(entry.normalHours) + toNumberOrZero(entry.otHours) + toNumberOrZero(entry.nhHours);
+        });
+
+        const weeks = Array.from(weekMap.values()).sort((a, b) => {
+          if (a.sourcePage !== b.sourcePage) return a.sourcePage - b.sourcePage;
+          return (a.weekStart || "9999-99-99").localeCompare(b.weekStart || "9999-99-99");
+        });
+
+        const normalHours = weeks.reduce((sum, w) => sum + toNumberOrZero(w.normalHours), 0);
+        const otHours = weeks.reduce((sum, w) => sum + toNumberOrZero(w.otHours), 0);
+        const nhHours = weeks.reduce((sum, w) => sum + toNumberOrZero(w.nhHours), 0);
+        const totalHours = weeks.reduce((sum, w) => sum + toNumberOrZero(w.totalHours), 0);
+
+        return {
+          id: doc.id,
+          staffName: doc.staffName,
+          poSoNo: doc.poSoNo,
+          dateLabel: firstDate && lastDate
+            ? (firstDate === lastDate ? formatDateDisplay(firstDate) : `${formatDateDisplay(firstDate)} - ${formatDateDisplay(lastDate)}`)
+            : "N/A",
+          weeks,
+          normalHours,
+          otHours,
+          nhHours,
+          totalHours,
+          uploadedAt: doc.uploadedAt,
+        };
+      })
+      .sort((a, b) => String(b.uploadedAt || "").localeCompare(String(a.uploadedAt || "")));
+  })();
+
+  // Filter grouped rows.
+  const filteredTimesheets = groupedTimesheets.filter((ts) => {
     const matchPoSo = !filterPoSo || String(ts.poSoNo || "").toLowerCase().includes(filterPoSo.toLowerCase());
     const matchStaff = !filterStaff || String(ts.staffName || "").toLowerCase().includes(filterStaff.toLowerCase());
     return matchPoSo && matchStaff;
@@ -2726,6 +3298,7 @@ export default function TimesheetClient() {
                 <th className="px-4 py-3 text-left text-sm font-semibold">Date</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">Staff Name</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold">PO/SO No</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Weeks</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold">Normal Hours</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold">OT Hours</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold">Total Hours</th>
@@ -2735,28 +3308,45 @@ export default function TimesheetClient() {
             <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan="8" className="px-4 py-8 text-center text-slate-500">
                     Loading timesheets...
                   </td>
                 </tr>
               ) : filteredTimesheets.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan="8" className="px-4 py-8 text-center text-slate-500">
                     No timesheet records found. Upload a document to get started.
                   </td>
                 </tr>
               ) : (
                 filteredTimesheets.map((ts) => (
                   <tr key={ts.id} className="hover:bg-slate-50 transition">
-                    <td className="px-4 py-3 text-sm text-slate-900">{ts.date || "N/A"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-900">{ts.dateLabel || "N/A"}</td>
                     <td className="px-4 py-3 text-sm text-slate-900">{ts.staffName || "Unknown"}</td>
                     <td className="px-4 py-3 text-sm text-slate-900">{ts.poSoNo || "N/A"}</td>
+                    <td className="px-4 py-3 text-sm text-slate-900">{ts.weeks.length}</td>
                     <td className="px-4 py-3 text-sm text-slate-900 text-right">{ts.normalHours || 0}</td>
                     <td className="px-4 py-3 text-sm text-slate-900 text-right">{ts.otHours || 0}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-900 text-right">
-                      {(ts.normalHours || 0) + (ts.otHours || 0)}
+                      {ts.totalHours || 0}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <details className="inline-block text-left mr-3">
+                        <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-medium">
+                          Weeks Details
+                        </summary>
+                        <div className="mt-2 p-3 bg-white border border-slate-200 rounded shadow-sm min-w-72 max-w-96">
+                          <div className="text-xs font-semibold text-slate-700 mb-2">Scanned Weeks</div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {ts.weeks.map((wk, i) => (
+                              <div key={`${ts.id}_wk_${i}`} className="text-xs border border-slate-100 rounded px-2 py-1 bg-slate-50">
+                                <div className="font-medium text-slate-800">{wk.label}</div>
+                                <div className="text-slate-600">Normal {wk.normalHours}h | OT {wk.otHours}h | NH {wk.nhHours}h | Total {wk.totalHours}h</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
                       <button
                         onClick={() => handleDelete(ts.id)}
                         className="text-red-600 hover:text-red-800 text-sm font-medium"
@@ -2847,31 +3437,158 @@ export default function TimesheetClient() {
                       ⚠ Automatic extraction incomplete. Please review and edit the data below.
                     </div>
                   ) : null}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="font-medium text-slate-700">Staff Name:</span>
-                      <span className="text-slate-900">{extractedData.staffName}</span>
+                  <div className="space-y-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Staff Name</label>
+                        <input
+                          type="text"
+                          value={editableData?.staffName || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setEditableData((prev) => {
+                              if (!prev) return prev;
+                              return {
+                                ...prev,
+                                staffName: value,
+                                entries: prev.entries.map((entry) => ({ ...entry, staffName: value })),
+                              };
+                            });
+                          }}
+                          className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0e2b57]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">PO/SO Number</label>
+                        <input
+                          type="text"
+                          value={editableData?.poSoNo || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setEditableData((prev) => {
+                              if (!prev) return prev;
+                              return {
+                                ...prev,
+                                poSoNo: value,
+                                entries: prev.entries.map((entry) => ({ ...entry, poSoNo: value })),
+                              };
+                            });
+                          }}
+                          className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0e2b57]"
+                        />
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="font-medium text-slate-700">PO/SO Number:</span>
-                      <span className="text-slate-900">{extractedData.poSoNo || "N/A"}</span>
-                    </div>
-                    {extractedData.entries && extractedData.entries.length > 0 ? (
+
+                    {editableData?.entries && editableData.entries.length > 0 ? (
                       <div className="mt-4">
                         <div className="font-medium text-slate-700 mb-2">
-                          Entries Found: {extractedData.entries.length}
+                          Entries Found: {editableData.entries.length}
                         </div>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {extractedData.entries.map((entry, idx) => (
-                            <div key={idx} className="p-3 bg-white rounded border border-slate-200">
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="font-medium">Date: {entry.date || "N/A"}</div>
-                                <div>Total: {entry.totalHours || 0}h</div>
-                                <div>Normal: {entry.normalHours || 0}h</div>
-                                <div>OT: {entry.otHours || 0}h</div>
-                                <div>NH: {entry.nhHours || 0}h</div>
-                                <div>PO/SO: {entry.poSoNo || "N/A"}</div>
+                        <div className="space-y-3 max-h-72 overflow-y-auto">
+                          {groupEntriesByWeek(editableData.entries).map((group) => (
+                            <div key={group.key} className="space-y-2">
+                              <div className="text-xs font-semibold text-[#0e2b57] bg-blue-50 border border-blue-100 rounded px-2 py-1">
+                                Week: {group.label}
                               </div>
+                              {group.rows.map(({ index: idx, entry }) => (
+                            <div key={idx} className="p-3 bg-white rounded border border-slate-200">
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs">
+                                <div>
+                                  <label className="block text-slate-600 mb-1">Date</label>
+                                  <input
+                                    type="date"
+                                    value={entry.date || ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      setEditableData((prev) => {
+                                        if (!prev) return prev;
+                                        const entries = [...prev.entries];
+                                        const weekRange = getWeekRangeFromDate(value);
+                                        entries[idx] = {
+                                          ...entries[idx],
+                                          date: value,
+                                          weekStart: weekRange.weekStart,
+                                          weekEnd: weekRange.weekEnd,
+                                        };
+                                        return { ...prev, entries };
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 border border-slate-300 rounded"
+                                  />
+                                  <div className="mt-1 text-[11px] text-slate-500">{formatDateDisplay(entry.date)}</div>
+                                </div>
+                                <div>
+                                  <label className="block text-slate-600 mb-1">Normal Hours</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={entry.normalHours ?? 0}
+                                    onChange={(e) => {
+                                      const normalHours = Math.max(0, toNumberOrZero(e.target.value));
+                                      setEditableData((prev) => {
+                                        if (!prev) return prev;
+                                        const entries = [...prev.entries];
+                                        const current = entries[idx];
+                                        const totalHours = normalHours + toNumberOrZero(current.otHours) + toNumberOrZero(current.nhHours);
+                                        entries[idx] = { ...current, normalHours, totalHours };
+                                        return { ...prev, entries };
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 border border-slate-300 rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-slate-600 mb-1">OT Hours</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={entry.otHours ?? 0}
+                                    onChange={(e) => {
+                                      const otHours = Math.max(0, toNumberOrZero(e.target.value));
+                                      setEditableData((prev) => {
+                                        if (!prev) return prev;
+                                        const entries = [...prev.entries];
+                                        const current = entries[idx];
+                                        const totalHours = toNumberOrZero(current.normalHours) + otHours + toNumberOrZero(current.nhHours);
+                                        entries[idx] = { ...current, otHours, totalHours };
+                                        return { ...prev, entries };
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 border border-slate-300 rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-slate-600 mb-1">NH Hours</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.5"
+                                    value={entry.nhHours ?? 0}
+                                    onChange={(e) => {
+                                      const nhHours = Math.max(0, toNumberOrZero(e.target.value));
+                                      setEditableData((prev) => {
+                                        if (!prev) return prev;
+                                        const entries = [...prev.entries];
+                                        const current = entries[idx];
+                                        const totalHours = toNumberOrZero(current.normalHours) + toNumberOrZero(current.otHours) + nhHours;
+                                        entries[idx] = { ...current, nhHours, totalHours };
+                                        return { ...prev, entries };
+                                      });
+                                    }}
+                                    className="w-full px-2 py-1 border border-slate-300 rounded"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-slate-600 mb-1">Total Hours</label>
+                                  <div className="px-2 py-1 border border-slate-200 rounded bg-slate-50 text-slate-800 font-semibold">
+                                    {(toNumberOrZero(entry.normalHours) + toNumberOrZero(entry.otHours) + toNumberOrZero(entry.nhHours)).toFixed(1)}h
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                             </div>
                           ))}
                         </div>
@@ -2904,7 +3621,7 @@ export default function TimesheetClient() {
                   disabled={processing || !selectedFile}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-[#0e2b57] to-[#1a3d6f] text-white rounded-lg font-semibold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {processing ? "Processing..." : extractedData ? "Save to Database" : "Scan Document"}
+                  {processing ? "Processing..." : extractedData ? "Save Adjusted Data" : "Scan Document"}
                 </button>
                 <button
                   onClick={closeModal}

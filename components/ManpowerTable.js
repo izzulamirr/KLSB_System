@@ -156,7 +156,7 @@ function Cell({ children, className = "", onClick }) {
   );
 }
 
-function ActionIconButton({ title, onClick, children }) {
+function ActionIconButton({ title, onClick, children, className = "" }) {
   return (
     <button
       onClick={(e) => {
@@ -165,7 +165,7 @@ function ActionIconButton({ title, onClick, children }) {
       }}
       aria-label={title}
       title={title}
-      className="p-2 rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"
+      className={className || "p-2 rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"}
     >
       {children}
     </button>
@@ -244,13 +244,13 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
       <Cell>{r.OT || "-"}</Cell>
       <Cell className="text-right">
         <div className="inline-flex items-center gap-1.5">
-          <ActionIconButton title="Edit" onClick={() => onEdit(i)}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-700" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+          <ActionIconButton title="Edit" onClick={() => onEdit(i)} className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="none" stroke="currentColor">
               <path d="M4 13.5V17h3.5L17.65 6.85a1 1 0 0 0 0-1.41L15.56 3.29a1 1 0 0 0-1.41 0L4 13.5z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </ActionIconButton>
-          <ActionIconButton title="Delete" onClick={() => onRemove(i)}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <ActionIconButton title="Delete" onClick={() => onRemove(i)} className="p-2 rounded-md bg-red-600 hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M3 6h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M10 11v6M14 11v6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

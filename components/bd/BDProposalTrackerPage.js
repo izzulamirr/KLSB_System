@@ -130,13 +130,13 @@ export default function BDProposalTrackerPage() {
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/bd/proposals/${item.id}/edit`}
-                        className="rounded-lg border border-blue-300 bg-blue-600 px-2.5 py-1 text-xs text-white hover:bg-blue-700"
+                        className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-medium !text-white hover:bg-blue-700 transition-colors"
                       >
                         Edit
                       </Link>
                       <button
                         onClick={() => handleDelete(item.id)}
-                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                        className="rounded-lg bg-red-600 px-2.5 py-1 text-xs font-medium !text-white hover:bg-red-700 transition-colors"
                       >
                         Delete
                       </button>

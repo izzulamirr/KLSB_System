@@ -1,0 +1,208 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+function toIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseIsoDate(value) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDisplayDate(value) {
+  const date = parseIsoDate(value);
+  if (!date) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function startOfCalendarGrid(year, month) {
+  const monthStart = new Date(year, month, 1);
+  const mondayOffset = (monthStart.getDay() + 6) % 7;
+  return new Date(year, month, 1 - mondayOffset);
+}
+
+export default function MondayDateInput({
+  value,
+  onChange,
+  disabled = false,
+  placeholder = "Select date",
+  className = "",
+}) {
+  const [open, setOpen] = useState(false);
+  const [viewDate, setViewDate] = useState(() => parseIsoDate(value) || new Date());
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const parsed = parseIsoDate(value);
+    if (parsed) setViewDate(parsed);
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleMouseDown = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleMouseDown);
+    return () => window.removeEventListener("mousedown", handleMouseDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
+  const grid = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const start = startOfCalendarGrid(year, month);
+    const cells = [];
+
+    for (let index = 0; index < 42; index += 1) {
+      const cellDate = new Date(start);
+      cellDate.setDate(start.getDate() + index);
+      cells.push(cellDate);
+    }
+
+    return cells;
+  }, [viewDate]);
+
+  const selectedDate = parseIsoDate(value);
+  const displayValue = selectedDate ? formatDisplayDate(value) : "";
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) setOpen((current) => !current);
+        }}
+        className={
+          "flex w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none " +
+          className
+        }
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span className={displayValue ? "text-slate-900" : "text-slate-400"}>{displayValue || placeholder}</span>
+        <span className="text-slate-400">📅</span>
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-[19rem] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setViewDate((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
+              }}
+              className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50"
+              aria-label="Previous month"
+            >
+              ←
+            </button>
+
+            <div className="text-sm font-semibold text-slate-900">
+              {new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(viewDate)}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+              }}
+              className="rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50"
+              aria-label="Next month"
+            >
+              →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day) => (
+              <div key={day} className="py-1">{day}</div>
+            ))}
+          </div>
+
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {grid.map((cellDate) => {
+              const isCurrentMonth = cellDate.getMonth() === viewDate.getMonth();
+              const cellIso = toIsoDate(cellDate);
+              const isSelected = value && cellIso === value;
+              const isToday = toIsoDate(new Date()) === cellIso;
+
+              return (
+                <button
+                  key={cellIso}
+                  type="button"
+                  onClick={() => {
+                    onChange(cellIso);
+                    setOpen(false);
+                  }}
+                  className={
+                    "h-9 rounded-lg text-sm transition-colors " +
+                    (isSelected
+                      ? "bg-[#0f3d7a] text-white"
+                      : isToday
+                        ? "border border-blue-300 bg-blue-50 text-slate-900"
+                        : isCurrentMonth
+                          ? "text-slate-800 hover:bg-slate-100"
+                          : "text-slate-300 hover:bg-slate-50")
+                  }
+                >
+                  {cellDate.getDate()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+              className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-50"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const today = toIsoDate(new Date());
+                onChange(today);
+                setViewDate(new Date(today));
+                setOpen(false);
+              }}
+              className="rounded-lg px-2 py-1 text-[#0f3d7a] hover:bg-blue-50"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

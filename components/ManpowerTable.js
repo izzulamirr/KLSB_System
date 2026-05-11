@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { getAuth } from "firebase/auth";
+import MondayDateInput from "./MondayDateInput";
 
 /**
  * Modern blue-themed manpower table
@@ -1180,6 +1181,19 @@ export default function ManpowerTable({ initial = [] }) {
   // helpers (scoped below component for access to state setters)
   function renderInput(label, key, type = "text") {
     const val = form[key] ?? "";
+    if (type === "date") {
+      return (
+        <label className="flex flex-col">
+          <span className="text-xs text-slate-500 mb-1">{label}</span>
+          <MondayDateInput
+            value={val}
+            onChange={(nextValue) => setForm({ ...form, [key]: nextValue })}
+            className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+          />
+        </label>
+      );
+    }
+
     return (
       <label className="flex flex-col">
         <span className="text-xs text-slate-500 mb-1">{label}</span>

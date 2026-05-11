@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { bdFetch } from "./api";
+import MondayDateInput from "../MondayDateInput";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
 
 function normalizeForm(data = {}) {
+  const status = data.status || "PENDING";
   return {
     id: data.id || "",
-    submitted: Boolean(data.submitted),
+    submitted: Boolean(data.submitted) || String(status).toUpperCase() === "ON-GOING",
     refNo: data.refNo || "",
     dateReceived: data.dateReceived || "",
     submissionDate: data.submissionDate || "",
@@ -20,27 +23,80 @@ function normalizeForm(data = {}) {
     bidValidity: data.bidValidity ?? "",
     maturityOnDate: data.maturityOnDate || "",
     valueRM: data.valueRM ?? "",
-    status: data.status || "PENDING",
+    status,
     personInCharge: data.personInCharge || "",
     remarks: data.remarks || "",
+    remarksCreatedAt: data.remarksCreatedAt || "",
+    remarksCreatedBy: data.remarksCreatedBy || "",
+    remarksUpdatedAt: data.remarksUpdatedAt || "",
+    remarksUpdatedBy: data.remarksUpdatedBy || "",
   };
 }
 
-function Field({ label, value, onChange, type = "text" }) {
+function Field({ label, value, onChange, type = "text", disabled = false }) {
+  if (type === "date") {
+    return (
+      <label className="text-sm text-slate-700">
+        <span className="mb-1 block">{label}</span>
+        <MondayDateInput value={value} onChange={onChange} disabled={disabled} />
+      </label>
+    );
+  }
+
   return (
     <label className="text-sm text-slate-700">
       <span className="mb-1 block">{label}</span>
       <input
         type={type}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
       />
     </label>
   );
 }
 
+function calculateMaturityOnDate(submissionDate, bidValidity) {
+  if (!submissionDate || bidValidity === "" || bidValidity === null || bidValidity === undefined) {
+    return "";
+  }
+
+  const days = Number(bidValidity);
+  if (!Number.isFinite(days)) return "";
+
+  const parsedSubmission = new Date(`${submissionDate}T00:00:00`);
+  if (Number.isNaN(parsedSubmission.getTime())) return "";
+
+  parsedSubmission.setDate(parsedSubmission.getDate() + days);
+  return parsedSubmission.toISOString().split("T")[0];
+}
+
+function formatAuditDate(value) {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
+  }
+
+  if (typeof value?.toDate === "function") {
+    return value.toDate().toLocaleString();
+  }
+
+  if (typeof value?.seconds === "number") {
+    return new Date(value.seconds * 1000).toLocaleString();
+  }
+
+  if (typeof value?._seconds === "number") {
+    return new Date(value._seconds * 1000).toLocaleString();
+  }
+
+  return String(value);
+}
+
 export default function BDEditProposalPage({ proposalId }) {
+  const router = useRouter();
   const [form, setForm] = useState(normalizeForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,8 +124,12 @@ export default function BDEditProposalPage({ proposalId }) {
 
   const isReady = useMemo(() => Boolean(form.id), [form.id]);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  useEffect(() => {
+    const maturityOnDate = calculateMaturityOnDate(form.submissionDate, form.bidValidity);
+    setForm((current) => (current.maturityOnDate === maturityOnDate ? current : { ...current, maturityOnDate }));
+  }, [form.submissionDate, form.bidValidity]);
+
+  async function saveProposal() {
     if (!isReady) return;
 
     setError("");
@@ -80,12 +140,36 @@ export default function BDEditProposalPage({ proposalId }) {
         method: "PUT",
         body: JSON.stringify(form),
       });
-      setMessage("Proposal updated successfully.");
+      router.replace("/bd/proposals");
     } catch (err) {
       setError(err.message || "Failed to update proposal");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function deleteProposal() {
+    if (!isReady || !window.confirm("Delete this proposal?")) return;
+
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      await bdFetch("/api/bd/proposals", {
+        method: "DELETE",
+        body: JSON.stringify({ id: form.id }),
+      });
+      router.replace("/bd/proposals");
+    } catch (err) {
+      setError(err.message || "Failed to delete proposal");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    await saveProposal();
   }
 
   return (
@@ -97,9 +181,13 @@ export default function BDEditProposalPage({ proposalId }) {
         </div>
         <Link
           href="/bd/proposals"
-          className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-900"
+          aria-label="Back to tracker"
+          title="Back to tracker"
         >
-          Back to Tracker
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
       </div>
 
@@ -156,14 +244,20 @@ export default function BDEditProposalPage({ proposalId }) {
           </label>
           <Field label="Deadline" type="date" value={form.deadline} onChange={(value) => setForm((current) => ({ ...current, deadline: value }))} />
           <Field label="Bid Validity" type="number" value={form.bidValidity} onChange={(value) => setForm((current) => ({ ...current, bidValidity: value }))} />
-          <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={(value) => setForm((current) => ({ ...current, maturityOnDate: value }))} />
+          <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={() => {}} disabled />
           <Field label="Value (RM)" type="number" value={form.valueRM} onChange={(value) => setForm((current) => ({ ...current, valueRM: value }))} />
 
           <label className="text-sm text-slate-700">
             <span className="mb-1 block">Status</span>
             <select
               value={form.status}
-              onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}
+              onChange={(e) =>
+                setForm((current) => ({
+                  ...current,
+                  status: e.target.value,
+                  submitted: e.target.value === "ON-GOING" ? true : current.submitted,
+                }))
+              }
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             >
               {BD_STATUS_OPTIONS.map((option) => (
@@ -184,11 +278,25 @@ export default function BDEditProposalPage({ proposalId }) {
               rows={2}
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
+            {form.remarks && (form.remarksCreatedAt || form.remarksCreatedBy) && (
+              <p className="mt-1 text-xs text-slate-500">
+                Created by {form.remarksCreatedBy || "Unknown"} on {formatAuditDate(form.remarksCreatedAt)}
+              </p>
+            )}
           </label>
 
-          <div className="xl:col-span-4 flex justify-end">
+          <div className="xl:col-span-4 flex justify-end gap-2">
             <button
-              type="submit"
+              type="button"
+              onClick={deleteProposal}
+              disabled={saving}
+              className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50 disabled:opacity-60"
+            >
+              Delete Proposal
+            </button>
+            <button
+              type="button"
+              onClick={saveProposal}
               disabled={saving}
               className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-[0_12px_24px_rgba(37,99,235,0.3)] hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60"
             >

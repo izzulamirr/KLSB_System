@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { bdFetch } from "./api";
+import MondayDateInput from "../MondayDateInput";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
 
 const initialForm = {
@@ -22,18 +23,43 @@ const initialForm = {
   remarks: "",
 };
 
-function Field({ label, value, onChange, type = "text" }) {
+function Field({ label, value, onChange, type = "text", disabled = false }) {
+  if (type === "date") {
+    return (
+      <label className="text-sm text-slate-700">
+        <span className="mb-1 block">{label}</span>
+        <MondayDateInput value={value} onChange={onChange} disabled={disabled} />
+      </label>
+    );
+  }
+
   return (
     <label className="text-sm text-slate-700">
       <span className="mb-1 block">{label}</span>
       <input
         type={type}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
       />
     </label>
   );
+}
+
+function calculateMaturityOnDate(submissionDate, bidValidity) {
+  if (!submissionDate || bidValidity === "" || bidValidity === null || bidValidity === undefined) {
+    return "";
+  }
+
+  const days = Number(bidValidity);
+  if (!Number.isFinite(days)) return "";
+
+  const parsedSubmission = new Date(`${submissionDate}T00:00:00`);
+  if (Number.isNaN(parsedSubmission.getTime())) return "";
+
+  parsedSubmission.setDate(parsedSubmission.getDate() + days);
+  return parsedSubmission.toISOString().split("T")[0];
 }
 
 export default function BDProposalInputPage() {
@@ -41,6 +67,11 @@ export default function BDProposalInputPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const maturityOnDate = calculateMaturityOnDate(form.submissionDate, form.bidValidity);
+    setForm((current) => (current.maturityOnDate === maturityOnDate ? current : { ...current, maturityOnDate }));
+  }, [form.submissionDate, form.bidValidity]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -117,14 +148,20 @@ export default function BDProposalInputPage() {
         </label>
         <Field label="Deadline" type="date" value={form.deadline} onChange={(value) => setForm((current) => ({ ...current, deadline: value }))} />
         <Field label="Bid Validity" type="number" value={form.bidValidity} onChange={(value) => setForm((current) => ({ ...current, bidValidity: value }))} />
-        <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={(value) => setForm((current) => ({ ...current, maturityOnDate: value }))} />
+        <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={() => {}} disabled />
         <Field label="Value (RM)" type="number" value={form.valueRM} onChange={(value) => setForm((current) => ({ ...current, valueRM: value }))} />
 
         <label className="text-sm text-slate-700">
           <span className="mb-1 block">Status</span>
           <select
             value={form.status}
-            onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}
+            onChange={(e) =>
+              setForm((current) => ({
+                ...current,
+                status: e.target.value,
+                submitted: e.target.value === "ON-GOING" ? true : current.submitted,
+              }))
+            }
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             {BD_STATUS_OPTIONS.map((option) => (

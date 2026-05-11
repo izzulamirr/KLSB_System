@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "../firebase";
+import MondayDateInput from "./MondayDateInput";
 import Tesseract from "tesseract.js";
 
 export default function TimesheetClient() {
@@ -36,7 +37,7 @@ export default function TimesheetClient() {
     const month = String(parseInt(dateMatch[2], 10)).padStart(2, "0");
     const year = dateMatch[3];
 
-    // Return ISO format so it works with <input type="date">.
+    // Return ISO format for downstream date handling.
     return `${year}-${month}-${day}`;
   };
 
@@ -3495,11 +3496,9 @@ export default function TimesheetClient() {
                               <div className="grid grid-cols-1 md:grid-cols-5 gap-2 text-xs">
                                 <div>
                                   <label className="block text-slate-600 mb-1">Date</label>
-                                  <input
-                                    type="date"
+                                  <MondayDateInput
                                     value={entry.date || ""}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
+                                    onChange={(value) => {
                                       setEditableData((prev) => {
                                         if (!prev) return prev;
                                         const entries = [...prev.entries];

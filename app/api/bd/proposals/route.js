@@ -19,6 +19,33 @@ function getCollectionName() {
   return process.env.BD_PROPOSALS_COLLECTION || "bd_proposals";
 }
 
+function getActorLabel(decoded) {
+  return String(decoded?.email || decoded?.name || decoded?.uid || "Unknown").trim();
+}
+
+function buildRemarksAudit(payload, existingDoc, decoded, admin) {
+  const remarks = String(payload?.remarks || "").trim();
+  if (!remarks) return payload;
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const actor = getActorLabel(decoded);
+  const nextPayload = {
+    ...payload,
+    remarksUpdatedAt: now,
+    remarksUpdatedBy: actor,
+  };
+
+  if (existingDoc?.remarksCreatedAt && existingDoc?.remarksCreatedBy) {
+    nextPayload.remarksCreatedAt = existingDoc.remarksCreatedAt;
+    nextPayload.remarksCreatedBy = existingDoc.remarksCreatedBy;
+  } else {
+    nextPayload.remarksCreatedAt = now;
+    nextPayload.remarksCreatedBy = actor;
+  }
+
+  return nextPayload;
+}
+
 function normalizePayload(body) {
   const numericFields = ["bidValidity", "valueRM"];
   const ignoredFields = ["maturityDays"];
@@ -74,7 +101,7 @@ export async function POST(req) {
     const { admin, decoded } = await authorizeBd(req);
     const db = admin.firestore();
     const body = await req.json();
-    const payload = normalizePayload(body);
+    const payload = buildRemarksAudit(normalizePayload(body), null, decoded, admin);
 
     const docRef = await db.collection(getCollectionName()).add({
       ...payload,
@@ -99,8 +126,12 @@ export async function PUT(req) {
     const { id, ...data } = body;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const payload = normalizePayload(data);
-    await db.collection(getCollectionName()).doc(id).set(
+    const docRef = db.collection(getCollectionName()).doc(id);
+    const existingDoc = await docRef.get();
+    if (!existingDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const payload = buildRemarksAudit(normalizePayload(data), existingDoc.data(), decoded, admin);
+    await docRef.set(
       {
         ...payload,
           maturityDays: admin.firestore.FieldValue.delete(),

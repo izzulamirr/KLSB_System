@@ -18,6 +18,7 @@ export const BD_SCOPE_OPTIONS = [
   "Digitalization & ICT",
   "Event Management",
   "Software",
+  "Others",
 ];
 
 export const BD_STATUS_OPTIONS = [
@@ -26,6 +27,5 @@ export const BD_STATUS_OPTIONS = [
   "LOST",
   "WON",
   "CANCELLED",
-  "KIV",
   "ON-GOING",
 ];

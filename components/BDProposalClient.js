@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { auth } from "../firebase";
+import MondayDateInput from "./MondayDateInput";
 
 const defaultForm = {
   submitted: true,
@@ -281,6 +282,15 @@ function Card({ label, value }) {
 }
 
 function Field({ label, value, onChange, type = "text" }) {
+  if (type === "date") {
+    return (
+      <label className="text-sm text-slate-700">
+        <span className="mb-1 block">{label}</span>
+        <MondayDateInput value={value} onChange={onChange} />
+      </label>
+    );
+  }
+
   return (
     <label className="text-sm text-slate-700">
       <span className="mb-1 block">{label}</span>

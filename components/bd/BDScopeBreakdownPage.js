@@ -42,11 +42,37 @@ export default function BDScopeBreakdownPage() {
     }));
   }, [rows]);
 
+  const totalWinning = useMemo(() => {
+    return rows.reduce((sum, r) => {
+      if (!r || String((r.status || "")).toUpperCase() !== "WON") return sum;
+      const val = Number(r.valueRM || 0);
+      return sum + (Number.isNaN(val) ? 0 : val);
+    }, 0);
+  }, [rows]);
+
+  const formattedTotalWinning = useMemo(() => {
+    try {
+      return totalWinning.toLocaleString("en-MY", { style: "currency", currency: "MYR" });
+    } catch (e) {
+      return `RM ${totalWinning}`;
+    }
+  }, [totalWinning]);
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-900 px-7 py-5 shadow-[0_12px_28px_rgba(15,23,42,0.24)]">
         <h1 className="text-3xl font-semibold text-white">Summary</h1>
         <p className="text-sm text-slate-200/90 mt-1">Proposal distribution by scope.</p>
+      </section>
+
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-emerald-700">Total Winning Amount</div>
+            <div className="text-2xl font-semibold text-emerald-800">{formattedTotalWinning}</div>
+          </div>
+          <div className="text-sm text-slate-500">{rows.filter((r) => String((r.status||"")).toUpperCase() === "WON").length} wins</div>
+        </div>
       </section>
 
       {error && (

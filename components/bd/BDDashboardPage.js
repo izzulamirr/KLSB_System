@@ -51,6 +51,49 @@ function formatDisplayDate(date) {
   }).format(date);
 }
 
+function CircularProgress({ percentage, label, color, count, total }) {
+  const radius = 45;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-32 h-32">
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+          {/* Background circle */}
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            fill="none"
+            stroke="#e2e8f0"
+            strokeWidth="8"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="60"
+            cy="60"
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="8"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="transition-all duration-500"
+          />
+        </svg>
+        {/* Center text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <p className="text-2xl font-bold text-slate-900">{percentage.toFixed(1)}%</p>
+          <p className="text-xs text-slate-500">{count}/{total}</p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm font-medium text-slate-700">{label}</p>
+    </div>
+  );
+}
+
 export default function BDDashboardPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -179,6 +222,27 @@ export default function BDDashboardPage() {
           <p className="text-sm text-slate-500">On-Time Submission</p>
           <p className="text-3xl font-semibold text-indigo-600 mt-2">{stats.onTimePct.toFixed(1)}%</p>
           <p className="mt-1 text-xs text-slate-500">{stats.onTime}/{stats.eligible} eligible proposals</p>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50/50 p-8 shadow-[0_12px_24px_rgba(16,185,129,0.08)] flex justify-center">
+          <CircularProgress
+            percentage={stats.total > 0 ? (stats.won / stats.total) * 100 : 0}
+            label="Win Rate"
+            color="#10b981"
+            count={stats.won}
+            total={stats.total}
+          />
+        </div>
+        <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-white to-rose-50/50 p-8 shadow-[0_12px_24px_rgba(244,63,94,0.08)] flex justify-center">
+          <CircularProgress
+            percentage={stats.total > 0 ? (stats.lost / stats.total) * 100 : 0}
+            label="Loss Rate"
+            color="#f43f5e"
+            count={stats.lost}
+            total={stats.total}
+          />
         </div>
       </section>
 

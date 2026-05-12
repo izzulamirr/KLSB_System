@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { bdFetch } from "./api";
 import MondayDateInput from "../MondayDateInput";
+import PicSelector from "../PicSelector";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
 
 const initialForm = {
@@ -33,6 +34,22 @@ function Field({ label, value, onChange, type = "text", disabled = false }) {
     );
   }
 
+  if (type === "currency") {
+    return (
+      <label className="text-sm text-slate-700">
+        <span className="mb-1 block">{label}</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={formatCurrencyDisplay(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(parseCurrencyInput(e.target.value))}
+          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
+        />
+      </label>
+    );
+  }
+
   return (
     <label className="text-sm text-slate-700">
       <span className="mb-1 block">{label}</span>
@@ -45,6 +62,28 @@ function Field({ label, value, onChange, type = "text", disabled = false }) {
       />
     </label>
   );
+}
+
+function parseCurrencyInput(value) {
+  if (value === null || value === undefined) return "";
+  const digitsOnly = String(value).replace(/[^\d.]/g, "");
+  const [wholePart, ...fractionParts] = digitsOnly.split(".");
+  const fractionPart = fractionParts.join("").replace(/\./g, "").slice(0, 2);
+  return fractionParts.length > 0 ? `${wholePart || "0"}.${fractionPart}` : wholePart;
+}
+
+function formatCurrencyDisplay(value) {
+  if (value === "" || value === null || value === undefined) return "";
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return String(value);
+
+  return new Intl.NumberFormat("en-MY", {
+    style: "currency",
+    currency: "MYR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericValue);
 }
 
 function calculateMaturityOnDate(submissionDate, bidValidity) {
@@ -72,6 +111,11 @@ export default function BDProposalInputPage() {
     const maturityOnDate = calculateMaturityOnDate(form.submissionDate, form.bidValidity);
     setForm((current) => (current.maturityOnDate === maturityOnDate ? current : { ...current, maturityOnDate }));
   }, [form.submissionDate, form.bidValidity]);
+
+  const handlePersonInChargeChange = useCallback(
+    (value) => setForm((current) => ({ ...current, personInCharge: value })),
+    []
+  );
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -149,7 +193,7 @@ export default function BDProposalInputPage() {
         <Field label="Deadline" type="date" value={form.deadline} onChange={(value) => setForm((current) => ({ ...current, deadline: value }))} />
         <Field label="Bid Validity" type="number" value={form.bidValidity} onChange={(value) => setForm((current) => ({ ...current, bidValidity: value }))} />
         <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={() => {}} disabled />
-        <Field label="Value (RM)" type="number" value={form.valueRM} onChange={(value) => setForm((current) => ({ ...current, valueRM: value }))} />
+        <Field label="Value (RM)" type="currency" value={form.valueRM} onChange={(value) => setForm((current) => ({ ...current, valueRM: value }))} />
 
         <label className="text-sm text-slate-700">
           <span className="mb-1 block">Status</span>
@@ -172,7 +216,13 @@ export default function BDProposalInputPage() {
           </select>
         </label>
 
-        <Field label="Person in Charge" value={form.personInCharge} onChange={(value) => setForm((current) => ({ ...current, personInCharge: value }))} />
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Person in Charge</span>
+          <PicSelector
+            value={form.personInCharge}
+            onChange={handlePersonInChargeChange}
+          />
+        </label>
 
         <label className="text-sm text-slate-700 xl:col-span-2">
           <span className="mb-1 block">Remarks</span>

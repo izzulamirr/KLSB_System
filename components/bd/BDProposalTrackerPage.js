@@ -12,8 +12,12 @@ export default function BDProposalTrackerPage() {
   const [titleQuery, setTitleQuery] = useState("");
   const [clientQuery, setClientQuery] = useState("");
   const [picQuery, setPicQuery] = useState("");
+  const [refQuery, setRefQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [deadlineSort, setDeadlineSort] = useState("desc");
+  const [refNoSort, setRefNoSort] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   async function load() {
     setError("");
@@ -45,7 +49,7 @@ export default function BDProposalTrackerPage() {
     }
   }
 
-  function getMaturationDays(deadline) {
+  function getMaturationDays(deadline, submission) {
     if (!deadline) return "-";
 
     let targetDate = null;
@@ -67,11 +71,27 @@ export default function BDProposalTrackerPage() {
 
     if (Number.isNaN(targetDate.getTime())) return "-";
 
+    // Common date math
+    const dayMs = 1000 * 60 * 60 * 24;
+    const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
     const today = new Date();
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-    const daysRemaining = Math.ceil((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
 
+    // If maturation already passed relative to today => show 0
+    if (startOfTarget <= startOfToday) return "0 days";
+
+    // If submission provided, compute maturation days relative to submission date
+    if (submission) {
+      const submissionDate = parseDeadline(submission);
+      if (!submissionDate) return "-";
+      const startOfSubmission = new Date(submissionDate.getFullYear(), submissionDate.getMonth(), submissionDate.getDate());
+      const daysBetween = Math.ceil((startOfTarget - startOfSubmission) / dayMs);
+      if (daysBetween <= 0) return "0 days";
+      return `${daysBetween} day${daysBetween === 1 ? "" : "s"}`;
+    }
+
+    // Fallback: compute days from today
+    const daysRemaining = Math.ceil((startOfTarget - startOfToday) / dayMs);
     if (daysRemaining <= 0) return "0 days";
     return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
   }
@@ -104,6 +124,7 @@ export default function BDProposalTrackerPage() {
     const normalizedTitle = titleQuery.trim().toLowerCase();
     const normalizedClient = clientQuery.trim().toLowerCase();
     const normalizedPic = picQuery.trim().toLowerCase();
+    const normalizedRef = refQuery.trim().toLowerCase();
 
     const filtered = rows.filter((item) => {
       const title = String(item.titleProjectName || "").toLowerCase();
@@ -115,21 +136,47 @@ export default function BDProposalTrackerPage() {
       const clientMatch = !normalizedClient || client.includes(normalizedClient);
       const picMatch = !normalizedPic || pic.includes(normalizedPic);
       const statusMatch = !statusFilter || status === statusFilter;
+      const refMatch = !normalizedRef || String(item.refNo || "").toLowerCase().includes(normalizedRef);
 
-      return titleMatch && clientMatch && picMatch && statusMatch;
+      return titleMatch && clientMatch && picMatch && statusMatch && refMatch;
     });
 
-    return [...filtered].sort((left, right) => {
-      const leftDate = parseDeadline(left.deadline);
-      const rightDate = parseDeadline(right.deadline);
+    let sorted = [...filtered];
 
-      if (!leftDate && !rightDate) return 0;
-      if (!leftDate) return 1;
-      if (!rightDate) return -1;
+    // Apply reference number sort if selected
+    if (refNoSort) {
+      sorted.sort((left, right) => {
+        const leftRef = String(left.refNo || "").toLowerCase();
+        const rightRef = String(right.refNo || "").toLowerCase();
+        const cmp = leftRef.localeCompare(rightRef, undefined, { numeric: true });
+        return refNoSort === "asc" ? cmp : -cmp;
+      });
+    } else {
+      // Apply deadline sort (default)
+      sorted.sort((left, right) => {
+        const leftDate = parseDeadline(left.deadline);
+        const rightDate = parseDeadline(right.deadline);
 
-      return deadlineSort === "asc" ? leftDate - rightDate : rightDate - leftDate;
-    });
-  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort]);
+        if (!leftDate && !rightDate) return 0;
+        if (!leftDate) return 1;
+        if (!rightDate) return -1;
+
+        return deadlineSort === "asc" ? leftDate - rightDate : rightDate - leftDate;
+      });
+    }
+
+    return sorted;
+  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort]);
+
+  // Reset to page 1 when filters or sorts change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort]);
+
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedRows = filteredRows.slice(startIdx, endIdx);
 
   return (
     <div className="relative rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
@@ -183,6 +230,17 @@ export default function BDProposalTrackerPage() {
         </label>
 
         <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Filter Ref No</span>
+          <input
+            type="text"
+            value={refQuery}
+            onChange={(e) => setRefQuery(e.target.value)}
+            placeholder="Type ref no..."
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+        </label>
+
+        <label className="text-sm text-slate-700">
           <span className="mb-1 block font-medium text-slate-600">Filter status</span>
           <select
             value={statusFilter}
@@ -202,11 +260,27 @@ export default function BDProposalTrackerPage() {
           <span className="mb-1 block font-medium text-slate-600">Deadline sort</span>
           <select
             value={deadlineSort}
-            onChange={(e) => setDeadlineSort(e.target.value)}
+            onChange={(e) => {
+              setDeadlineSort(e.target.value);
+              setRefNoSort("");
+            }}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="desc">Newest deadline first</option>
             <option value="asc">Oldest deadline first</option>
+          </select>
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Sort by Ref No</span>
+          <select
+            value={refNoSort}
+            onChange={(e) => setRefNoSort(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">None (deadline sort)</option>
+            <option value="asc">A-Z</option>
+            <option value="desc">Z-A</option>
           </select>
         </label>
       </div>
@@ -250,14 +324,27 @@ export default function BDProposalTrackerPage() {
                 <td colSpan={9} className="px-3 py-8 text-center text-slate-500">No proposals found.</td>
               </tr>
             ) : (
-              filteredRows.map((item) => (
+              paginatedRows.map((item) => (
                 <tr key={item.id} className="border-t border-slate-200 text-slate-700 hover:bg-slate-50/70 transition-colors">
-                  <td className="px-3 py-2">{item.refNo || "-"}</td>
+                  <td className="px-3 py-2">
+                    {item.googleFolderLink ? (
+                      <a
+                        href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
+                      >
+                        {item.refNo || "-"}
+                      </a>
+                    ) : (
+                      item.refNo || "-"
+                    )}
+                  </td>
                   <td className="px-3 py-2">{item.dateReceived || "-"}</td>
                   <td className="px-3 py-2 max-w-[280px] truncate" title={item.titleProjectName || ""}>{item.titleProjectName || "-"}</td>
                   <td className="px-3 py-2">{item.client || "-"}</td>
                   <td className="px-3 py-2">{item.deadline || "-"}</td>
-                  <td className="px-3 py-2">{getMaturationDays(item.maturityOnDate)}</td>
+                  <td className="px-3 py-2">{getMaturationDays(item.maturityOnDate, item.submissionDate)}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>
                       {item.status || "PENDING"}
@@ -283,6 +370,50 @@ export default function BDProposalTrackerPage() {
           </tbody>
         </table>
       </div>
+
+      {filteredRows.length > 0 && (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-600">
+            Showing <span className="font-medium">{startIdx + 1}</span> to{" "}
+            <span className="font-medium">{Math.min(endIdx, filteredRows.length)}</span> of{" "}
+            <span className="font-medium">{filteredRows.length}</span> proposals
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === page
+                      ? "bg-[#0f3d7a] text-white"
+                      : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

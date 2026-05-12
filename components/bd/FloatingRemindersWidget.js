@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
+import { getPicEmails } from "../../lib/picEmailMap";
 
 function parseDateInput(value) {
   if (!value) return null;
@@ -107,6 +108,8 @@ export default function FloatingRemindersWidget() {
           dueDate: targetDay,
           refNo: row.refNo || "-",
           title: row.titleProjectName || "-",
+          personInCharge: row.personInCharge || "-",
+          picEmails: getPicEmails(row.personInCharge),
         });
       }
     }

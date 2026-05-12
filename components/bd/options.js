@@ -17,6 +17,7 @@ export const BD_SCOPE_OPTIONS = [
   "Engineering Design",
   "Digitalization & ICT",
   "Event Management",
+  "Consultation",
   "Software",
   "Others",
 ];

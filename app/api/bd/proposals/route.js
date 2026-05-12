@@ -53,6 +53,10 @@ function normalizePayload(body) {
 
   for (const [key, value] of Object.entries(body || {})) {
     if (ignoredFields.includes(key)) continue;
+    if (key === "googleFolderLink") {
+      out[key] = String(value || "").trim();
+      continue;
+    }
     if (value === "" || value === null || value === undefined) continue;
     if (numericFields.includes(key)) {
       const num = Number(value);

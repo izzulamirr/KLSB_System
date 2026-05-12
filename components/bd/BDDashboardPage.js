@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { bdFetch } from "./api";
+import { getPicEmails } from "../../lib/picEmailMap";
 
 function parseDateInput(value) {
   if (!value) return null;
@@ -88,6 +90,8 @@ export default function BDDashboardPage() {
           refNo: row.refNo || "-",
           title: row.titleProjectName || "-",
           client: row.client || "-",
+          personInCharge: row.personInCharge || "-",
+          picEmails: getPicEmails(row.personInCharge),
         });
       }
     }
@@ -150,7 +154,20 @@ export default function BDDashboardPage() {
                         {item.type}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{item.refNo}</td>
+                    <td className="px-3 py-2 text-slate-700">
+                      {item.googleFolderLink ? (
+                        <a
+                          href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
+                        >
+                          {item.refNo}
+                        </a>
+                      ) : (
+                        item.refNo
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-slate-700 max-w-[320px] truncate" title={item.title}>
                       {item.title}
                     </td>
@@ -194,7 +211,20 @@ export default function BDDashboardPage() {
               ) : (
                 latest.map((item) => (
                   <tr key={item.id} className="border-t border-slate-200">
-                    <td className="px-3 py-2 text-slate-700">{item.refNo || "-"}</td>
+                    <td className="px-3 py-2 text-slate-700">
+                      {item.googleFolderLink ? (
+                        <a
+                          href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
+                        >
+                          {item.refNo || "-"}
+                        </a>
+                      ) : (
+                        item.refNo || "-"
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-slate-700 max-w-[300px] truncate" title={item.titleProjectName || ""}>
                       {item.titleProjectName || "-"}
                     </td>
@@ -203,11 +233,23 @@ export default function BDDashboardPage() {
                     <td className="px-3 py-2 text-slate-700">
                       {(() => {
                         const targetDate = parseDateInput(item.maturityOnDate);
+                        const submissionDate = parseDateInput(item.submissionDate);
                         if (!targetDate) return "-";
+                        const dayMs = 1000 * 60 * 60 * 24;
+                        const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
                         const today = new Date();
                         const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-                        const daysRemaining = Math.ceil((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
+
+                        // If maturity already passed relative to today => show 0
+                        if (startOfTarget <= startOfToday) return "0 days";
+
+                        if (submissionDate) {
+                          const startOfSubmission = new Date(submissionDate.getFullYear(), submissionDate.getMonth(), submissionDate.getDate());
+                          const daysBetween = Math.ceil((startOfTarget - startOfSubmission) / dayMs);
+                          return daysBetween <= 0 ? "0 days" : `${daysBetween} day${daysBetween === 1 ? "" : "s"}`;
+                        }
+
+                        const daysRemaining = Math.ceil((startOfTarget - startOfToday) / dayMs);
                         return daysRemaining <= 0 ? "0 days" : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
                       })()}
                     </td>

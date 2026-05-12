@@ -12,6 +12,7 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const [checking, setChecking] = useState(true);
   const [role, setRole] = useState("");
+  const [email, setEmail] = useState("");
 
   const handleIdleTimeout = useCallback(async () => {
     await signOut(auth);
@@ -47,6 +48,7 @@ export default function DashboardLayout({ children }) {
           const data = await res.json();
           const resolvedRole = String(data?.role || "").toLowerCase();
           setRole(resolvedRole);
+          setEmail(String(data?.email || u.email || "").toLowerCase());
 
           // BD users are strictly scoped to BD portal only.
           if (resolvedRole === "bd") {
@@ -85,6 +87,7 @@ export default function DashboardLayout({ children }) {
     { href: "/dashboard/timesheet", label: "Timesheet Management", icon: "TS" },
     ...(role === "sysdev" ? [{ href: "/dashboard/control", label: "Control Center", icon: "CT" }] : []),
     { href: "/dashboard/settings", label: "System Settings", icon: "ST" },
+    ...(role === "sysdev" ? [{ href: "/admin/users", label: "User Management", icon: "US" }] : []),
   ];
 
   return (
@@ -139,8 +142,13 @@ export default function DashboardLayout({ children }) {
 
       <main className="md:ml-72 min-h-screen px-4 sm:px-6 lg:px-8 py-6">
         <header className="mb-5 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">KLSB Workforce Portal</p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-900">Operations Dashboard</h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">KLSB Workforce Portal</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">Operations Dashboard</h2>
+            </div>
+            {/* Open BD Portal button removed */}
+          </div>
         </header>
         <div className="portal-shell p-5 sm:p-7 text-[#0b1e3a]">
           {children}

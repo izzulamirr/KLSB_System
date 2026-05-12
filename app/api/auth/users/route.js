@@ -226,3 +226,48 @@ export async function PATCH(req) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+// DELETE /api/auth/users
+// Body: { uid: string }
+// Only staff admins can delete users (cannot delete self)
+export async function DELETE(req) {
+  try {
+    const authHeader = req.headers.get("authorization") || "";
+    const idToken = authHeader.replace("Bearer ", "");
+    if (!idToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const admin = await initAdmin();
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    if (!decoded?.uid) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const requesterRole = await resolveUserRole(admin, decoded);
+    if (!hasStaffAdminAccess(decoded, requesterRole)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const uid = String(body?.uid || "").trim();
+    if (!uid) {
+      return NextResponse.json({ error: "uid is required" }, { status: 400 });
+    }
+
+    if (uid === decoded.uid) {
+      return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 });
+    }
+
+    // Remove user from Firebase Auth
+    await admin.auth().deleteUser(uid);
+
+    // Remove role doc if exists
+    const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+    await admin.firestore().collection(roleCollection).doc(uid).delete().catch(() => {});
+
+    return NextResponse.json({ ok: true, uid });
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

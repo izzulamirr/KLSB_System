@@ -1,6 +1,12 @@
 "use client";
-import BDStaffManagementClient from "../../../components/bd/BDStaffManagementClient";
 
-export default function BdStaffPage() {
-  return <BDStaffManagementClient />;
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function BdStaffRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/admin/users");
+  }, [router]);
+  return null;
 }

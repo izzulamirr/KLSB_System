@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { getAuth } from "firebase/auth";
 
-export default function BDStaffManagementClient() {
+export default function BDStaffManagementClient({ viewRole } = {}) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,7 +87,12 @@ export default function BDStaffManagementClient() {
       }
 
       const data = await res.json();
-      setUsers(data.users || []);
+      let fetched = data.users || [];
+      if (viewRole) {
+        const vr = String(viewRole || "").toLowerCase();
+        fetched = fetched.filter((u) => String(u.customClaims?.role || "").toLowerCase() === vr);
+      }
+      setUsers(fetched);
     } catch (err) {
       console.error(err);
       showMessage("error", err.message || "Failed to load staff");
@@ -262,6 +267,51 @@ export default function BDStaffManagementClient() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!editingUser?.uid) {
+      showMessage("error", "No user selected");
+      return;
+    }
+
+    const confirmDelete = window.confirm(`Delete user ${editingUser.email}? This action cannot be undone.`);
+    if (!confirmDelete) return;
+
+    setUpdatingUser(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        showMessage("error", "Not authenticated");
+        return;
+      }
+
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/auth/users", {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uid: editingUser.uid }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        showMessage("error", data.error || "Failed to delete user");
+        return;
+      }
+
+      showMessage("success", "User deleted");
+      setShowEditModal(false);
+      setEditingUser(null);
+      fetchStaff();
+    } catch (err) {
+      console.error(err);
+      showMessage("error", err.message || "Failed to delete user");
+    } finally {
+      setUpdatingUser(false);
+    }
+  };
+
   // Filter and sort users
   let filteredUsers = users.filter((u) => {
     const matchesSearch =
@@ -355,20 +405,38 @@ export default function BDStaffManagementClient() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Staff Management</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Manage users, view login history, and assign roles
-          </p>
+          <h1 className="text-2xl font-semibold text-slate-900">Staff Management</h1>
+          <p className="mt-1 text-sm text-slate-600">Manage users, view login history, and assign roles</p>
+          <div className="mt-3 text-sm text-slate-500">Total users: <span className="font-medium text-slate-700">{users.length}</span></div>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-[#0f3d7a] px-4 py-2.5 font-semibold text-white hover:bg-[#0c3368] transition-colors"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Staff
-        </button>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchStaff(true)}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <svg
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0f3d7a] px-4 py-2.5 font-semibold text-white hover:bg-[#0c3368] transition-colors"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Staff
+          </button>
+        </div>
       </div>
 
       {/* Message Alert */}
@@ -385,7 +453,7 @@ export default function BDStaffManagementClient() {
       )}
 
       {/* Controls */}
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 min-w-0">
           <div className="relative">
             <svg
@@ -394,28 +462,23 @@ export default function BDStaffManagementClient() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white pl-10 pr-4 py-2 text-sm placeholder-slate-500 focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
+              className="w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 py-3 text-sm placeholder-slate-400 focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
             />
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-300 focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
           >
             <option value="all">All Roles</option>
             <option value="bd">BD</option>
@@ -427,38 +490,18 @@ export default function BDStaffManagementClient() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-400 focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-300 focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
           >
             <option value="name">Sort by Name</option>
             <option value="lastLogin">Sort by Last Login</option>
             <option value="created">Sort by Created</option>
           </select>
-
-          <button
-            onClick={() => fetchStaff(true)}
-            disabled={refreshing}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 hover:bg-slate-50 disabled:opacity-50"
-          >
-            <svg
-              className={`h-5 w-5 text-slate-600 ${refreshing ? "animate-spin" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-          </button>
         </div>
       </div>
 
       {/* Staff Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50/70 px-6 py-2 text-xs text-slate-500">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow">
+        <div className="border-b border-slate-100 bg-slate-50 px-6 py-3 text-xs text-slate-500">
           Click any row to edit account settings.
         </div>
         {filteredUsers.length === 0 ? (
@@ -482,31 +525,33 @@ export default function BDStaffManagementClient() {
           </div>
         ) : (
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 font-semibold text-slate-900">Name</th>
-                <th className="px-6 py-3 font-semibold text-slate-900">Email</th>
-                <th className="px-6 py-3 font-semibold text-slate-900">Role</th>
-                <th className="px-6 py-3 font-semibold text-slate-900">Last Login</th>
-                <th className="px-6 py-3 font-semibold text-slate-900">Created</th>
-                <th className="px-6 py-3 font-semibold text-slate-900">Status</th>
+            <thead className="bg-white">
+              <tr className="text-xs text-slate-500 uppercase tracking-wider">
+                <th className="px-6 py-3">Name</th>
+                <th className="px-6 py-3">Email</th>
+                <th className="px-6 py-3">Role</th>
+                <th className="px-6 py-3">Last Login</th>
+                <th className="px-6 py-3">Created</th>
+                <th className="px-6 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-100">
               {filteredUsers.map((user) => (
                 <tr
                   key={user.uid}
                   onClick={() => openEditModal(user)}
                   className="cursor-pointer hover:bg-slate-50 transition-colors"
                 >
-                  <td className="px-6 py-4 font-medium text-slate-900">{user.name}</td>
+                  <td className="px-6 py-4 font-medium text-slate-900 flex items-center gap-3">
+                    <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 font-semibold">{(user.name || "?").split(" ").map(s=>s[0]).slice(0,2).join("")}</div>
+                    <div>
+                      <div className="text-slate-900">{user.name}</div>
+                      <div className="text-xs text-slate-400">{getRoleLabel(user.customClaims?.role || "staff")}</div>
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-slate-600">{user.email}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getRoleColor(
-                        user.customClaims?.role || "staff"
-                      )}`}
-                    >
+                    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${getRoleColor(user.customClaims?.role || "staff")}`}>
                       {getRoleLabel(user.customClaims?.role || "staff")}
                     </span>
                   </td>
@@ -522,16 +567,17 @@ export default function BDStaffManagementClient() {
                         e.stopPropagation();
                         handleToggleUserStatus(user.uid, user.disabled);
                       }}
-                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                         user.disabled
-                          ? "bg-red-100 text-red-800 hover:bg-red-200"
-                          : "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                          ? "bg-red-50 text-red-700 ring-1 ring-red-100 hover:bg-red-100"
+                          : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
                       }`}
                     >
                       <span className={`inline-block h-2 w-2 rounded-full ${user.disabled ? "bg-red-600" : "bg-emerald-600"}`} />
                       {user.disabled ? "Inactive" : "Active"}
                     </button>
                   </td>
+                  
                 </tr>
               ))}
             </tbody>
@@ -621,7 +667,7 @@ export default function BDStaffManagementClient() {
                   disabled={creatingUser}
                   className="flex-1 rounded-lg bg-[#0f3d7a] px-4 py-2.5 font-semibold text-white hover:bg-[#0c3368] disabled:opacity-50"
                 >
-                  {creatingUser ? "Creating..." : "Create"}
+                  {creatingUser ? "Creating..." : "Create User"}
                 </button>
               </div>
             </form>
@@ -659,30 +705,32 @@ export default function BDStaffManagementClient() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">Role</label>
-                <select
-                  value={editingUser.role}
-                  onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
-                >
-                  <option value="bd">BD</option>
-                  <option value="sysdev">System Developers</option>
-                  <option value="hr">HR</option>
-                  <option value="staff">Staff</option>
-                </select>
-              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">Role</label>
+                  <select
+                    value={editingUser.role}
+                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
+                  >
+                    <option value="bd">BD</option>
+                    <option value="sysdev">System Developers</option>
+                    <option value="hr">HR</option>
+                    <option value="staff">Staff</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-900 mb-1">Status</label>
-                <select
-                  value={editingUser.disabled ? "inactive" : "active"}
-                  onChange={(e) => setEditingUser({ ...editingUser, disabled: e.target.value === "inactive" })}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                <div>
+                  <label className="block text-sm font-medium text-slate-900 mb-1">Status</label>
+                  <select
+                    value={editingUser.disabled ? "inactive" : "active"}
+                    onChange={(e) => setEditingUser({ ...editingUser, disabled: e.target.value === "inactive" })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -696,7 +744,7 @@ export default function BDStaffManagementClient() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex items-center justify-between gap-4 pt-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -704,17 +752,48 @@ export default function BDStaffManagementClient() {
                     setEditingUser(null);
                   }}
                   disabled={updatingUser}
-                  className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                  aria-label="Cancel"
+                  title="Cancel"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-300 text-slate-900 hover:bg-slate-50 disabled:opacity-50"
                 >
-                  Cancel
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-                <button
-                  type="submit"
-                  disabled={updatingUser}
-                  className="flex-1 rounded-lg bg-[#0f3d7a] px-4 py-2.5 font-semibold text-white hover:bg-[#0c3368] disabled:opacity-50"
-                >
-                  {updatingUser ? "Saving..." : "Save Changes"}
-                </button>
+
+                <div className="flex gap-3">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteUser}
+                      disabled={updatingUser}
+                      aria-label="Delete User"
+                      title="Delete User"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={updatingUser}
+                    aria-label="Save Changes"
+                    title="Save Changes"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-[#0f3d7a] text-white hover:bg-[#0c3368] disabled:opacity-50"
+                  >
+                    {updatingUser ? (
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

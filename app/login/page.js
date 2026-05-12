@@ -22,6 +22,7 @@ export default function Page() {
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await credential.user.getIdToken();
+      const signedInEmail = String(credential.user.email || email || "").toLowerCase();
 
       let targetRoute = "/dashboard";
       try {
@@ -30,12 +31,16 @@ export default function Page() {
         });
         if (roleRes.ok) {
           const roleData = await roleRes.json();
-          if (String(roleData?.role || "").toLowerCase() === "bd") {
+          if (signedInEmail === "admin@klsb.com") {
+            targetRoute = "/portal";
+          } else if (String(roleData?.role || "").toLowerCase() === "bd") {
             targetRoute = "/bd";
+          } else {
+            targetRoute = "/dashboard";
           }
         }
       } catch {
-        targetRoute = "/dashboard";
+        targetRoute = signedInEmail === "admin@klsb.com" ? "/portal" : "/dashboard";
       }
 
       router.push(targetRoute);

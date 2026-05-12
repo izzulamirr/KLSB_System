@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { bdFetch } from "./api";
 import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
+import HighlightNumbers from "../HighlightNumbers";
 
 function parseDateInput(value) {
   if (!value) return null;
@@ -159,12 +160,12 @@ export default function BDDashboardPage() {
                           href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
+                          className="inline-flex rounded-md px-2 py-0.5 font-semibold underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-50"
                         >
-                          {item.refNo}
+                          <HighlightNumbers text={item.refNo || "-"} />
                         </a>
                       ) : (
-                        item.refNo
+                        <HighlightNumbers text={item.refNo || "-"} />
                       )}
                     </td>
                     <td className="px-3 py-2 text-slate-700 max-w-[320px] truncate" title={item.title}>
@@ -216,12 +217,12 @@ export default function BDDashboardPage() {
                           href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
+                          className="inline-flex rounded-md px-2 py-0.5 font-semibold underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-50"
                         >
-                          {item.refNo || "-"}
+                          <HighlightNumbers text={item.refNo || "-"} />
                         </a>
                       ) : (
-                        item.refNo || "-"
+                        <HighlightNumbers text={item.refNo || "-"} />
                       )}
                     </td>
                     <td className="px-3 py-2 text-slate-700 max-w-[300px] truncate" title={item.titleProjectName || ""}>

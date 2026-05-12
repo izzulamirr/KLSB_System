@@ -55,13 +55,14 @@ export default function BdLayout({ children }) {
         }
 
         const resolvedRole = String(data?.role || "").toLowerCase();
+        const respIsAdmin = Boolean(data?.isAdmin);
         if (resolvedRole !== "bd" && userEmail !== "admin@klsb.com" && userEmail !== "bd@gmail.com") {
           router.push("/dashboard");
           return;
         }
 
         const isStaffAdmin =
-          resolvedRole === "sysdev" || userEmail === "admin@klsb.com" || userEmail === "bd@gmail.com";
+          resolvedRole === "sysdev" || userEmail === "admin@klsb.com" || userEmail === "bd@gmail.com" || respIsAdmin;
 
         setAuthorized(true);
         setEmail(userEmail);

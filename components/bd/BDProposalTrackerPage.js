@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { bdFetch, statusClass } from "./api";
 import { BD_STATUS_OPTIONS } from "./options";
+import { formatPicString } from "../../lib/picEmailMap";
 
 export default function BDProposalTrackerPage() {
   const [rows, setRows] = useState([]);
@@ -35,19 +36,6 @@ export default function BDProposalTrackerPage() {
   useEffect(() => {
     load();
   }, []);
-
-  async function handleDelete(id) {
-    setError("");
-    try {
-      await bdFetch("/api/bd/proposals", {
-        method: "DELETE",
-        body: JSON.stringify({ id }),
-      });
-      setRows((current) => current.filter((item) => item.id !== id));
-    } catch (err) {
-      setError(err.message || "Failed to delete proposal");
-    }
-  }
 
   function getMaturationDays(deadline, submission) {
     if (!deadline) return "-";
@@ -166,7 +154,7 @@ export default function BDProposalTrackerPage() {
     }
 
     return sorted;
-  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort]);
+  }, [rows, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
 
   // Reset to page 1 when filters or sorts change
   useEffect(() => {
@@ -350,7 +338,7 @@ export default function BDProposalTrackerPage() {
                       {item.status || "PENDING"}
                     </span>
                   </td>
-                  <td className="px-3 py-2">{item.personInCharge || "-"}</td>
+                  <td className="px-3 py-2">{formatPicString(item.personInCharge) || "-"}</td>
                   <td className="px-3 py-2">
                     <Link
                       href={`/bd/proposals/${item.id}/edit`}

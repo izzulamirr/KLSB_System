@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { bdFetch } from "./api";
+import { formatPicString } from "../../lib/picEmailMap";
 import BDSummaryOverview from "./BDSummaryOverview";
 
 export default function BDScopeBreakdownPage() {
@@ -276,7 +277,7 @@ export default function BDScopeBreakdownPage() {
                             {item.titleProjectName || "-"}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">{item.client || "-"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{item.personInCharge || "-"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{formatPicString(item.personInCharge) || "-"}</td>
                           <td className="px-4 py-3">
                             <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
                               {item.status || "PENDING"}

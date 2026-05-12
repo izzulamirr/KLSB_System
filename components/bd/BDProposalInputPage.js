@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { bdFetch } from "./api";
 import MondayDateInput from "../MondayDateInput";
 import PicSelector from "../PicSelector";
+import { formatPicString } from "../../lib/picEmailMap";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
 
 const initialForm = {
@@ -123,9 +124,13 @@ export default function BDProposalInputPage() {
     setMessage("");
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        personInCharge: formatPicString(form.personInCharge),
+      };
       await bdFetch("/api/bd/proposals", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       setForm(initialForm);
       setMessage("Proposal added successfully.");

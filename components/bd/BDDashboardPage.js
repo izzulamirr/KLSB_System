@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { bdFetch } from "./api";
-import { getPicEmails } from "../../lib/picEmailMap";
+import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
 
 function parseDateInput(value) {
   if (!value) return null;
@@ -90,7 +89,7 @@ export default function BDDashboardPage() {
           refNo: row.refNo || "-",
           title: row.titleProjectName || "-",
           client: row.client || "-",
-          personInCharge: row.personInCharge || "-",
+          personInCharge: formatPicString(row.personInCharge) || "-",
           picEmails: getPicEmails(row.personInCharge),
         });
       }
@@ -229,7 +228,7 @@ export default function BDDashboardPage() {
                       {item.titleProjectName || "-"}
                     </td>
                     <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{item.client || "-"}</td>
-                    <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{item.personInCharge || "-"}</td>
+                    <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{formatPicString(item.personInCharge) || "-"}</td>
                     <td className="px-3 py-2 text-slate-700">
                       {(() => {
                         const targetDate = parseDateInput(item.maturityOnDate);

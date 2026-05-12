@@ -14,7 +14,15 @@ export async function GET(req) {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const role = await resolveUserRole(admin, decoded);
 
-    return NextResponse.json({ role, email: decoded.email || null, uid: decoded.uid });
+    // read role doc to include isAdmin flag
+    const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+    let isAdmin = false;
+    try {
+      const doc = await admin.firestore().collection(roleCollection).doc(decoded.uid).get();
+      if (doc.exists) isAdmin = Boolean(doc.data()?.isAdmin);
+    } catch {}
+
+    return NextResponse.json({ role, email: decoded.email || null, uid: decoded.uid, isAdmin });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -5,9 +5,19 @@ import { resolveUserRole, isSysdevRole } from "../../../../lib/roleResolver";
 const STAFF_ADMIN_EMAILS = ["bd@gmail.com"];
 const ALLOWED_ROLES = new Set(["bd", "sysdev", "hr", "staff"]);
 
-function hasStaffAdminAccess(decoded, role) {
+async function hasStaffAdminAccess(admin, decoded, role) {
   const email = String(decoded?.email || "").toLowerCase();
-  return isSysdevRole(role) || STAFF_ADMIN_EMAILS.includes(email);
+  if (isSysdevRole(role) || STAFF_ADMIN_EMAILS.includes(email)) return true;
+
+  try {
+    const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+    const doc = await admin.firestore().collection(roleCollection).doc(decoded.uid).get();
+    if (doc.exists && doc.data()?.isAdmin) return true;
+  } catch {
+    // ignore and fallback to false
+  }
+
+  return false;
 }
 
 // GET /api/auth/users — returns all Firebase Auth users with lastSignInTime
@@ -27,7 +37,7 @@ export async function GET(req) {
     }
 
     const requesterRole = await resolveUserRole(admin, decoded);
-    if (!hasStaffAdminAccess(decoded, requesterRole)) {
+    if (!(await hasStaffAdminAccess(admin, decoded, requesterRole))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -42,6 +52,14 @@ export async function GET(req) {
           role: u.customClaims?.role,
         });
 
+        // read role doc to include isAdmin flag if present
+        const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+        let roleDocData = {};
+        try {
+          const roleDoc = await admin.firestore().collection(roleCollection).doc(u.uid).get();
+          if (roleDoc.exists) roleDocData = roleDoc.data() || {};
+        } catch {}
+
         return {
           uid: u.uid,
           name: u.displayName || u.email?.split("@")[0] || "Unknown",
@@ -49,7 +67,7 @@ export async function GET(req) {
           disabled: u.disabled,
           lastSignInTime: u.metadata?.lastSignInTime || null,
           creationTime: u.metadata?.creationTime || null,
-          customClaims: { ...(u.customClaims || {}), role },
+          customClaims: { ...(u.customClaims || {}), role, isAdmin: Boolean(roleDocData.isAdmin) },
         };
       })
     );
@@ -78,7 +96,7 @@ export async function POST(req) {
     }
 
     const requesterRole = await resolveUserRole(admin, decoded);
-    if (!hasStaffAdminAccess(decoded, requesterRole)) {
+    if (!(await hasStaffAdminAccess(admin, decoded, requesterRole))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -87,6 +105,7 @@ export async function POST(req) {
     const displayName = String(body?.displayName || "").trim();
     const password = String(body?.password || "").trim();
     const role = String(body?.role || "staff").trim().toLowerCase();
+    const isAdmin = Boolean(body?.isAdmin);
 
     if (!email || !displayName || !password) {
       return NextResponse.json({ error: "email, displayName, and password are required" }, { status: 400 });
@@ -107,10 +126,11 @@ export async function POST(req) {
       displayName,
     });
 
-    // Set role in Firestore
+    // Set role and isAdmin in Firestore
     const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
     await admin.firestore().collection(roleCollection).doc(userRecord.uid).set({
       role,
+      isAdmin: isAdmin === true,
       createdBy: decoded.uid,
       createdAt: new Date(),
     });
@@ -151,7 +171,7 @@ export async function PATCH(req) {
     }
 
     const requesterRole = await resolveUserRole(admin, decoded);
-    if (!hasStaffAdminAccess(decoded, requesterRole)) {
+    if (!(await hasStaffAdminAccess(admin, decoded, requesterRole))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -162,6 +182,8 @@ export async function PATCH(req) {
     const displayName = String(body?.displayName || "").trim();
     const password = String(body?.password || "").trim();
     const role = String(body?.role || "").trim().toLowerCase();
+    const hasIsAdmin = Object.prototype.hasOwnProperty.call(body || {}, "isAdmin");
+    const isAdmin = hasIsAdmin ? Boolean(body?.isAdmin) : undefined;
 
     if (!uid) {
       return NextResponse.json({ error: "uid is required" }, { status: 400 });
@@ -192,20 +214,16 @@ export async function PATCH(req) {
       await admin.auth().updateUser(uid, authUpdates);
     }
 
-    if (role) {
-      if (!ALLOWED_ROLES.has(role)) {
+    if (role || hasIsAdmin) {
+      if (role && !ALLOWED_ROLES.has(role)) {
         return NextResponse.json({ error: "Role must be one of: BD, System Developers, HR, Staff" }, { status: 400 });
       }
 
       const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
-      await admin.firestore().collection(roleCollection).doc(uid).set(
-        {
-          role,
-          updatedBy: decoded.uid,
-          updatedAt: new Date(),
-        },
-        { merge: true }
-      );
+      const updateDoc = { updatedBy: decoded.uid, updatedAt: new Date() };
+      if (role) updateDoc.role = role;
+      if (hasIsAdmin) updateDoc.isAdmin = Boolean(isAdmin);
+      await admin.firestore().collection(roleCollection).doc(uid).set(updateDoc, { merge: true });
     }
 
     if (Object.keys(authUpdates).length === 0 && !role) {
@@ -245,7 +263,7 @@ export async function DELETE(req) {
     }
 
     const requesterRole = await resolveUserRole(admin, decoded);
-    if (!hasStaffAdminAccess(decoded, requesterRole)) {
+    if (!(await hasStaffAdminAccess(admin, decoded, requesterRole))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -461,7 +461,7 @@ export default function ControlClient() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6 mb-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-4">Statistics Overview</h2>
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">System Overview</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="p-4 rounded-lg border border-slate-200 bg-white">
                   <div className="text-3xl font-bold text-emerald-700">{loading ? "..." : stats.activeStaff}</div>
@@ -480,12 +480,12 @@ export default function ControlClient() {
                   <div className="text-sm text-slate-600 mt-1">Total Records</div>
                 </div>
                 <div className="p-4 rounded-lg border border-slate-200 bg-white">
-                  <div className="text-3xl font-bold text-indigo-700">{stats.cpuUsage}</div>
-                  <div className="text-sm text-indigo-600 mt-1">CPU Usage</div>
+                  <div className="text-3xl font-bold text-indigo-700">{stats.systemHealth}</div>
+                  <div className="text-sm text-indigo-600 mt-1">System Health</div>
                 </div>
                 <div className="p-4 rounded-lg border border-slate-200 bg-white">
-                  <div className="text-3xl font-bold text-rose-700">{stats.memoryUsage}</div>
-                  <div className="text-sm text-rose-600 mt-1">Memory Usage</div>
+                  <div className="text-3xl font-bold text-rose-700">{stats.dbStatus}</div>
+                  <div className="text-sm text-rose-600 mt-1">Database Status</div>
                 </div>
               </div>
             </div>

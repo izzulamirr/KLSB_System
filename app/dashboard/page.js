@@ -478,7 +478,6 @@ export default function DashboardPage() {
               {[
                 { label: "Manage Staff", href: "/dashboard/manpower", icon: "👥" },
                 { label: "Timesheets", href: "/dashboard/timesheet", icon: "📋" },
-                { label: "Finance", href: "/dashboard/finance", icon: "💰" },
                 { label: "Settings", href: "/dashboard/settings", icon: "⚙️" },
               ].map((link, idx) => (
                 <Link

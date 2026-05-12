@@ -167,7 +167,6 @@ export default function Page() {
     { label: "Add Staff", icon: "➕", href: "/dashboard/manpower", color: "bg-blue-600 hover:bg-blue-700" },
     { label: "Import CSV", icon: "📤", href: "/dashboard/manpower", color: "bg-emerald-600 hover:bg-emerald-700" },
     { label: "Export Data", icon: "📥", href: "/dashboard/settings?tab=data", color: "bg-indigo-600 hover:bg-indigo-700" },
-    { label: "View Reports", icon: "📊", href: "/dashboard/finance", color: "bg-purple-600 hover:bg-purple-700" },
   ];
 
   return (

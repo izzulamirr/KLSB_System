@@ -310,7 +310,7 @@ export default function ManpowerTable({ initial = [] }) {
   useEffect(() => {
     (async () => {
       if (Array.isArray(initial) && initial.length) {
-        setRows(sortByPoSoNoAndLocationAsc(initial));
+        setRows(sortByLocationAndPoSoNoAsc(initial));
         return;
       }
 
@@ -319,17 +319,17 @@ export default function ManpowerTable({ initial = [] }) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
-            setRows(sortByPoSoNoAndLocationAsc(data));
+            setRows(sortByLocationAndPoSoNoAsc(data));
             return;
           }
         }
         const cached = getLocal();
-        if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
-        else setRows(sortByPoSoNoAndLocationAsc(initial));
+        if (cached?.length) setRows(sortByLocationAndPoSoNoAsc(cached));
+        else setRows(sortByLocationAndPoSoNoAsc(initial));
       } catch (e) {
         const cached = getLocal();
-        if (cached?.length) setRows(sortByPoSoNoAndLocationAsc(cached));
-        else setRows(sortByPoSoNoAndLocationAsc(initial));
+        if (cached?.length) setRows(sortByLocationAndPoSoNoAsc(cached));
+        else setRows(sortByLocationAndPoSoNoAsc(initial));
       }
     })();
   }, [initial]);
@@ -383,7 +383,7 @@ export default function ManpowerTable({ initial = [] }) {
               });
               if (res.ok) {
                 const json = await res.json();
-                setRows((r) => sortByPoSoNoAndLocationAsc([...r, { ...withPayType, id: json.id }]));
+                setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType, id: json.id }]));
                 closeForm();
                 return;
               }
@@ -392,7 +392,7 @@ export default function ManpowerTable({ initial = [] }) {
             }
           }
           // fallback local
-          setRows((r) => sortByPoSoNoAndLocationAsc([...r, { ...withPayType }]));
+          setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType }]));
         })();
       }
       closeForm();
@@ -677,15 +677,15 @@ export default function ManpowerTable({ initial = [] }) {
           const json = await res.json();
           const createdRows = Array.isArray(json?.rows) ? json.rows : [];
           successes.push(...createdRows);
-          setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...createdRows]));
+          setRows((r) => sortByLocationAndPoSoNoAsc([...r, ...createdRows]));
         } catch (err) {
           console.error("Bulk import failed", err);
           failures.push(...normalized.map((row) => ({ row, error: err })));
-          setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...normalized]));
+          setRows((r) => sortByLocationAndPoSoNoAsc([...r, ...normalized]));
         }
       } else {
         // Not signed-in: keep rows locally and let background sync attempt when user signs in
-  setRows((r) => sortByPoSoNoAndLocationAsc([...r, ...normalized]));
+  setRows((r) => sortByLocationAndPoSoNoAsc([...r, ...normalized]));
         failures.push(...normalized.map((row) => ({ row, error: new Error("Not signed in") })));
       }
 
@@ -707,14 +707,14 @@ export default function ManpowerTable({ initial = [] }) {
     }
   }, [rawCsvRows, rows]);
 
-  // Derive unique sorted project list from all rows for the dropdown
+  // Derive unique sorted location list from all rows for the dropdown
   const projectOptions = Array.from(
-    new Set(rows.map((r) => String(r?.PO_SO_No ?? "").trim()).filter(Boolean))
+    new Set(rows.map((r) => String(r?.LOCATION ?? "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
   const filtered = rows
     .filter((r) => matchFilter(r, q, nameFilter, positionFilter))
-    .filter((r) => !projectFilter || String(r?.PO_SO_No ?? "").trim() === projectFilter);
+    .filter((r) => !projectFilter || String(r?.LOCATION ?? "").trim() === projectFilter);
 
   const statusCounters = {
     all: filtered.length,
@@ -858,9 +858,9 @@ export default function ManpowerTable({ initial = [] }) {
             onChange={(e) => setProjectFilter(e.target.value)}
             className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           >
-            <option value="">All Projects</option>
-            {projectOptions.map((po) => (
-              <option key={po} value={po}>{po}</option>
+            <option value="">All Locations</option>
+            {projectOptions.map((location) => (
+              <option key={location} value={location}>{location}</option>
             ))}
           </select>
         </div>
@@ -976,7 +976,10 @@ export default function ManpowerTable({ initial = [] }) {
               <button
                 onClick={() => {
                   const idx = rows.findIndex((x) => x === selectedRow || (x.id && x.id === selectedRow.id));
-                  if (idx >= 0) openEditForm(idx);
+                  if (idx >= 0) {
+                    setSelectedRow(null);
+                    openEditForm(idx);
+                  }
                 }}
                 className="px-3 py-2 rounded-lg bg-[#0f3d7a] text-white text-sm font-semibold hover:bg-[#0c3368]"
               >
@@ -1218,18 +1221,18 @@ function getLocal() {
   }
 }
 
-function sortByPoSoNoAndLocationAsc(list) {
+function sortByLocationAndPoSoNoAsc(list) {
   if (!Array.isArray(list)) return list;
   return list.slice().sort((a, b) => {
-    const aPo = String(a?.PO_SO_No ?? "").toLowerCase();
-    const bPo = String(b?.PO_SO_No ?? "").toLowerCase();
-    if (aPo < bPo) return -1;
-    if (aPo > bPo) return 1;
-
     const aLoc = String(a?.LOCATION ?? "").toLowerCase();
     const bLoc = String(b?.LOCATION ?? "").toLowerCase();
     if (aLoc < bLoc) return -1;
     if (aLoc > bLoc) return 1;
+
+    const aPo = String(a?.PO_SO_No ?? "").toLowerCase();
+    const bPo = String(b?.PO_SO_No ?? "").toLowerCase();
+    if (aPo < bPo) return -1;
+    if (aPo > bPo) return 1;
     return 0;
   });
 }

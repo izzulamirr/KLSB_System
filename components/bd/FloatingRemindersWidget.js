@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
-import { getPicEmails } from "../../lib/picEmailMap";
+import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
+import HighlightNumbers from "../HighlightNumbers";
 
 function parseDateInput(value) {
   if (!value) return null;
@@ -108,7 +109,7 @@ export default function FloatingRemindersWidget() {
           dueDate: targetDay,
           refNo: row.refNo || "-",
           title: row.titleProjectName || "-",
-          personInCharge: row.personInCharge || "-",
+          personInCharge: formatPicString(row.personInCharge) || "-",
           picEmails: getPicEmails(row.personInCharge),
         });
       }
@@ -169,7 +170,9 @@ export default function FloatingRemindersWidget() {
                     </span>
                     <span className="text-xs font-medium text-slate-600">{item.daysLeft === 0 ? "Today" : `${item.daysLeft} day${item.daysLeft === 1 ? "" : "s"}`}</span>
                   </div>
-                  <p className="mt-1 text-sm font-medium text-slate-800 truncate" title={item.title}>{item.refNo} - {item.title}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800 truncate" title={item.title}>
+                    <HighlightNumbers text={item.refNo} /> - {item.title}
+                  </p>
                   <p className="text-xs text-slate-500">Due: {formatDisplayDate(item.dueDate)}</p>
                 </div>
               ))

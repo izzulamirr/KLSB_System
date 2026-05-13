@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getAuth } from "firebase/auth";
 
 export default function BDStaffManagementClient({ viewRole } = {}) {
@@ -19,6 +19,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
     displayName: "",
     password: "",
     role: "staff",
+    isAdmin: false,
   });
   const [creatingUser, setCreatingUser] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -27,43 +28,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
 
   const auth = getAuth();
 
-  useEffect(() => {
-    checkAdminAccess();
-  }, []);
-
-  const checkAdminAccess = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        setLoading(false);
-        return;
-      }
-
-      const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/role", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const role = String(data?.role || "").toLowerCase();
-        const email = String(data?.email || currentUser.email || "").toLowerCase();
-        if (role === "sysdev" || email === "bd@gmail.com") {
-          setIsAdmin(true);
-          fetchStaff();
-        } else {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error(err);
-      setLoading(false);
-    }
-  };
-
-  const fetchStaff = async (isRefresh = false) => {
+  const fetchStaff = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
       const currentUser = auth.currentUser;
@@ -100,7 +65,44 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [auth, viewRole]);
+
+  const checkAdminAccess = useCallback(async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/auth/role", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const role = String(data?.role || "").toLowerCase();
+        const email = String(data?.email || currentUser.email || "").toLowerCase();
+        const respIsAdmin = Boolean(data?.isAdmin);
+        if (role === "sysdev" || email === "bd@gmail.com" || respIsAdmin) {
+          setIsAdmin(true);
+          fetchStaff();
+        } else {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  }, [auth, fetchStaff]);
+
+  useEffect(() => {
+    checkAdminAccess();
+  }, [checkAdminAccess]);
 
   const showMessage = (type, text) => {
     setMessage({ type, text });
@@ -145,7 +147,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       showMessage("success", "User created successfully!");
-      setNewUser({ email: "", displayName: "", password: "", role: "staff" });
+      setNewUser({ email: "", displayName: "", password: "", role: "staff", isAdmin: false });
       setShowCreateModal(false);
       fetchStaff();
     } catch (err) {
@@ -198,6 +200,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       displayName: user.name || "",
       role: String(user.customClaims?.role || "staff").toLowerCase(),
       disabled: Boolean(user.disabled),
+      isAdmin: Boolean(user.customClaims?.isAdmin),
       newPassword: "",
     });
     setShowEditModal(true);
@@ -234,6 +237,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
         displayName: editingUser.displayName.trim(),
         role: editingUser.role,
         disabled: editingUser.disabled,
+        isAdmin: Boolean(editingUser.isAdmin),
       };
 
       if (editingUser.newPassword) {
@@ -554,6 +558,11 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
                     <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${getRoleColor(user.customClaims?.role || "staff")}`}>
                       {getRoleLabel(user.customClaims?.role || "staff")}
                     </span>
+                    {user.customClaims?.isAdmin && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-xs font-semibold">
+                        Staff Admin
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-slate-600 text-xs">
                     {formatDate(user.lastSignInTime)}
@@ -653,6 +662,17 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
                 </select>
               </div>
 
+              <div className="flex items-center gap-2">
+                <input
+                  id="new-is-admin"
+                  type="checkbox"
+                  checked={newUser.isAdmin}
+                  onChange={(e) => setNewUser({ ...newUser, isAdmin: e.target.checked })}
+                  className="h-4 w-4 rounded border-slate-300 text-[#0f3d7a] focus:ring-[#0f3d7a]"
+                />
+                <label htmlFor="new-is-admin" className="text-sm text-slate-700">Staff Admin (can manage staff)</label>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -742,6 +762,18 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
                   className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-[#0f3d7a] focus:outline-none focus:ring-2 focus:ring-[#0f3d7a]/20"
                   placeholder="Leave empty to keep current password"
                 />
+              </div>
+
+              <div className="mt-2">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editingUser.isAdmin}
+                    onChange={(e) => setEditingUser({ ...editingUser, isAdmin: e.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-[#0f3d7a] focus:ring-[#0f3d7a]"
+                  />
+                  <span className="text-sm text-slate-700">Staff Admin (can manage staff)</span>
+                </label>
               </div>
 
               <div className="flex items-center justify-between gap-4 pt-4">

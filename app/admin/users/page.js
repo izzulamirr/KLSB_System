@@ -46,10 +46,10 @@ export default function AdminUsersPage() {
         const data = await res.json();
         const resolvedRole = String(data?.role || "").toLowerCase();
         const respEmail = String(data?.email || user.email || "").toLowerCase();
+        const respIsAdmin = Boolean(data?.isAdmin);
         setRole(resolvedRole);
         setEmail(respEmail);
-
-        if (resolvedRole === "sysdev" || respEmail === "admin@klsb.com" || respEmail === "bd@gmail.com") {
+        if (resolvedRole === "sysdev" || respEmail === "admin@klsb.com" || respEmail === "bd@gmail.com" || respIsAdmin) {
           setAllowed(true);
         } else {
           router.replace("/dashboard");

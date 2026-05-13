@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { auth } from "../firebase";
 import MondayDateInput from "./MondayDateInput";
+import { formatPicString } from "../lib/picEmailMap";
+import HighlightNumbers from "./HighlightNumbers";
 
 const defaultForm = {
   submitted: true,
@@ -50,7 +52,6 @@ export default function BDProposalClient() {
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
     };
     return fetch(url, { ...options, headers });
   }, []);
@@ -98,9 +99,13 @@ export default function BDProposalClient() {
     setSaving(true);
     setError("");
     try {
+      const payload = {
+        ...form,
+        personInCharge: formatPicString(form.personInCharge),
+      };
       const res = await authorizedFetch("/api/bd/proposals", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add proposal");
@@ -242,7 +247,7 @@ export default function BDProposalClient() {
               ) : (
                 rows.map((item) => (
                   <tr key={item.id} className="border-t border-slate-200 text-slate-700">
-                    <td className="px-3 py-2">{item.refNo || "-"}</td>
+                    <td className="px-3 py-2"><HighlightNumbers text={item.refNo || "-"} /></td>
                     <td className="px-3 py-2 max-w-[240px] truncate" title={item.titleProjectName || ""}>{item.titleProjectName || "-"}</td>
                     <td className="px-3 py-2">{item.client || "-"}</td>
                     <td className="px-3 py-2">{item.deadline || "-"}</td>

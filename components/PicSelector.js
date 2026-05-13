@@ -5,7 +5,7 @@ import { getAllPicEmails, parsePicString } from "../lib/picEmailMap";
 
 export default function PicSelector({ value, onChange }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedPics, setSelectedPics] = useState([]);
+  const [selectedPics, setSelectedPics] = useState(() => parsePicString(value));
   const containerRef = useRef(null);
   const prevValueRef = useRef(value);
 
@@ -32,7 +32,21 @@ export default function PicSelector({ value, onChange }) {
   const allPics = Object.keys(getAllPicEmails()).sort();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredPics = allPics.filter((p) => p.toLowerCase().includes(searchTerm.trim().toLowerCase()));
+  const normalizeText = (input) =>
+    String(input || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+
+  const searchTokens = searchTerm
+    .split(/[,/;\n]+/)
+    .map((term) => normalizeText(term))
+    .filter(Boolean);
+
+  const filteredPics = allPics.filter((pic) => {
+    if (searchTokens.length === 0) return true;
+    const normalizedPic = normalizeText(pic);
+    return searchTokens.some((term) => normalizedPic.includes(term));
+  });
 
   const handleTogglePic = useCallback((pic) => {
     setSelectedPics((current) => {

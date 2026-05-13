@@ -1,23 +1,143 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { bdFetch, statusClass } from "./api";
 import { BD_STATUS_OPTIONS } from "./options";
 
+function readTrackerStateFromUrl() {
+  const defaults = {
+    currentPage: 1,
+    titleQuery: "",
+    clientQuery: "",
+    picQuery: "",
+    refQuery: "",
+    statusFilter: "",
+    deadlineSort: "desc",
+    refNoSort: "",
+  };
+
+  if (typeof window === "undefined") return defaults;
+
+  const params = new URLSearchParams(window.location.search);
+  const pageParam = parseInt(params.get("page") || "1", 10);
+  const deadlineSort = params.get("deadlineSort");
+  const refNoSort = params.get("refNoSort");
+
+  return {
+    currentPage: Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1,
+    titleQuery: params.get("title") || "",
+    clientQuery: params.get("client") || "",
+    picQuery: params.get("pic") || "",
+    refQuery: params.get("ref") || "",
+    statusFilter: params.get("status") || "",
+    deadlineSort: deadlineSort === "asc" ? "asc" : "desc",
+    refNoSort: refNoSort === "asc" || refNoSort === "desc" ? refNoSort : "",
+  };
+}
+
+function buildTrackerQuery(state) {
+  const params = new URLSearchParams();
+
+  if (state.currentPage > 1) params.set("page", String(state.currentPage));
+  if (state.titleQuery) params.set("title", state.titleQuery);
+  if (state.clientQuery) params.set("client", state.clientQuery);
+  if (state.picQuery) params.set("pic", state.picQuery);
+  if (state.refQuery) params.set("ref", state.refQuery);
+  if (state.statusFilter) params.set("status", state.statusFilter);
+  if (state.deadlineSort && state.deadlineSort !== "desc") params.set("deadlineSort", state.deadlineSort);
+  if (state.refNoSort) params.set("refNoSort", state.refNoSort);
+
+  return params.toString();
+}
+
+const TRACKER_STATE_KEY = "bd:proposalTrackerState";
+
+function readTrackerStateFromSession() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(TRACKER_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      currentPage: Number.isFinite(Number(parsed?.currentPage)) && Number(parsed.currentPage) > 0 ? Number(parsed.currentPage) : 1,
+      titleQuery: String(parsed?.titleQuery || ""),
+      clientQuery: String(parsed?.clientQuery || ""),
+      picQuery: String(parsed?.picQuery || ""),
+      refQuery: String(parsed?.refQuery || ""),
+      statusFilter: String(parsed?.statusFilter || ""),
+      deadlineSort: parsed?.deadlineSort === "asc" ? "asc" : "desc",
+      refNoSort: parsed?.refNoSort === "asc" || parsed?.refNoSort === "desc" ? parsed.refNoSort : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveTrackerStateToSession(state) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(TRACKER_STATE_KEY, JSON.stringify(state));
+  } catch {}
+}
+
 export default function BDProposalTrackerPage() {
+  const initialState = readTrackerStateFromUrl() || readTrackerStateFromSession() || {
+    currentPage: 1,
+    titleQuery: "",
+    clientQuery: "",
+    picQuery: "",
+    refQuery: "",
+    statusFilter: "",
+    deadlineSort: "desc",
+    refNoSort: "",
+  };
+  const hasMountedRef = useRef(false);
+  const prevTrackerQueryRef = useRef("");
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [titleQuery, setTitleQuery] = useState("");
-  const [clientQuery, setClientQuery] = useState("");
-  const [picQuery, setPicQuery] = useState("");
-  const [refQuery, setRefQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [deadlineSort, setDeadlineSort] = useState("desc");
-  const [refNoSort, setRefNoSort] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [titleQuery, setTitleQuery] = useState(initialState.titleQuery);
+  const [clientQuery, setClientQuery] = useState(initialState.clientQuery);
+  const [picQuery, setPicQuery] = useState(initialState.picQuery);
+  const [refQuery, setRefQuery] = useState(initialState.refQuery);
+  const [statusFilter, setStatusFilter] = useState(initialState.statusFilter);
+  const [deadlineSort, setDeadlineSort] = useState(initialState.deadlineSort);
+  const [refNoSort, setRefNoSort] = useState(initialState.refNoSort);
+  const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const ITEMS_PER_PAGE = 15;
+
+  useEffect(() => {
+    saveTrackerStateToSession({
+      currentPage,
+      titleQuery,
+      clientQuery,
+      picQuery,
+      refQuery,
+      statusFilter,
+      deadlineSort,
+      refNoSort,
+    });
+  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
+
+  // Keep tracker state in sync with browser navigation.
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextState = readTrackerStateFromSession() || readTrackerStateFromUrl();
+      setCurrentPage(nextState.currentPage);
+      setTitleQuery(nextState.titleQuery);
+      setClientQuery(nextState.clientQuery);
+      setPicQuery(nextState.picQuery);
+      setRefQuery(nextState.refQuery);
+      setStatusFilter(nextState.statusFilter);
+      setDeadlineSort(nextState.deadlineSort);
+      setRefNoSort(nextState.refNoSort);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   async function load() {
     setError("");
@@ -166,12 +286,52 @@ export default function BDProposalTrackerPage() {
     }
 
     return sorted;
-  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort]);
+  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery]);
+
+  const trackerQuery = useMemo(() => buildTrackerQuery({
+    currentPage,
+    titleQuery,
+    clientQuery,
+    picQuery,
+    refQuery,
+    statusFilter,
+    deadlineSort,
+    refNoSort,
+  }), [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
+
+  // Update URL when tracker state changes.
+  useEffect(() => {
+    const newUrl = `${window.location.pathname}${trackerQuery ? `?${trackerQuery}` : ""}`;
+    if (!hasMountedRef.current) {
+      window.history.replaceState(window.history.state, "", newUrl);
+      prevTrackerQueryRef.current = trackerQuery;
+      return;
+    }
+
+    if (trackerQuery === prevTrackerQueryRef.current) {
+      return;
+    }
+
+    const prevPage = new URLSearchParams(prevTrackerQueryRef.current).get("page") || "1";
+    const nextPage = new URLSearchParams(trackerQuery).get("page") || "1";
+
+    if (prevPage !== nextPage) {
+      window.history.pushState(window.history.state, "", newUrl);
+    } else {
+      window.history.replaceState(window.history.state, "", newUrl);
+    }
+
+    prevTrackerQueryRef.current = trackerQuery;
+  }, [trackerQuery]);
 
   // Reset to page 1 when filters or sorts change
   useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
     setCurrentPage(1);
-  }, [titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort]);
+  }, [titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery]);
 
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -230,7 +390,7 @@ export default function BDProposalTrackerPage() {
         </label>
 
         <label className="text-sm text-slate-700">
-          <span className="mb-1 block font-medium text-slate-600">Filter Ref No</span>
+          <span className="mb-1 block font-medium text-slate-600">Search Ref No</span>
           <input
             type="text"
             value={refQuery}
@@ -279,8 +439,8 @@ export default function BDProposalTrackerPage() {
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">None (deadline sort)</option>
-            <option value="asc">A-Z</option>
-            <option value="desc">Z-A</option>
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
           </select>
         </label>
       </div>
@@ -353,7 +513,7 @@ export default function BDProposalTrackerPage() {
                   <td className="px-3 py-2">{item.personInCharge || "-"}</td>
                   <td className="px-3 py-2">
                     <Link
-                      href={`/bd/proposals/${item.id}/edit`}
+                      href={`/bd/proposals/${item.id}/edit?returnTo=${encodeURIComponent(`/bd/proposals${trackerQuery ? `?${trackerQuery}` : ""}`)}`}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 hover:text-blue-900"
                       aria-label={`Edit proposal ${item.refNo || item.id}`}
                       title="Edit proposal"

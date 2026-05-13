@@ -243,22 +243,8 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
       }</Cell>
       <Cell>{r.NH || "-"}</Cell>
       <Cell>{r.OT || "-"}</Cell>
-      <Cell className="text-right">
-        <div className="inline-flex items-center gap-1.5">
-          <ActionIconButton title="Edit" onClick={() => onEdit(i)} className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-              <path d="M4 13.5V17h3.5L17.65 6.85a1 1 0 0 0 0-1.41L15.56 3.29a1 1 0 0 0-1.41 0L4 13.5z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </ActionIconButton>
-          <ActionIconButton title="Delete" onClick={() => onRemove(i)} className="p-2 rounded-md bg-red-600 hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M3 6h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M10 11v6M14 11v6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </ActionIconButton>
-        </div>
-      </Cell>
+      {/* Action buttons intentionally removed from rows.
+          Use the detail sidebar's "Edit Record" button instead. */}
     </tr>
   );
 }
@@ -885,7 +871,6 @@ export default function ManpowerTable({ initial = [] }) {
                 "PAY TYPE",
                 "NH",
                 "OT",
-                "",
               ].map((h, i) => (
                 <th
                   key={i}
@@ -903,7 +888,7 @@ export default function ManpowerTable({ initial = [] }) {
               ))
             ) : (
               <tr>
-                <td colSpan={14} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={13} className="px-4 py-12 text-center text-slate-500">
                   No matching records. Try adjusting your filters.
                 </td>
               </tr>
@@ -1076,9 +1061,31 @@ export default function ManpowerTable({ initial = [] }) {
               {renderInput("End Date (KLSB)", "END_DATE_KLSB", "date")}
             </div>
 
-            <div className="flex gap-2 justify-end mt-6">
-              <button type="button" onClick={closeForm} className="px-3 py-2 border rounded-lg text-slate-700 hover:bg-slate-50">Cancel</button>
-              <button type="submit" className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white font-medium shadow hover:brightness-110">Save</button>
+            <div className="flex gap-2 justify-between mt-6">
+              <div>
+                {editingIndex >= 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm("Delete this staff record? This action cannot be undone.")) return;
+                      try {
+                        await remove(editingIndex);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      closeForm();
+                    }}
+                    className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <button type="button" onClick={closeForm} className="px-3 py-2 border rounded-lg text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="submit" className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white font-medium shadow hover:brightness-110">Save</button>
+              </div>
             </div>
           </form>
         </div>

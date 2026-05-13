@@ -1,12 +1,40 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { bdFetch } from "./api";
 import MondayDateInput from "../MondayDateInput";
 import PicSelector from "../PicSelector";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
+
+const TRACKER_STATE_KEY = "bd:proposalTrackerState";
+
+function buildTrackerHref(queryString) {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = window.sessionStorage.getItem(TRACKER_STATE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const params = new URLSearchParams();
+        const page = Number(parsed?.currentPage || 1);
+
+        if (Number.isFinite(page) && page > 1) params.set("page", String(page));
+        if (parsed?.titleQuery) params.set("title", String(parsed.titleQuery));
+        if (parsed?.clientQuery) params.set("client", String(parsed.clientQuery));
+        if (parsed?.picQuery) params.set("pic", String(parsed.picQuery));
+        if (parsed?.refQuery) params.set("ref", String(parsed.refQuery));
+        if (parsed?.statusFilter) params.set("status", String(parsed.statusFilter));
+        if (parsed?.deadlineSort && parsed.deadlineSort !== "desc") params.set("deadlineSort", String(parsed.deadlineSort));
+        if (parsed?.refNoSort) params.set("refNoSort", String(parsed.refNoSort));
+
+        const trackerQuery = params.toString();
+        return `/bd/proposals${trackerQuery ? `?${trackerQuery}` : ""}`;
+      }
+    } catch {}
+  }
+
+  return `/bd/proposals${queryString ? `?${queryString}` : ""}`;
+}
 
 function normalizeForm(data = {}) {
   const status = data.status || "PENDING";
@@ -135,7 +163,7 @@ function formatAuditDate(value) {
   return String(value);
 }
 
-export default function BDEditProposalPage({ proposalId }) {
+export default function BDEditProposalPage({ proposalId, queryString = "", returnTo = "" }) {
   const router = useRouter();
   const [form, setForm] = useState(normalizeForm());
   const [loading, setLoading] = useState(true);
@@ -185,7 +213,7 @@ export default function BDEditProposalPage({ proposalId }) {
         method: "PUT",
         body: JSON.stringify(form),
       });
-      router.replace("/bd/proposals");
+      router.replace(returnTo || "/bd/proposals");
     } catch (err) {
       setError(err.message || "Failed to update proposal");
     } finally {
@@ -204,7 +232,7 @@ export default function BDEditProposalPage({ proposalId }) {
         method: "DELETE",
         body: JSON.stringify({ id: form.id }),
       });
-      router.replace("/bd/proposals");
+      router.replace(returnTo || "/bd/proposals");
     } catch (err) {
       setError(err.message || "Failed to delete proposal");
     } finally {
@@ -224,8 +252,11 @@ export default function BDEditProposalPage({ proposalId }) {
           <h2 className="text-2xl font-semibold text-slate-900">Edit Proposal</h2>
           <p className="text-sm text-slate-500 mt-1">Update selected proposal details.</p>
         </div>
-        <Link
-          href="/bd/proposals"
+        <button
+          type="button"
+          onClick={() => {
+            router.push(returnTo || buildTrackerHref(queryString));
+          }}
           className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-900"
           aria-label="Back to tracker"
           title="Back to tracker"
@@ -233,7 +264,7 @@ export default function BDEditProposalPage({ proposalId }) {
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" />
           </svg>
-        </Link>
+        </button>
       </div>
 
       {loading && <p className="text-sm text-slate-500">Loading proposal...</p>}

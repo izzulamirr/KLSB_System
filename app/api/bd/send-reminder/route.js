@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getPicEmails } from "../../../lib/picEmailMap";
-import initAdmin from "../../../lib/firebaseAdmin";
-import { isBdRole, resolveUserRole } from "../../../lib/roleResolver";
+import { getPicEmails } from "../../../../lib/picEmailMap";
+import initAdmin from "../../../../lib/firebaseAdmin";
+import { isBdRole, resolveUserRole } from "../../../../lib/roleResolver";
 
 /**
  * POST /api/bd/send-reminder

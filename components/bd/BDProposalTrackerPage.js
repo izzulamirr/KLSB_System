@@ -20,6 +20,8 @@ function readTrackerStateFromUrl() {
     statusFilter: "",
     deadlineSort: "desc",
     refNoSort: "",
+    scopeQuery: "",
+    maturationSort: "",
   };
 
   if (typeof window === "undefined") return defaults;
@@ -28,6 +30,8 @@ function readTrackerStateFromUrl() {
   const pageParam = parseInt(params.get("page") || "1", 10);
   const deadlineSort = params.get("deadlineSort");
   const refNoSort = params.get("refNoSort");
+  const scopeQuery = params.get("scope") || "";
+  const maturationSort = params.get("maturationSort") || "";
 
   return {
     currentPage: Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1,
@@ -38,6 +42,8 @@ function readTrackerStateFromUrl() {
     statusFilter: params.get("status") || "",
     deadlineSort: deadlineSort === "asc" ? "asc" : "desc",
     refNoSort: refNoSort === "asc" || refNoSort === "desc" ? refNoSort : "",
+    scopeQuery,
+    maturationSort,
   };
 }
 
@@ -52,6 +58,8 @@ function buildTrackerQuery(state) {
   if (state.statusFilter) params.set("status", state.statusFilter);
   if (state.deadlineSort && state.deadlineSort !== "desc") params.set("deadlineSort", state.deadlineSort);
   if (state.refNoSort) params.set("refNoSort", state.refNoSort);
+  if (state.scopeQuery) params.set("scope", state.scopeQuery);
+  if (state.maturationSort) params.set("maturationSort", state.maturationSort);
 
   return params.toString();
 }
@@ -66,6 +74,8 @@ function getInitialTrackerState() {
     statusFilter: "",
     deadlineSort: "desc",
     refNoSort: "",
+    scopeQuery: "",
+    maturationSort: "",
   };
 
   if (typeof window === "undefined") return defaults;
@@ -113,6 +123,8 @@ export default function BDProposalTrackerPage() {
   const [statusFilter, setStatusFilter] = useState(initialState.statusFilter);
   const [deadlineSort, setDeadlineSort] = useState(initialState.deadlineSort);
   const [refNoSort, setRefNoSort] = useState(initialState.refNoSort);
+  const [scopeQuery, setScopeQuery] = useState(initialState.scopeQuery);
+  const [maturationSort, setMaturationSort] = useState(initialState.maturationSort);
   const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const [selectedProposal, setSelectedProposal] = useState(null);
   const ITEMS_PER_PAGE = 15;
@@ -128,6 +140,8 @@ export default function BDProposalTrackerPage() {
     setStatusFilter(nextState.statusFilter);
     setDeadlineSort(nextState.deadlineSort);
     setRefNoSort(nextState.refNoSort);
+    setScopeQuery(nextState.scopeQuery || "");
+    setMaturationSort(nextState.maturationSort || "");
   }
 
   function saveTrackerState(nextState) {
@@ -152,6 +166,8 @@ export default function BDProposalTrackerPage() {
       statusFilter,
       deadlineSort,
       refNoSort,
+      scopeQuery,
+      maturationSort,
       ...overrides,
     };
   }
@@ -258,11 +274,28 @@ export default function BDProposalTrackerPage() {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
+  function formatNumber(value) {
+    if (value === null || value === undefined || value === "") return "-";
+    const n = Number(String(value).replace(/[^0-9.-]/g, ""));
+    if (Number.isNaN(n)) return String(value);
+    return new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  }
+
+  const scopeOptions = useMemo(() => {
+    const set = new Set();
+    (rows || []).forEach((r) => {
+      const s = String(r.scopeBusiness || "").trim() || "Unspecified";
+      set.add(s);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const normalizedTitle = titleQuery.trim().toLowerCase();
     const normalizedClient = clientQuery.trim().toLowerCase();
     const normalizedPic = picQuery.trim().toLowerCase();
     const normalizedRef = refQuery.trim().toLowerCase();
+    const normalizedScope = scopeQuery.trim().toLowerCase();
 
     const filtered = rows.filter((item) => {
       const title = String(item.titleProjectName || "").toLowerCase();
@@ -275,14 +308,35 @@ export default function BDProposalTrackerPage() {
       const picMatch = !normalizedPic || pic.includes(normalizedPic);
       const statusMatch = !statusFilter || status === statusFilter;
       const refMatch = !normalizedRef || String(item.refNo || "").toLowerCase().includes(normalizedRef);
+      const scope = String(item.scopeBusiness || "").toLowerCase();
+      const scopeMatch = !normalizedScope || scope.includes(normalizedScope);
 
-      return titleMatch && clientMatch && picMatch && statusMatch && refMatch;
+      return titleMatch && clientMatch && picMatch && statusMatch && refMatch && scopeMatch;
     });
 
     let sorted = [...filtered];
 
-    // Apply reference number sort if selected
-    if (refNoSort) {
+    // Apply maturation sort if selected (higher priority)
+    if (maturationSort) {
+      const DAY_MS = 1000 * 60 * 60 * 24;
+      const daysUntil = (dateStr) => {
+        const d = parseDeadline(dateStr);
+        if (!d) return Infinity; // missing/invalid -> far
+        const startOfD = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const today = new Date();
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const diff = Math.ceil((startOfD - startOfToday) / DAY_MS);
+        // treat past/today as 0 so they appear as nearest
+        return diff <= 0 ? 0 : diff;
+      };
+
+      sorted.sort((left, right) => {
+        const ld = daysUntil(left.maturityOnDate);
+        const rd = daysUntil(right.maturityOnDate);
+        if (ld === rd) return 0;
+        return maturationSort === "asc" ? ld - rd : rd - ld;
+      });
+    } else if (refNoSort) {
       sorted.sort((left, right) => {
         const leftRef = String(left.refNo || "").toLowerCase();
         const rightRef = String(right.refNo || "").toLowerCase();
@@ -304,7 +358,7 @@ export default function BDProposalTrackerPage() {
     }
 
     return sorted;
-  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery]);
+  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery, scopeQuery, maturationSort]);
 
   const trackerQuery = useMemo(() => buildTrackerQuery({
     currentPage,
@@ -315,7 +369,9 @@ export default function BDProposalTrackerPage() {
     statusFilter,
     deadlineSort,
     refNoSort,
-  }), [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
+    scopeQuery,
+    maturationSort,
+  }), [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort, scopeQuery, maturationSort]);
 
   // Update URL when tracker state changes.
   useEffect(() => {
@@ -337,9 +393,11 @@ export default function BDProposalTrackerPage() {
         statusFilter,
         deadlineSort,
         refNoSort,
+        scopeQuery,
+        maturationSort,
       });
     }
-  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
+  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort, scopeQuery, maturationSort]);
 
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -371,7 +429,7 @@ export default function BDProposalTrackerPage() {
         ["Deadline", selectedProposal.deadline],
         ["Maturity On Date", selectedProposal.maturityOnDate],
         ["Bid Validity", selectedProposal.bidValidity],
-        ["Value (RM)", selectedProposal.valueRM],
+        ["Value (RM)", formatNumber(selectedProposal.valueRM)],
         ["Status", selectedProposal.status],
         ["PIC", formatPicString(selectedProposal.personInCharge)],
         ["Google Folder", selectedProposal.googleFolderLink],
@@ -517,6 +575,44 @@ export default function BDProposalTrackerPage() {
             <option value="desc">Descending</option>
           </select>
         </label>
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Filter Scope (Business)</span>
+          <select
+            value={scopeQuery}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ scopeQuery: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setScopeQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">All scopes</option>
+            {scopeOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Maturation sort</span>
+          <select
+            value={maturationSort}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ maturationSort: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setMaturationSort(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">Default (deadline sort)</option>
+            <option value="asc">Nearest maturation first</option>
+            <option value="desc">Farthest maturation first</option>
+          </select>
+        </label>
       </div>
 
       {error && <p className="mb-3 text-sm text-rose-600">{error}</p>}
@@ -564,20 +660,24 @@ export default function BDProposalTrackerPage() {
                   className="cursor-pointer border-t border-slate-200 text-slate-700 transition-colors hover:bg-slate-50/70"
                   onClick={() => setSelectedProposal(item)}
                 >
-                  <td className="px-3 py-2">
-                    {item.googleFolderLink ? (
-                      <a
-                        href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
-                      >
-                        {item.refNo || "-"}
-                      </a>
-                    ) : (
-                      item.refNo || "-"
-                    )}
+                  <td className="px-3 py-2 align-middle">
+                    <div className="flex min-h-8 items-center">
+                      {item.googleFolderLink ? (
+                        <a
+                          href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
+                        >
+                          {item.refNo || "-"}
+                        </a>
+                      ) : (
+                        <span className="inline-flex rounded-md px-2 py-0.5 font-medium text-slate-700">
+                          {item.refNo || "-"}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">{item.dateReceived || "-"}</td>
                   <td className="px-3 py-2 max-w-[280px] truncate" title={item.titleProjectName || ""}>{item.titleProjectName || "-"}</td>
@@ -601,7 +701,7 @@ export default function BDProposalTrackerPage() {
                           window.sessionStorage.setItem(EDIT_RETURN_URL_KEY, buildTrackerPath(nextState));
                         }
                       }}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 hover:text-blue-900"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
                       aria-label={`Edit proposal ${item.refNo || item.id}`}
                       title="Edit proposal"
                     >

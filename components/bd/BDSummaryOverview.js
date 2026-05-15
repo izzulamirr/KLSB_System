@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { bdFetch } from "./api";
+import { useRouter } from "next/navigation";
+import { formatPicString } from "../../lib/picEmailMap";
 
 function parseDateInput(value) {
   if (!value) return null;
@@ -46,6 +48,7 @@ function getOutcomeColor(status) {
   if (status === "WON") return "from-emerald-500 to-lime-400";
   if (status === "LOST") return "from-rose-500 to-red-400";
   if (status === "DECLINED") return "from-slate-500 to-slate-400";
+  if (status === "PENDING") return "from-indigo-500 to-indigo-400";
   if (status === "SUBMITTED") return "from-amber-500 to-yellow-300";
   return "from-slate-400 to-slate-300";
 }
@@ -54,13 +57,18 @@ function getOutcomeSoftColor(status) {
   if (status === "WON") return "bg-emerald-100 text-emerald-700 border-emerald-200";
   if (status === "LOST") return "bg-rose-100 text-rose-700 border-rose-200";
   if (status === "DECLINED") return "bg-slate-100 text-slate-700 border-slate-200";
+  if (status === "PENDING") return "bg-indigo-100 text-indigo-700 border-indigo-200";
   if (status === "SUBMITTED") return "bg-amber-100 text-amber-700 border-amber-200";
   return "bg-slate-100 text-slate-600 border-slate-200";
 }
 
 function MiniMetric({ label, value, tone, note }) {
   return (
-    <div className={`rounded-2xl border p-4 shadow-[0_12px_24px_rgba(15,23,42,0.08)] ${tone}`}>
+    <div
+      role={"button"}
+      tabIndex={0}
+      className={`rounded-2xl border p-4 shadow-[0_12px_24px_rgba(15,23,42,0.08)] ${tone}`}
+    >
       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
       <div className="mt-2 text-3xl font-semibold text-slate-900">{value}</div>
       {note ? <div className="mt-1 text-xs text-slate-500">{note}</div> : null}
@@ -71,6 +79,10 @@ function MiniMetric({ label, value, tone, note }) {
 export default function BDSummaryOverview() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState("");
+  const [modalRows, setModalRows] = useState([]);
+  const router = useRouter();
 
   useEffect(() => {
     async function load() {
@@ -88,13 +100,14 @@ export default function BDSummaryOverview() {
 
   const analytics = useMemo(() => {
     const total = rows.length;
-    const statusOrder = ["WON", "LOST", "DECLINED", "ON-GOING", "SUBMITTED"];
+    const statusOrder = ["WON", "LOST", "DECLINED", "ON-GOING", "SUBMITTED", "PENDING"];
     const statusLabels = {
       WON: "Won",
       LOST: "Lost",
       DECLINED: "Declined",
       "ON-GOING": "Submitted",
       SUBMITTED: "Submitted",
+      PENDING: "Pending",
     };
 
     const counts = {
@@ -103,6 +116,7 @@ export default function BDSummaryOverview() {
       DECLINED: 0,
       "ON-GOING": 0,
       SUBMITTED: 0,
+      PENDING: 0,
       OTHER: 0,
     };
     const valueByStatus = {
@@ -111,6 +125,7 @@ export default function BDSummaryOverview() {
       DECLINED: 0,
       "ON-GOING": 0,
       SUBMITTED: 0,
+      PENDING: 0,
       OTHER: 0,
     };
     const onTimeByStatus = {
@@ -119,6 +134,7 @@ export default function BDSummaryOverview() {
       DECLINED: { onTime: 0, late: 0 },
       "ON-GOING": { onTime: 0, late: 0 },
       SUBMITTED: { onTime: 0, late: 0 },
+      PENDING: { onTime: 0, late: 0 },
       OTHER: { onTime: 0, late: 0 },
     };
     const scopeCounts = {};
@@ -161,6 +177,7 @@ export default function BDSummaryOverview() {
     }
 
     const unsubmitted = total - submitted;
+    const pendingCount = counts.PENDING || 0;
     const onTimeStatus = {
       onTime,
       late,
@@ -225,6 +242,7 @@ export default function BDSummaryOverview() {
       total,
       submitted,
       unsubmitted,
+      pending: pendingCount,
       counts,
       outcomeSegments,
       valueSegments,
@@ -254,6 +272,7 @@ export default function BDSummaryOverview() {
           LOST: "#ef4444",
           DECLINED: "#64748b",
           SUBMITTED: "#f59e0b",
+          PENDING: "#6366f1",
         };
         return `${colorMap[segment.status] || "#94a3b8"} ${start}deg ${end}deg`;
       })
@@ -289,6 +308,42 @@ export default function BDSummaryOverview() {
   const maxValue = Math.max(1, ...analytics.valueSegments.map((item) => item.value));
   const maxScope = Math.max(1, ...analytics.scopeSegments.map((item) => item.count));
 
+  function openModalFor(key) {
+    let list = [];
+    let title = "";
+    const norm = (r) => normalizeStatus(r.status);
+
+    if (key === "pending") {
+      title = "Pending proposals";
+      list = rows.filter((r) => normalizeStatus(r.status) === "PENDING");
+    } else if (key === "unsubmitted") {
+      title = "Unsubmitted proposals";
+      list = rows.filter((r) => normalizeStatus(r.status) !== "ON-GOING");
+    } else if (key === "won") {
+      title = "Won proposals";
+      list = rows.filter((r) => normalizeStatus(r.status) === "WON");
+    } else if (key === "lost") {
+      title = "Lost proposals";
+      list = rows.filter((r) => normalizeStatus(r.status) === "LOST");
+    } else if (key === "declined") {
+      title = "Declined proposals";
+      list = rows.filter((r) => normalizeStatus(r.status) === "DECLINED");
+    } else if (key === "submitted") {
+      title = "Submitted proposals";
+      list = rows.filter((r) => normalizeStatus(r.status) === "ON-GOING");
+    }
+
+    setModalTitle(title);
+    setModalRows(Array.isArray(list) ? list : []);
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setModalRows([]);
+    setModalTitle("");
+  }
+
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-6 shadow-[0_20px_44px_rgba(15,23,42,0.24)] sm:px-7">
@@ -316,14 +371,31 @@ export default function BDSummaryOverview() {
 
       {/* Mini metrics placed outside the dark hero to occupy unused blank space */}
       <section className="mt-8 mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MiniMetric label="Total submissions" value={analytics.total} tone="bg-cyan-50/95 border-cyan-200" note="All proposal records" />
-        <MiniMetric label="Unsubmitted" value={analytics.unsubmitted} tone="bg-slate-50/95 border-slate-200" note="Not marked as submitted" />
-        <MiniMetric label="Won" value={analytics.counts.WON} tone="bg-emerald-50/95 border-emerald-200" note="Successful proposals" />
-        <MiniMetric label="Lost" value={analytics.counts.LOST} tone="bg-rose-50/95 border-rose-200" note="Unsuccessful proposals" />
+        <div onClick={() => {}}>
+          <MiniMetric label="Total submissions" value={analytics.total} tone="bg-cyan-50/95 border-cyan-200" note="All proposal records" />
+        </div>
+        <div role="button" tabIndex={0} onClick={() => openModalFor("unsubmitted")}> 
+          <MiniMetric label="Unsubmitted" value={analytics.unsubmitted} tone="bg-slate-50/95 border-slate-200" note="Not marked as submitted" />
+        </div>
+        <div role="button" tabIndex={0} onClick={() => openModalFor("pending")}> 
+          <MiniMetric label="Pending" value={analytics.pending} tone="bg-indigo-50/95 border-indigo-200" note="Pending status proposals" />
+        </div>
+        <div role="button" tabIndex={0} onClick={() => openModalFor("won")}> 
+          <MiniMetric label="Won" value={analytics.counts.WON} tone="bg-emerald-50/95 border-emerald-200" note="Successful proposals" />
+        </div>
+        <div role="button" tabIndex={0} onClick={() => openModalFor("lost")}> 
+          <MiniMetric label="Lost" value={analytics.counts.LOST} tone="bg-rose-50/95 border-rose-200" note="Unsuccessful proposals" />
+        </div>
 
-        <MiniMetric label="Declined" value={analytics.counts.DECLINED} tone="bg-violet-50/95 border-violet-200" note="Closed out early" />
-        <MiniMetric label="Submitted" value={analytics.submitted} tone="bg-amber-50/95 border-amber-200" note="Already submitted" />
-        <MiniMetric label="On-time rate" value={`${analytics.totalOnTimeEligible > 0 ? Math.round((analytics.onTimeStatus.onTime / analytics.totalOnTimeEligible) * 100) : 0}%`} tone="bg-blue-50/95 border-blue-200" note={`${analytics.onTimeStatus.onTime}/${analytics.totalOnTimeEligible} eligible`} />
+        <div role="button" tabIndex={0} onClick={() => openModalFor("declined")}> 
+          <MiniMetric label="Declined" value={analytics.counts.DECLINED} tone="bg-violet-50/95 border-violet-200" note="Closed out early" />
+        </div>
+        <div role="button" tabIndex={0} onClick={() => openModalFor("submitted")}> 
+          <MiniMetric label="Submitted" value={analytics.submitted} tone="bg-amber-50/95 border-amber-200" note="Already submitted" />
+        </div>
+        <div>
+          <MiniMetric label="On-time rate" value={`${analytics.totalOnTimeEligible > 0 ? Math.round((analytics.onTimeStatus.onTime / analytics.totalOnTimeEligible) * 100) : 0}%`} tone="bg-blue-50/95 border-blue-200" note={`${analytics.onTimeStatus.onTime}/${analytics.totalOnTimeEligible} eligible`} />
+        </div>
         {/* Total value card removed as requested */}
       </section>
 
@@ -476,6 +548,59 @@ export default function BDSummaryOverview() {
 
         {/* Participants by Scope section removed as requested */}
       </section>
+
+      {/* Modal for list view */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/40 p-6">
+          <div className="w-full max-w-6xl rounded-3xl overflow-hidden bg-transparent shadow-xl">
+            <div className="relative">
+              <div className="bg-gradient-to-r from-indigo-900 to-indigo-700 p-6 text-white">
+                <div className="text-xs font-semibold uppercase tracking-wider text-indigo-200">Scope detail</div>
+                <h2 className="mt-2 text-2xl font-semibold">{modalTitle}</h2>
+                <div className="mt-1 text-sm text-indigo-100">{modalRows.length} proposals in this list.</div>
+              </div>
+              <button onClick={closeModal} className="absolute right-4 top-4 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-sm text-white">Close</button>
+            </div>
+
+            <div className="bg-white p-6">
+              <div className="rounded-lg border border-slate-100 overflow-hidden">
+                <div className="overflow-auto max-h-[60vh]">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-slate-500">
+                        <th className="px-4 py-3">Ref No</th>
+                        <th className="px-4 py-3">Title / Project</th>
+                        <th className="px-4 py-3">Client</th>
+                        <th className="px-4 py-3">PIC</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modalRows.length === 0 ? (
+                        <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No proposals</td></tr>
+                      ) : (
+                        modalRows.map((r) => (
+                          <tr
+                            key={r.id}
+                            className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
+                            onClick={() => router.push(`/bd/proposals/${r.id}/edit`)}
+                          >
+                            <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{r.refNo || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700 max-w-[480px] truncate" title={r.titleProjectName || ""}>{r.titleProjectName || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{r.client || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{formatPicString(r.personInCharge) || "-"}</td>
+                            <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{normalizeStatus(r.status)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

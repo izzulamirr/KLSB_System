@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { bdFetch } from "./api";
+import Link from "next/link";
+import { bdFetch, statusClass } from "./api";
 import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
 import HighlightNumbers from "../HighlightNumbers";
 
@@ -161,12 +162,14 @@ export default function BDDashboardPage() {
                           href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex rounded-md px-2 py-0.5 font-semibold underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-50"
+                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
                         >
                           <HighlightNumbers text={item.refNo || "-"} />
                         </a>
                       ) : (
-                        <HighlightNumbers text={item.refNo || "-"} />
+                        <span className="inline-flex px-2 py-0.5 text-slate-700">
+                          <HighlightNumbers text={item.refNo || "-"} />
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-slate-700 max-w-[320px] truncate" title={item.title}>
@@ -219,12 +222,14 @@ export default function BDDashboardPage() {
                           href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex rounded-md px-2 py-0.5 font-semibold underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-50"
+                          className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
                         >
                           <HighlightNumbers text={item.refNo || "-"} />
                         </a>
                       ) : (
-                        <HighlightNumbers text={item.refNo || "-"} />
+                        <span className="inline-flex px-2 py-0.5 text-slate-700">
+                          <HighlightNumbers text={item.refNo || "-"} />
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-slate-700 max-w-[300px] truncate" title={item.titleProjectName || ""}>
@@ -255,7 +260,11 @@ export default function BDDashboardPage() {
                         return daysRemaining <= 0 ? "0 days" : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
                       })()}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{item.status || "PENDING"}</td>
+                    <td className="px-3 py-2 text-slate-700">
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>
+                        {item.status || "PENDING"}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}

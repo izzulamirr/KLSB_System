@@ -9,7 +9,7 @@ export default function HighlightNumbers({ text, className = "" }) {
     <span className={className}>
       {parts.map((p, i) =>
         /^\d+$/.test(p) ? (
-          <span key={i} className="text-blue-600 font-semibold">
+          <span key={i} className="text-inherit font-semibold">
             {p}
           </span>
         ) : (

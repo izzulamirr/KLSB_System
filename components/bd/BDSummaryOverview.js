@@ -216,7 +216,7 @@ export default function BDSummaryOverview() {
     }
 
     const valueSegments = statusOrder
-      .filter((status) => status !== "ON-GOING") // Exclude ON-GOING from value profile
+      .filter((status) => status !== "ON-GOING" && status !== "PENDING") // Exclude ON-GOING and PENDING from value profile
       .map((status) => ({
         status,
         label: statusLabels[status],
@@ -512,7 +512,7 @@ export default function BDSummaryOverview() {
           </div>
 
           <div className="mt-5 space-y-4">
-            {analytics.statusOrder.filter((status) => status !== "SUBMITTED").map((status) => {
+            {analytics.statusOrder.filter((status) => status !== "SUBMITTED" && status !== "PENDING").map((status) => {
               const bucket = analytics.onTimeByStatus[status];
               const total = bucket.onTime + bucket.late;
               const onTimeWidth = total > 0 ? (bucket.onTime / total) * 100 : 0;

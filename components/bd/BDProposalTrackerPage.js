@@ -344,16 +344,27 @@ export default function BDProposalTrackerPage() {
         return refNoSort === "asc" ? cmp : -cmp;
       });
     } else {
-      // Apply deadline sort (default)
+      // Apply deadline sort by distance from today (nearest/farthest)
+      const DAY_MS = 1000 * 60 * 60 * 24;
+      const startOfToday = new Date();
+      const today = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), startOfToday.getDate());
+
+      const daysFromToday = (dateStr) => {
+        const d = parseDeadline(dateStr);
+        if (!d) return Infinity;
+        const startOfD = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        return Math.abs(Math.round((startOfD - today) / DAY_MS));
+      };
+
       sorted.sort((left, right) => {
-        const leftDate = parseDeadline(left.deadline);
-        const rightDate = parseDeadline(right.deadline);
+        const leftDistance = daysFromToday(left.deadline);
+        const rightDistance = daysFromToday(right.deadline);
 
-        if (!leftDate && !rightDate) return 0;
-        if (!leftDate) return 1;
-        if (!rightDate) return -1;
+        if (leftDistance === rightDistance) return 0;
+        if (!Number.isFinite(leftDistance)) return 1;
+        if (!Number.isFinite(rightDistance)) return -1;
 
-        return deadlineSort === "asc" ? leftDate - rightDate : rightDate - leftDate;
+        return deadlineSort === "asc" ? leftDistance - rightDistance : rightDistance - leftDistance;
       });
     }
 
@@ -553,8 +564,8 @@ export default function BDProposalTrackerPage() {
             }}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
-            <option value="desc">Newest deadline first</option>
-            <option value="asc">Oldest deadline first</option>
+            <option value="asc">Nearest deadline first</option>
+            <option value="desc">Farthest deadline first</option>
           </select>
         </label>
 

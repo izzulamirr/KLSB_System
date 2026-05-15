@@ -97,65 +97,6 @@ export default function BDScopeBreakdownPage() {
     <div className="space-y-6">
       <BDSummaryOverview />
 
-      <section className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-white via-emerald-50/70 to-cyan-50 p-6 shadow-[0_18px_36px_rgba(15,23,42,0.08)]">
-        <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-300/20 blur-3xl" />
-        <div className="absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-cyan-300/20 blur-3xl" />
-
-        <div className="relative grid gap-5 lg:grid-cols-[1.35fr_0.85fr] lg:items-stretch">
-          <div className="rounded-2xl border border-emerald-100 bg-white/80 p-5 shadow-[0_12px_24px_rgba(16,185,129,0.08)] backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                  Estimated Revenue
-                </div>
-                <h3 className="mt-3 text-sm font-medium text-slate-500">Total Winning Amount</h3>
-                <div className="mt-1 text-3xl font-semibold tracking-tight text-emerald-950 sm:text-4xl">
-                  {formattedTotalWinning}
-                </div>
-              </div>
-
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">Winning proposals</div>
-                <div className="mt-2 text-2xl font-semibold text-emerald-950">
-                  {rows.filter((r) => String((r.status || "")).toUpperCase() === "WON").length}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">Closed deals contributing to the total</div>
-              </div>
-              <div className="rounded-2xl border border-cyan-100 bg-cyan-50/80 p-4">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-700">Portfolio size</div>
-                <div className="mt-2 text-2xl font-semibold text-cyan-950">{rows.length}</div>
-                <div className="mt-1 text-xs text-slate-500">All proposals currently in the dataset</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-[0_12px_24px_rgba(15,23,42,0.06)] backdrop-blur">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Top scope</div>
-            {topScope ? (
-              <>
-                <div className="mt-3 text-2xl font-semibold text-slate-950">{topScope.scope}</div>
-                <div className="mt-2 text-sm text-slate-500">Leads the portfolio distribution</div>
-                <div className="mt-5 flex items-end gap-3">
-                  <div className="rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-[0_14px_24px_rgba(15,23,42,0.18)]">
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-slate-300">Count</div>
-                    <div className="mt-1 text-3xl font-semibold">{topScope.count}</div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Share</div>
-                    <div className="mt-1 text-3xl font-semibold text-slate-900">{topScope.percentage}%</div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="mt-3 text-sm text-slate-500">No scope data yet.</div>
-            )}
-          </div>
-        </div>
-      </section>
-
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-700">{error}</section>
       )}

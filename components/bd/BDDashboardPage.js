@@ -136,6 +136,7 @@ export default function BDDashboardPage() {
                   <th className="text-left px-3 py-2">Ref No</th>
                   <th className="text-left px-3 py-2">Title</th>
                   <th className="text-left px-3 py-2">Client</th>
+                  <th className="text-left px-3 py-2">PIC</th>
                   <th className="text-left px-3 py-2">Due Date</th>
                   <th className="text-left px-3 py-2">Days Left</th>
                 </tr>
@@ -172,6 +173,7 @@ export default function BDDashboardPage() {
                       {item.title}
                     </td>
                     <td className="px-3 py-2 text-slate-700">{item.client}</td>
+                    <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{item.personInCharge}</td>
                     <td className="px-3 py-2 text-slate-700">{formatDisplayDate(item.dueDate)}</td>
                     <td className="px-3 py-2 text-slate-700 font-medium">
                       {item.daysLeft === 0 ? "Today" : `${item.daysLeft} day${item.daysLeft === 1 ? "" : "s"}`}

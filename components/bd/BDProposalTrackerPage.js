@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -5,6 +6,9 @@ import Link from "next/link";
 import { bdFetch, statusClass } from "./api";
 import { BD_STATUS_OPTIONS } from "./options";
 import { formatPicString } from "../../lib/picEmailMap";
+const EDIT_RETURN_URL_KEY = "bd:editReturnUrl";
+const TRACKER_PAGE_KEY = "bd:proposalTrackerPage";
+const TRACKER_STATE_KEY = "bd:proposalTrackerState";
 
 function readTrackerStateFromUrl() {
   const defaults = {
@@ -52,38 +56,8 @@ function buildTrackerQuery(state) {
   return params.toString();
 }
 
-const TRACKER_STATE_KEY = "bd:proposalTrackerState";
-
-function readTrackerStateFromSession() {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(TRACKER_STATE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return {
-      currentPage: Number.isFinite(Number(parsed?.currentPage)) && Number(parsed.currentPage) > 0 ? Number(parsed.currentPage) : 1,
-      titleQuery: String(parsed?.titleQuery || ""),
-      clientQuery: String(parsed?.clientQuery || ""),
-      picQuery: String(parsed?.picQuery || ""),
-      refQuery: String(parsed?.refQuery || ""),
-      statusFilter: String(parsed?.statusFilter || ""),
-      deadlineSort: parsed?.deadlineSort === "asc" ? "asc" : "desc",
-      refNoSort: parsed?.refNoSort === "asc" || parsed?.refNoSort === "desc" ? parsed.refNoSort : "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveTrackerStateToSession(state) {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(TRACKER_STATE_KEY, JSON.stringify(state));
-  } catch {}
-}
-
-export default function BDProposalTrackerPage() {
-  const initialState = readTrackerStateFromUrl() || readTrackerStateFromSession() || {
+function getInitialTrackerState() {
+  const defaults = {
     currentPage: 1,
     titleQuery: "",
     clientQuery: "",
@@ -93,8 +67,41 @@ export default function BDProposalTrackerPage() {
     deadlineSort: "desc",
     refNoSort: "",
   };
-  const hasMountedRef = useRef(false);
-  const prevTrackerQueryRef = useRef("");
+
+  if (typeof window === "undefined") return defaults;
+
+  const urlState = readTrackerStateFromUrl();
+  const persistedPage = Number(window.sessionStorage.getItem(TRACKER_PAGE_KEY) || "1");
+  const persistedStateText = window.sessionStorage.getItem(TRACKER_STATE_KEY);
+  const hasReturnMarker = Boolean(window.sessionStorage.getItem(EDIT_RETURN_URL_KEY));
+
+  let persistedState = null;
+  if (persistedStateText) {
+    try {
+      persistedState = JSON.parse(persistedStateText);
+    } catch {
+      persistedState = null;
+    }
+  }
+
+  if (hasReturnMarker && persistedState) {
+    return {
+      ...urlState,
+      ...persistedState,
+      currentPage: Number.isFinite(Number(persistedState.currentPage)) ? Number(persistedState.currentPage) : persistedPage,
+    };
+  }
+
+  if (hasReturnMarker && (!urlState.currentPage || urlState.currentPage === 1) && persistedPage > 1) {
+    return { ...urlState, currentPage: persistedPage };
+  }
+
+  return urlState;
+}
+
+export default function BDProposalTrackerPage() {
+  const initialState = getInitialTrackerState();
+  const hasHydratedRef = useRef(false);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -107,10 +114,36 @@ export default function BDProposalTrackerPage() {
   const [deadlineSort, setDeadlineSort] = useState(initialState.deadlineSort);
   const [refNoSort, setRefNoSort] = useState(initialState.refNoSort);
   const [currentPage, setCurrentPage] = useState(initialState.currentPage);
+  const [selectedProposal, setSelectedProposal] = useState(null);
   const ITEMS_PER_PAGE = 15;
+  const syncingUrlStateRef = useRef(false);
 
-  useEffect(() => {
-    saveTrackerStateToSession({
+  function applyUrlState(nextState) {
+    syncingUrlStateRef.current = true;
+    setCurrentPage(nextState.currentPage);
+    setTitleQuery(nextState.titleQuery);
+    setClientQuery(nextState.clientQuery);
+    setPicQuery(nextState.picQuery);
+    setRefQuery(nextState.refQuery);
+    setStatusFilter(nextState.statusFilter);
+    setDeadlineSort(nextState.deadlineSort);
+    setRefNoSort(nextState.refNoSort);
+  }
+
+  function saveTrackerState(nextState) {
+    if (typeof window === "undefined") return;
+
+    window.sessionStorage.setItem(TRACKER_STATE_KEY, JSON.stringify(nextState));
+    window.sessionStorage.setItem(TRACKER_PAGE_KEY, String(nextState.currentPage));
+  }
+
+  function buildTrackerPath(nextState) {
+    const query = buildTrackerQuery(nextState);
+    return `/bd/proposals${query ? `?${query}` : ""}`;
+  }
+
+  function getCurrentTrackerState(overrides = {}) {
+    return {
       currentPage,
       titleQuery,
       clientQuery,
@@ -119,25 +152,12 @@ export default function BDProposalTrackerPage() {
       statusFilter,
       deadlineSort,
       refNoSort,
-    });
-  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
-
-  // Keep tracker state in sync with browser navigation.
-  useEffect(() => {
-    const handlePopState = () => {
-      const nextState = readTrackerStateFromSession() || readTrackerStateFromUrl();
-      setCurrentPage(nextState.currentPage);
-      setTitleQuery(nextState.titleQuery);
-      setClientQuery(nextState.clientQuery);
-      setPicQuery(nextState.picQuery);
-      setRefQuery(nextState.refQuery);
-      setStatusFilter(nextState.statusFilter);
-      setDeadlineSort(nextState.deadlineSort);
-      setRefNoSort(nextState.refNoSort);
+      ...overrides,
     };
+  }
 
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+  useEffect(() => {
+    hasHydratedRef.current = true;
   }, []);
 
   async function load() {
@@ -155,6 +175,16 @@ export default function BDProposalTrackerPage() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        load();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   function getMaturationDays(deadline, submission) {
@@ -289,43 +319,65 @@ export default function BDProposalTrackerPage() {
 
   // Update URL when tracker state changes.
   useEffect(() => {
+    if (!hasHydratedRef.current) return;
+
     const newUrl = `${window.location.pathname}${trackerQuery ? `?${trackerQuery}` : ""}`;
-    if (!hasMountedRef.current) {
-      window.history.replaceState(window.history.state, "", newUrl);
-      prevTrackerQueryRef.current = trackerQuery;
-      return;
-    }
-
-    if (trackerQuery === prevTrackerQueryRef.current) {
-      return;
-    }
-
-    const prevPage = new URLSearchParams(prevTrackerQueryRef.current).get("page") || "1";
-    const nextPage = new URLSearchParams(trackerQuery).get("page") || "1";
-
-    if (prevPage !== nextPage) {
-      window.history.pushState(window.history.state, "", newUrl);
-    } else {
-      window.history.replaceState(window.history.state, "", newUrl);
-    }
-
-    prevTrackerQueryRef.current = trackerQuery;
+    window.history.replaceState(window.history.state, "", newUrl);
   }, [trackerQuery]);
-  }, [rows, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
 
-  // Reset to page 1 when filters or sorts change
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true;
-      return;
+    if (!hasHydratedRef.current) return;
+    if (typeof window !== "undefined") {
+      saveTrackerState({
+        currentPage,
+        titleQuery,
+        clientQuery,
+        picQuery,
+        refQuery,
+        statusFilter,
+        deadlineSort,
+        refNoSort,
+      });
     }
-    setCurrentPage(1);
-  }, [titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery]);
+  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort]);
 
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIdx = startIdx + ITEMS_PER_PAGE;
   const paginatedRows = filteredRows.slice(startIdx, endIdx);
+
+  useEffect(() => {
+    if (!selectedProposal) return;
+
+    function handleEsc(event) {
+      if (event.key === "Escape") {
+        setSelectedProposal(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [selectedProposal]);
+
+  const proposalDetails = selectedProposal
+    ? [
+        ["Ref No", selectedProposal.refNo],
+        ["Date Received", selectedProposal.dateReceived],
+        ["Submission Date", selectedProposal.submissionDate],
+        ["Title / Project", selectedProposal.titleProjectName],
+        ["Client", selectedProposal.client],
+        ["Stage", selectedProposal.stage],
+        ["Scope (Business)", selectedProposal.scopeBusiness],
+        ["Deadline", selectedProposal.deadline],
+        ["Maturity On Date", selectedProposal.maturityOnDate],
+        ["Bid Validity", selectedProposal.bidValidity],
+        ["Value (RM)", selectedProposal.valueRM],
+        ["Status", selectedProposal.status],
+        ["PIC", formatPicString(selectedProposal.personInCharge)],
+        ["Google Folder", selectedProposal.googleFolderLink],
+        ["Remarks", selectedProposal.remarks],
+      ]
+    : [];
 
   return (
     <div className="relative rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
@@ -350,7 +402,12 @@ export default function BDProposalTrackerPage() {
           <input
             type="text"
             value={titleQuery}
-            onChange={(e) => setTitleQuery(e.target.value)}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ titleQuery: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setTitleQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Type title keyword..."
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
@@ -361,7 +418,12 @@ export default function BDProposalTrackerPage() {
           <input
             type="text"
             value={clientQuery}
-            onChange={(e) => setClientQuery(e.target.value)}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ clientQuery: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setClientQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Type client keyword..."
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
@@ -372,7 +434,12 @@ export default function BDProposalTrackerPage() {
           <input
             type="text"
             value={picQuery}
-            onChange={(e) => setPicQuery(e.target.value)}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ picQuery: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setPicQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Type PIC keyword..."
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
@@ -383,7 +450,12 @@ export default function BDProposalTrackerPage() {
           <input
             type="text"
             value={refQuery}
-            onChange={(e) => setRefQuery(e.target.value)}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ refQuery: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setRefQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Type ref no..."
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
@@ -393,7 +465,12 @@ export default function BDProposalTrackerPage() {
           <span className="mb-1 block font-medium text-slate-600">Filter status</span>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ statusFilter: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">All statuses</option>
@@ -410,8 +487,11 @@ export default function BDProposalTrackerPage() {
           <select
             value={deadlineSort}
             onChange={(e) => {
+              const nextState = getCurrentTrackerState({ deadlineSort: e.target.value, refNoSort: "", currentPage: 1 });
+              saveTrackerState(nextState);
               setDeadlineSort(e.target.value);
               setRefNoSort("");
+              setCurrentPage(1);
             }}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
@@ -424,7 +504,12 @@ export default function BDProposalTrackerPage() {
           <span className="mb-1 block font-medium text-slate-600">Sort by Ref No</span>
           <select
             value={refNoSort}
-            onChange={(e) => setRefNoSort(e.target.value)}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ refNoSort: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setRefNoSort(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
             <option value="">None (deadline sort)</option>
@@ -474,13 +559,18 @@ export default function BDProposalTrackerPage() {
               </tr>
             ) : (
               paginatedRows.map((item) => (
-                <tr key={item.id} className="border-t border-slate-200 text-slate-700 hover:bg-slate-50/70 transition-colors">
+                <tr
+                  key={item.id}
+                  className="cursor-pointer border-t border-slate-200 text-slate-700 transition-colors hover:bg-slate-50/70"
+                  onClick={() => setSelectedProposal(item)}
+                >
                   <td className="px-3 py-2">
                     {item.googleFolderLink ? (
                       <a
                         href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
                       >
                         {item.refNo || "-"}
@@ -503,6 +593,14 @@ export default function BDProposalTrackerPage() {
                   <td className="px-3 py-2">
                     <Link
                       href={`/bd/proposals/${item.id}/edit?returnTo=${encodeURIComponent(`/bd/proposals${trackerQuery ? `?${trackerQuery}` : ""}`)}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof window !== "undefined") {
+                          const nextState = getCurrentTrackerState();
+                          saveTrackerState(nextState);
+                          window.sessionStorage.setItem(EDIT_RETURN_URL_KEY, buildTrackerPath(nextState));
+                        }
+                      }}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 hover:text-blue-900"
                       aria-label={`Edit proposal ${item.refNo || item.id}`}
                       title="Edit proposal"
@@ -520,7 +618,7 @@ export default function BDProposalTrackerPage() {
         </table>
       </div>
 
-      {filteredRows.length > 0 && (
+      {filteredRows.length > 0 && totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-sm text-slate-600">
             Showing <span className="font-medium">{startIdx + 1}</span> to{" "}
@@ -530,7 +628,11 @@ export default function BDProposalTrackerPage() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => {
+                const nextPage = Math.max(1, currentPage - 1);
+                saveTrackerState(getCurrentTrackerState({ currentPage: nextPage }));
+                setCurrentPage(nextPage);
+              }}
               disabled={currentPage === 1}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -541,7 +643,10 @@ export default function BDProposalTrackerPage() {
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                 <button
                   key={page}
-                  onClick={() => setCurrentPage(page)}
+                  onClick={() => {
+                    saveTrackerState(getCurrentTrackerState({ currentPage: page }));
+                    setCurrentPage(page);
+                  }}
                   className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${
                     currentPage === page
                       ? "bg-[#0f3d7a] text-white"
@@ -554,12 +659,51 @@ export default function BDProposalTrackerPage() {
             </div>
 
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => {
+                const nextPage = Math.min(totalPages, currentPage + 1);
+                saveTrackerState(getCurrentTrackerState({ currentPage: nextPage }));
+                setCurrentPage(nextPage);
+              }}
               disabled={currentPage === totalPages}
               className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>
+          </div>
+        </div>
+      )}
+
+      {selectedProposal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={() => setSelectedProposal(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900">Proposal Info</h3>
+                <p className="mt-1 text-sm text-slate-500">View-only details for selected proposal.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProposal(null)}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {proposalDetails.map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+                  <p className="mt-1 break-words text-sm text-slate-800">{value || "-"}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

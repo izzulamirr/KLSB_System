@@ -1,40 +1,29 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { bdFetch } from "./api";
 import MondayDateInput from "../MondayDateInput";
 import PicSelector from "../PicSelector";
 import { formatPicString } from "../../lib/picEmailMap";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
 
-const TRACKER_STATE_KEY = "bd:proposalTrackerState";
+const EDIT_RETURN_URL_KEY = "bd:editReturnUrl";
 
-function buildTrackerHref(queryString) {
-  if (typeof window !== "undefined") {
-    try {
-      const raw = window.sessionStorage.getItem(TRACKER_STATE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const params = new URLSearchParams();
-        const page = Number(parsed?.currentPage || 1);
+function resolveReturnTo(returnTo) {
+  if (!returnTo) return "/bd/proposals";
 
-        if (Number.isFinite(page) && page > 1) params.set("page", String(page));
-        if (parsed?.titleQuery) params.set("title", String(parsed.titleQuery));
-        if (parsed?.clientQuery) params.set("client", String(parsed.clientQuery));
-        if (parsed?.picQuery) params.set("pic", String(parsed.picQuery));
-        if (parsed?.refQuery) params.set("ref", String(parsed.refQuery));
-        if (parsed?.statusFilter) params.set("status", String(parsed.statusFilter));
-        if (parsed?.deadlineSort && parsed.deadlineSort !== "desc") params.set("deadlineSort", String(parsed.deadlineSort));
-        if (parsed?.refNoSort) params.set("refNoSort", String(parsed.refNoSort));
+  let decoded = returnTo;
+  try {
+    decoded = decodeURIComponent(returnTo);
+  } catch {}
 
-        const trackerQuery = params.toString();
-        return `/bd/proposals${trackerQuery ? `?${trackerQuery}` : ""}`;
-      }
-    } catch {}
+  // Only allow returning to proposal tracker route.
+  if (!decoded.startsWith("/bd/proposals")) {
+    return "/bd/proposals";
   }
 
-  return `/bd/proposals${queryString ? `?${queryString}` : ""}`;
+  return decoded;
 }
 
 function normalizeForm(data = {}) {
@@ -52,6 +41,7 @@ function normalizeForm(data = {}) {
     deadline: data.deadline || "",
     bidValidity: data.bidValidity ?? "",
     maturityOnDate: data.maturityOnDate || "",
+    awardedDate: data.awardedDate || "",
     googleFolderLink: data.googleFolderLink || "",
     valueRM: data.valueRM ?? "",
     status,
@@ -164,8 +154,11 @@ function formatAuditDate(value) {
   return String(value);
 }
 
-export default function BDEditProposalPage({ proposalId, queryString = "", returnTo = "" }) {
+export default function BDEditProposalPage({ proposalId, returnTo = "" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnToFromUrl = searchParams.get("returnTo") || "";
+  const resolvedReturnTo = useMemo(() => resolveReturnTo(returnToFromUrl || returnTo), [returnToFromUrl, returnTo]);
   const [form, setForm] = useState(normalizeForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -203,6 +196,17 @@ export default function BDEditProposalPage({ proposalId, queryString = "", retur
     []
   );
 
+  const navigateBackToTracker = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const persisted = typeof window !== "undefined" ? window.sessionStorage.getItem(EDIT_RETURN_URL_KEY) : "";
+      const target = resolveReturnTo(persisted || resolvedReturnTo);
+      router.push(target);
+      return;
+    }
+
+    router.replace(resolvedReturnTo);
+  }, [router, resolvedReturnTo]);
+
   async function saveProposal() {
     if (!isReady) return;
 
@@ -218,7 +222,7 @@ export default function BDEditProposalPage({ proposalId, queryString = "", retur
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      router.replace(returnTo || "/bd/proposals");
+      navigateBackToTracker();
     } catch (err) {
       setError(err.message || "Failed to update proposal");
     } finally {
@@ -237,7 +241,7 @@ export default function BDEditProposalPage({ proposalId, queryString = "", retur
         method: "DELETE",
         body: JSON.stringify({ id: form.id }),
       });
-      router.replace(returnTo || "/bd/proposals");
+      navigateBackToTracker();
     } catch (err) {
       setError(err.message || "Failed to delete proposal");
     } finally {
@@ -260,7 +264,7 @@ export default function BDEditProposalPage({ proposalId, queryString = "", retur
         <button
           type="button"
           onClick={() => {
-            router.push(returnTo || buildTrackerHref(queryString));
+            navigateBackToTracker();
           }}
           className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-900"
           aria-label="Back to tracker"
@@ -326,6 +330,7 @@ export default function BDEditProposalPage({ proposalId, queryString = "", retur
           <Field label="Deadline" type="date" value={form.deadline} onChange={(value) => setForm((current) => ({ ...current, deadline: value }))} />
           <Field label="Bid Validity" type="number" value={form.bidValidity} onChange={(value) => setForm((current) => ({ ...current, bidValidity: value }))} />
           <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={() => {}} disabled />
+          <Field label="Awarded Date" type="date" value={form.awardedDate} onChange={(value) => setForm((current) => ({ ...current, awardedDate: value }))} />
           <Field
             label="Google Folder Link"
             value={form.googleFolderLink}

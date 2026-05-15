@@ -36,6 +36,7 @@ export default function BdLayout({ children }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        setChecking(false);
         router.push("/login");
         return;
       }
@@ -50,6 +51,7 @@ export default function BdLayout({ children }) {
         const data = await res.json();
 
         if (!res.ok && userEmail !== "admin@klsb.com" && userEmail !== "bd@gmail.com") {
+          setChecking(false);
           router.push("/dashboard");
           return;
         }
@@ -57,6 +59,7 @@ export default function BdLayout({ children }) {
         const resolvedRole = String(data?.role || "").toLowerCase();
         const respIsAdmin = Boolean(data?.isAdmin);
         if (resolvedRole !== "bd" && userEmail !== "admin@klsb.com" && userEmail !== "bd@gmail.com") {
+          setChecking(false);
           router.push("/dashboard");
           return;
         }
@@ -69,6 +72,7 @@ export default function BdLayout({ children }) {
         setCanManageStaff(isStaffAdmin);
       } catch {
         if (userEmail !== "admin@klsb.com") {
+          setChecking(false);
           router.push("/dashboard");
           return;
         }

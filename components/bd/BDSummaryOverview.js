@@ -30,6 +30,44 @@ function parseDateInput(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("en-MY", {
+    style: "currency",
+    currency: "MYR",
+    maximumFractionDigits: 2,
+  }).format(amount || 0);
+}
+
+function normalizeStatus(status) {
+  return String(status || "PENDING").trim().toUpperCase() || "PENDING";
+}
+
+function getOutcomeColor(status) {
+  if (status === "WON") return "from-emerald-500 to-lime-400";
+  if (status === "LOST") return "from-rose-500 to-red-400";
+  if (status === "DECLINED") return "from-slate-500 to-slate-400";
+  if (status === "SUBMITTED") return "from-amber-500 to-yellow-300";
+  return "from-slate-400 to-slate-300";
+}
+
+function getOutcomeSoftColor(status) {
+  if (status === "WON") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (status === "LOST") return "bg-rose-100 text-rose-700 border-rose-200";
+  if (status === "DECLINED") return "bg-slate-100 text-slate-700 border-slate-200";
+  if (status === "SUBMITTED") return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-slate-100 text-slate-600 border-slate-200";
+}
+
+function MiniMetric({ label, value, tone, note }) {
+  return (
+    <div className={`rounded-2xl border p-4 shadow-[0_12px_24px_rgba(15,23,42,0.08)] ${tone}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
+      <div className="mt-2 text-3xl font-semibold text-slate-900">{value}</div>
+      {note ? <div className="mt-1 text-xs text-slate-500">{note}</div> : null}
+    </div>
+  );
+}
+
 export default function BDSummaryOverview() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
@@ -48,68 +86,396 @@ export default function BDSummaryOverview() {
     load();
   }, []);
 
-  const stats = useMemo(() => {
+  const analytics = useMemo(() => {
     const total = rows.length;
-    const won = rows.filter((row) => String(row.status || "").toUpperCase() === "WON").length;
-    const lost = rows.filter((row) => String(row.status || "").toUpperCase() === "LOST").length;
-    const pending = rows.filter((row) => String(row.status || "").toUpperCase() === "PENDING").length;
+    const statusOrder = ["WON", "LOST", "DECLINED", "ON-GOING", "SUBMITTED"];
+    const statusLabels = {
+      WON: "Won",
+      LOST: "Lost",
+      DECLINED: "Declined",
+      "ON-GOING": "Submitted",
+      SUBMITTED: "Submitted",
+    };
 
-    let eligible = 0;
+    const counts = {
+      WON: 0,
+      LOST: 0,
+      DECLINED: 0,
+      "ON-GOING": 0,
+      SUBMITTED: 0,
+      OTHER: 0,
+    };
+    const valueByStatus = {
+      WON: 0,
+      LOST: 0,
+      DECLINED: 0,
+      "ON-GOING": 0,
+      SUBMITTED: 0,
+      OTHER: 0,
+    };
+    const onTimeByStatus = {
+      WON: { onTime: 0, late: 0 },
+      LOST: { onTime: 0, late: 0 },
+      DECLINED: { onTime: 0, late: 0 },
+      "ON-GOING": { onTime: 0, late: 0 },
+      SUBMITTED: { onTime: 0, late: 0 },
+      OTHER: { onTime: 0, late: 0 },
+    };
+    const scopeCounts = {};
+
+    let submitted = 0;
     let onTime = 0;
+    let late = 0;
+
     for (const row of rows) {
-      if (!row.submitted) continue;
+      const status = normalizeStatus(row.status);
       const submissionDate = parseDateInput(row.submissionDate);
-      const deadlineDate = parseDateInput(row.deadline);
-      if (!submissionDate || !deadlineDate) continue;
+      const deadlineDate = parseDateInput(row.deadline || row.maturityOnDate);
+      const value = Number(row.valueRM || 0);
+      const scope = String(row.scopeBusiness || "Unspecified").trim() || "Unspecified";
 
-      eligible += 1;
+      if (status in counts) counts[status] += 1;
+      else counts.OTHER += 1;
 
-      const submittedDay = new Date(submissionDate.getFullYear(), submissionDate.getMonth(), submissionDate.getDate());
-      const deadlineDay = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
-      if (submittedDay <= deadlineDay) {
-        onTime += 1;
+      if (!Number.isNaN(value)) {
+        if (status in valueByStatus) valueByStatus[status] += value;
+        else valueByStatus.OTHER += value;
+      }
+
+      if (status === "ON-GOING") submitted += 1;
+
+      scopeCounts[scope] = (scopeCounts[scope] || 0) + 1;
+
+      if (submissionDate && deadlineDate) {
+        const submittedDay = new Date(submissionDate.getFullYear(), submissionDate.getMonth(), submissionDate.getDate());
+        const deadlineDay = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+        const isOnTime = submittedDay <= deadlineDay;
+
+        if (isOnTime) onTime += 1;
+        else late += 1;
+
+        const bucket = onTimeByStatus[status] || onTimeByStatus.OTHER;
+        if (isOnTime) bucket.onTime += 1;
+        else bucket.late += 1;
       }
     }
 
-    const onTimePct = eligible > 0 ? (onTime / eligible) * 100 : 0;
-    return { total, won, lost, pending, onTime, eligible, onTimePct };
+    const unsubmitted = total - submitted;
+    const onTimeStatus = {
+      onTime,
+      late,
+      notSubmitted: unsubmitted,
+      total: total || 1,
+    };
+
+    const outcomeSegments = statusOrder
+      .filter((status) => status !== "ON-GOING") // Filter out ON-GOING as we use SUBMITTED for pie chart
+      .map((status) => {
+        if (status === "SUBMITTED") {
+          return {
+            status,
+            label: statusLabels[status],
+            count: submitted > 0 ? submitted : counts[status],
+            value: valueByStatus[status],
+          };
+        }
+        return {
+          status,
+          label: statusLabels[status],
+          count: counts[status],
+          value: valueByStatus[status],
+        };
+      })
+      .filter((item) => item.count > 0);
+
+    // Ensure SUBMITTED always appears if there are submitted proposals
+    if (submitted > 0 && !outcomeSegments.find((item) => item.status === "SUBMITTED")) {
+      outcomeSegments.push({
+        status: "SUBMITTED",
+        label: "Submitted",
+        count: submitted,
+        value: 0,
+      });
+    }
+
+    const valueSegments = statusOrder
+      .filter((status) => status !== "ON-GOING") // Exclude ON-GOING from value profile
+      .map((status) => ({
+        status,
+        label: statusLabels[status],
+        value: valueByStatus[status],
+      }))
+      .filter((item) => item.value > 0 || ["WON", "LOST", "DECLINED"].includes(item.status));
+
+    const scopeSegments = Object.entries(scopeCounts)
+      .map(([scope, count]) => ({ scope, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    const onTimeSegments = [
+      { label: "On-Time", value: onTimeStatus.onTime, tone: "bg-blue-500" },
+      { label: "Late", value: onTimeStatus.late, tone: "bg-rose-500" },
+      { label: "Not Submitted", value: onTimeStatus.notSubmitted, tone: "bg-amber-400" },
+    ].filter((item) => item.value > 0);
+
+    const totalValue = valueSegments.reduce((sum, item) => sum + item.value, 0);
+    const totalOnTimeEligible = onTime + late;
+
+    return {
+      total,
+      submitted,
+      unsubmitted,
+      counts,
+      outcomeSegments,
+      valueSegments,
+      scopeSegments,
+      onTimeStatus,
+      onTimeSegments,
+      totalValue,
+      totalOnTimeEligible,
+      onTimeByStatus,
+      statusOrder,
+      statusLabels,
+    };
   }, [rows]);
+
+  const outcomeGradient = useMemo(() => {
+    if (!analytics.outcomeSegments.length) return "conic-gradient(#cbd5e1 0deg 360deg)";
+
+    let cursor = 0;
+    const stops = analytics.outcomeSegments
+      .map((segment) => {
+        const angle = (segment.count / analytics.total) * 360;
+        const start = cursor;
+        cursor += angle;
+        const end = cursor;
+        const colorMap = {
+          WON: "#22c55e",
+          LOST: "#ef4444",
+          DECLINED: "#64748b",
+          SUBMITTED: "#f59e0b",
+        };
+        return `${colorMap[segment.status] || "#94a3b8"} ${start}deg ${end}deg`;
+      })
+      .join(", ");
+
+    return `conic-gradient(${stops})`;
+  }, [analytics.outcomeSegments, analytics.total]);
+
+  const onTimeGradient = useMemo(() => {
+    if (!analytics.onTimeSegments.length) return "conic-gradient(#cbd5e1 0deg 360deg)";
+
+    let cursor = 0;
+    const total = analytics.onTimeStatus.total || 1;
+    const colorMap = {
+      "On-Time": "#3b82f6",
+      Late: "#ef4444",
+      "Not Submitted": "#f59e0b",
+    };
+
+    const stops = analytics.onTimeSegments
+      .map((segment) => {
+        const angle = (segment.value / total) * 360;
+        const start = cursor;
+        cursor += angle;
+        const end = cursor;
+        return `${colorMap[segment.label] || "#94a3b8"} ${start}deg ${end}deg`;
+      })
+      .join(", ");
+
+    return `conic-gradient(${stops})`;
+  }, [analytics.onTimeSegments, analytics.onTimeStatus.total]);
+
+  const maxValue = Math.max(1, ...analytics.valueSegments.map((item) => item.value));
+  const maxScope = Math.max(1, ...analytics.scopeSegments.map((item) => item.count));
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-900 px-7 py-5 shadow-[0_12px_28px_rgba(15,23,42,0.24)]">
-        <h1 className="text-3xl font-semibold text-white">Analytics</h1>
-        <p className="text-sm text-slate-200/90 mt-1">Business Development proposal analytics.</p>
+      <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-6 shadow-[0_20px_44px_rgba(15,23,42,0.24)] sm:px-7">
+        <div className="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="absolute -left-8 bottom-0 h-28 w-28 rounded-full bg-indigo-400/20 blur-3xl" />
+
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-200">
+              BD Analytics
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Proposal dashboard</h1>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
+              A compact view of proposal outcomes, values, timing, and scope distribution.
+            </p>
+          </div>
+        </div>
+
+        {/* moved metric cards out of hero to sit below the hero */}
       </section>
 
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-700">{error}</section>
       )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-        <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-white to-blue-100/70 p-5 shadow-[0_12px_24px_rgba(59,130,246,0.12)]">
-          <p className="text-sm text-slate-500">Total Proposals</p>
-          <p className="text-3xl font-semibold text-slate-900 mt-2">{stats.total}</p>
-        </div>
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-white to-amber-100/70 p-5 shadow-[0_12px_24px_rgba(245,158,11,0.12)]">
-          <p className="text-sm text-slate-500">Pending</p>
-          <p className="text-3xl font-semibold text-amber-600 mt-2">{stats.pending}</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-100/70 p-5 shadow-[0_12px_24px_rgba(16,185,129,0.12)]">
-          <p className="text-sm text-slate-500">Won</p>
-          <p className="text-3xl font-semibold text-emerald-600 mt-2">{stats.won}</p>
-        </div>
-        <div className="rounded-2xl border border-rose-200 bg-gradient-to-br from-white to-rose-100/70 p-5 shadow-[0_12px_24px_rgba(244,63,94,0.12)]">
-          <p className="text-sm text-slate-500">Lost</p>
-          <p className="text-3xl font-semibold text-rose-600 mt-2">{stats.lost}</p>
-        </div>
-        <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-white to-indigo-100/70 p-5 shadow-[0_12px_24px_rgba(99,102,241,0.12)]">
-          <p className="text-sm text-slate-500">On-Time Submission</p>
-          <p className="text-3xl font-semibold text-indigo-600 mt-2">{stats.onTimePct.toFixed(1)}%</p>
-          <p className="mt-1 text-xs text-slate-500">{stats.onTime}/{stats.eligible} eligible proposals</p>
-        </div>
+      {/* Mini metrics placed outside the dark hero to occupy unused blank space */}
+      <section className="mt-8 mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Total submissions" value={analytics.total} tone="bg-cyan-50/95 border-cyan-200" note="All proposal records" />
+        <MiniMetric label="Unsubmitted" value={analytics.unsubmitted} tone="bg-slate-50/95 border-slate-200" note="Not marked as submitted" />
+        <MiniMetric label="Won" value={analytics.counts.WON} tone="bg-emerald-50/95 border-emerald-200" note="Successful proposals" />
+        <MiniMetric label="Lost" value={analytics.counts.LOST} tone="bg-rose-50/95 border-rose-200" note="Unsuccessful proposals" />
+
+        <MiniMetric label="Declined" value={analytics.counts.DECLINED} tone="bg-violet-50/95 border-violet-200" note="Closed out early" />
+        <MiniMetric label="Submitted" value={analytics.submitted} tone="bg-amber-50/95 border-amber-200" note="Already submitted" />
+        <MiniMetric label="On-time rate" value={`${analytics.totalOnTimeEligible > 0 ? Math.round((analytics.onTimeStatus.onTime / analytics.totalOnTimeEligible) * 100) : 0}%`} tone="bg-blue-50/95 border-blue-200" note={`${analytics.onTimeStatus.onTime}/${analytics.totalOnTimeEligible} eligible`} />
+        {/* Total value card removed as requested */}
       </section>
 
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Proposal mix</div>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">Proposal Outcome Distribution</h3>
+            </div>
+            <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">{analytics.total} total</div>
+          </div>
+
+          <div className="mt-5 flex items-center gap-6">
+            <div className="relative h-48 w-48 shrink-0">
+              <div className="absolute inset-0 rounded-full" style={{ background: outcomeGradient }} />
+              <div className="absolute inset-[22%] rounded-full border border-slate-100 bg-white shadow-inner">
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Total</div>
+                  <div className="mt-1 text-3xl font-semibold text-slate-900">{analytics.total}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-3">
+              {analytics.outcomeSegments.map((item) => (
+                <div key={item.status} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`h-3 w-3 rounded-full bg-gradient-to-r ${getOutcomeColor(item.status)}`} />
+                    <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                  </div>
+                  <div className="text-right text-sm font-semibold text-slate-900">{item.count}</div>
+                </div>
+              ))}
+              {!analytics.outcomeSegments.find((item) => item.status === "SUBMITTED") && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`h-3 w-3 rounded-full bg-gradient-to-r ${getOutcomeColor("SUBMITTED")}`} />
+                    <span className="text-sm font-medium text-slate-700">Submitted</span>
+                  </div>
+                  <div className="text-right text-sm font-semibold text-slate-900">{analytics.submitted}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Value profile</div>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">Total Value (RM)</h3>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {analytics.valueSegments.length === 0 ? (
+              <div className="py-6 text-center text-sm text-slate-500">No value data yet.</div>
+            ) : (
+              analytics.valueSegments.map((item) => (
+                <div key={item.status}>
+                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-medium text-slate-500">
+                    <span>{item.label}</span>
+                    <span>{formatCurrency(item.value)}</span>
+                  </div>
+                  <div className="h-9 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                    <div
+                      className={`h-full rounded-xl bg-gradient-to-r ${getOutcomeColor(item.status)} shadow-[0_10px_20px_rgba(59,130,246,0.18)]`}
+                      style={{ width: `${(item.value / maxValue) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Delivery timing</div>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">On-Time Status</h3>
+            </div>
+            <div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">{analytics.totalOnTimeEligible} evaluated</div>
+          </div>
+
+          <div className="mt-5 flex items-center gap-5">
+            <div className="relative h-48 w-48 shrink-0">
+              <div className="absolute inset-0 rounded-full" style={{ background: onTimeGradient }} />
+              <div className="absolute inset-[18%] rounded-full border border-white bg-white shadow-inner">
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">On-time</div>
+                  <div className="mt-1 text-3xl font-semibold text-slate-900">{analytics.onTimeStatus.onTime}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-3">
+              {analytics.onTimeSegments.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`h-3 w-3 rounded-full ${item.tone}`} />
+                    <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900">{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_16px_30px_rgba(15,23,42,0.08)]">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Status timing</div>
+            <h3 className="mt-1 text-lg font-semibold text-slate-900">On-Time status with Outcome</h3>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            {analytics.statusOrder.filter((status) => status !== "SUBMITTED").map((status) => {
+              const bucket = analytics.onTimeByStatus[status];
+              const total = bucket.onTime + bucket.late;
+              const onTimeWidth = total > 0 ? (bucket.onTime / total) * 100 : 0;
+              const lateWidth = total > 0 ? (bucket.late / total) * 100 : 0;
+
+              return (
+                <div key={status}>
+                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-medium text-slate-500">
+                    <span>{analytics.statusLabels[status]}</span>
+                    <span>{bucket.late} late, {bucket.onTime} on time</span>
+                  </div>
+                  <div className="h-10 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                    <div className="flex h-full overflow-hidden rounded-xl">
+                      <div
+                        className="bg-blue-500 text-[10px] font-semibold text-white"
+                        style={{ width: `${onTimeWidth}%` }}
+                      >
+                        {bucket.onTime > 0 ? <div className="flex h-full items-center justify-center">{bucket.onTime}</div> : null}
+                      </div>
+                      <div
+                        className="bg-rose-500 text-[10px] font-semibold text-white"
+                        style={{ width: `${lateWidth}%` }}
+                      >
+                        {bucket.late > 0 ? <div className="flex h-full items-center justify-center">{bucket.late}</div> : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Participants by Scope section removed as requested */}
+      </section>
     </div>
   );
 }

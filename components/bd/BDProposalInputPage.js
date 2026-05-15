@@ -19,6 +19,7 @@ const initialForm = {
   deadline: "",
   bidValidity: "",
   maturityOnDate: "",
+  awardedDate: "",
   valueRM: "",
   status: "PENDING",
   personInCharge: "",
@@ -198,6 +199,7 @@ export default function BDProposalInputPage() {
         <Field label="Deadline" type="date" value={form.deadline} onChange={(value) => setForm((current) => ({ ...current, deadline: value }))} />
         <Field label="Bid Validity" type="number" value={form.bidValidity} onChange={(value) => setForm((current) => ({ ...current, bidValidity: value }))} />
         <Field label="Maturity On Date" type="date" value={form.maturityOnDate} onChange={() => {}} disabled />
+        <Field label="Awarded Date" type="date" value={form.awardedDate} onChange={(value) => setForm((current) => ({ ...current, awardedDate: value }))} />
         <Field label="Value (RM)" type="currency" value={form.valueRM} onChange={(value) => setForm((current) => ({ ...current, valueRM: value }))} />
 
         <label className="text-sm text-slate-700">

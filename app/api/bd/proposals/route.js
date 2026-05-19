@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../../lib/firebaseAdmin";
 import { isBdRole, resolveUserRole } from "../../../../lib/roleResolver";
+import { sendProposalCreationEmail } from "../../../../lib/emailService";
+import { getPicEmails } from "../../../../lib/picEmailMap";
 
 async function authorizeBd(req) {
   const authHeader = req.headers.get("authorization") || "";
@@ -114,6 +116,34 @@ export async function POST(req) {
       updatedBy: decoded.uid,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Send notification email to PICs
+    if (payload.personInCharge) {
+      try {
+        const picEmails = getPicEmails(payload.personInCharge);
+        if (picEmails.length > 0) {
+          const proposalData = {
+            id: docRef.id,
+            ...payload,
+          };
+          await sendProposalCreationEmail(proposalData, picEmails);
+          
+          // Log email notification
+          await db.collection("email_notifications_log").add({
+            proposalId: docRef.id,
+            proposalRefNo: payload.refNo,
+            notificationType: "proposal_created",
+            personInCharge: payload.personInCharge,
+            picEmails: picEmails,
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            status: "sent",
+          });
+        }
+      } catch (emailError) {
+        console.error("Failed to send proposal creation email:", emailError);
+        // Don't fail the entire request if email fails
+      }
+    }
 
     return NextResponse.json({ id: docRef.id }, { status: 201 });
   } catch (error) {

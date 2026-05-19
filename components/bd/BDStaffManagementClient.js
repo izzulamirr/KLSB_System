@@ -25,6 +25,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [updatingUser, setUpdatingUser] = useState(false);
+  const [resendingActivation, setResendingActivation] = useState(false);
 
   const auth = getAuth();
 
@@ -140,13 +141,19 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
         body: JSON.stringify(newUser),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json();
         showMessage("error", data.error || "Failed to create user");
         return;
       }
 
-      showMessage("success", "User created successfully!");
+      if (data.activationLink) {
+        showMessage("success", "User created successfully! Activation link was returned by the server.");
+        console.log("Activation link:", data.activationLink);
+      } else {
+        showMessage("success", "User created successfully!");
+      }
       setNewUser({ email: "", displayName: "", password: "", role: "staff", isAdmin: false });
       setShowCreateModal(false);
       fetchStaff();
@@ -313,6 +320,49 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       showMessage("error", err.message || "Failed to delete user");
     } finally {
       setUpdatingUser(false);
+    }
+  };
+
+  const handleResendActivation = async () => {
+    if (!editingUser?.email) {
+      showMessage("error", "No email available for this user");
+      return;
+    }
+
+    setResendingActivation(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        showMessage("error", "Not authenticated");
+        return;
+      }
+
+      const token = await currentUser.getIdToken();
+      const res = await fetch("/api/auth/resend-activation", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: editingUser.email }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showMessage("error", data.error || "Failed to resend activation email");
+        return;
+      }
+
+      showMessage(
+        "success",
+        data.activationLink ? "Activation link generated and email sent." : "Activation email sent."
+      );
+      fetchStaff();
+    } catch (err) {
+      console.error(err);
+      showMessage("error", err.message || "Failed to resend activation email");
+    } finally {
+      setResendingActivation(false);
     }
   };
 
@@ -794,6 +844,24 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
                 </button>
 
                 <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleResendActivation}
+                    disabled={resendingActivation}
+                    aria-label="Resend Activation"
+                    title="Resend Activation"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                  >
+                    {resendingActivation ? (
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 0a2 2 0 012-2h14a2 2 0 012 2m-18 0v8a2 2 0 002 2h14a2 2 0 002-2V8" />
+                      </svg>
+                    )}
+                  </button>
                   {isAdmin && (
                     <button
                       type="button"

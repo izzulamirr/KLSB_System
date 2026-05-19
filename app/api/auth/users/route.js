@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../../lib/firebaseAdmin";
 import { resolveUserRole, isSysdevRole } from "../../../../lib/roleResolver";
+import { sendEmail } from "../../../../lib/emailService";
+import crypto from "crypto";
 
 const STAFF_ADMIN_EMAILS = ["bd@gmail.com"];
 const ALLOWED_ROLES = new Set(["bd", "sysdev", "hr", "staff"]);
@@ -119,21 +121,68 @@ export async function POST(req) {
       return NextResponse.json({ error: "Role must be one of: BD, System Developers, HR, Staff" }, { status: 400 });
     }
 
-    // Create new user in Firebase Auth
-    const userRecord = await admin.auth().createUser({
-      email,
-      password,
-      displayName,
-    });
+    // Create new user in Firebase Auth (disabled until activation).
+    // If the account already exists, reuse it and force it back to inactive.
+    let userRecord;
+    try {
+      userRecord = await admin.auth().createUser({
+        email,
+        password,
+        displayName,
+        disabled: true,
+      });
+    } catch (createErr) {
+      if (createErr?.code !== "auth/email-already-exists") {
+        throw createErr;
+      }
 
-    // Set role and isAdmin in Firestore
+      userRecord = await admin.auth().getUserByEmail(email);
+      await admin.auth().updateUser(userRecord.uid, {
+        displayName,
+        password,
+        disabled: true,
+      });
+      userRecord = await admin.auth().getUser(userRecord.uid);
+    }
+
+    // Generate activation token and store role+meta in Firestore
     const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+    const activationToken = crypto.randomBytes(24).toString("hex");
+    const activationExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
+
     await admin.firestore().collection(roleCollection).doc(userRecord.uid).set({
       role,
       isAdmin: isAdmin === true,
       createdBy: decoded.uid,
       createdAt: new Date(),
+      activationToken,
+      activationExpiresAt: activationExpiresAt,
+      email,
     });
+
+    // Send activation email with token link
+    let activationLink = null;
+    try {
+      const portalUrl = process.env.PORTAL_URL || "http://localhost:3000";
+      activationLink = `${portalUrl.replace(/\/$/, "")}/activate?token=${activationToken}`;
+
+      const html = `
+        <p>Hi ${displayName || email},</p>
+        <p>An account was created for you on the KLSB Portal. Click the link below to activate your account and go to your dashboard:</p>
+        <p><a href="${activationLink}">Activate my account</a></p>
+        <p>If you did not expect this email, please ignore it.</p>
+      `;
+
+      await sendEmail({ to: email, subject: "Activate your KLSB Portal account", html, text: `Activate: ${activationLink}` });
+    } catch (emailErr) {
+      console.error("Failed to send activation email:", emailErr?.message || emailErr);
+      if (activationLink) console.log("Activation link (fallback):", activationLink);
+      if (emailErr && /SMTP|authentication|ENOTFOUND|ECONNREFUSED/i.test(String(emailErr))) {
+        console.warn('SMTP error detected. For Gmail use an App Password (enable 2FA) or a provider like SendGrid.');
+      }
+    }
+
+    const includeLink = process.env.NODE_ENV !== "production" || process.env.SHOW_ACTIVATION_LINK === "true";
 
     return NextResponse.json({
       ok: true,
@@ -142,12 +191,11 @@ export async function POST(req) {
         email: userRecord.email,
         displayName: userRecord.displayName,
         role,
+        activationSent: true,
+        ...(includeLink && activationLink ? { activationLink } : {}),
       },
     });
   } catch (err) {
-    if (err.code === "auth/email-already-exists") {
-      return NextResponse.json({ error: "Email already exists" }, { status: 400 });
-    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

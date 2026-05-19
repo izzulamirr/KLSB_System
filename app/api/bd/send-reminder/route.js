@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getPicEmails } from "../../../../lib/picEmailMap";
 import initAdmin from "../../../../lib/firebaseAdmin";
 import { isBdRole, resolveUserRole } from "../../../../lib/roleResolver";
+import {
+  sendMaturationReminder,
+  sendDeadlineReminder,
+} from "../../../../lib/emailService";
 
 /**
  * POST /api/bd/send-reminder
@@ -45,12 +49,13 @@ export async function POST(req) {
       reminderType,
       dueDate,
       daysLeft,
+      proposal, // Full proposal object (optional)
     } = body;
 
     // Validate required fields
     if (!proposalId || !personInCharge || !reminderType || !dueDate) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: proposalId, personInCharge, reminderType, dueDate" },
         { status: 400 }
       );
     }
@@ -64,110 +69,65 @@ export async function POST(req) {
       );
     }
 
-    // Prepare email content
-    const reminderLabel = reminderType === "submission" ? "Submission" : "Maturation";
-    const daysText = daysLeft === 0 ? "Today" : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
+    // Prepare proposal data for email
+    const proposalData = proposal || {
+      refNo: proposalRefNo,
+      titleProjectName: proposalTitle,
+      personInCharge,
+    };
 
-    const emailBody = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: Arial, sans-serif; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background-color: #0f3d7a; color: white; padding: 20px; border-radius: 8px; }
-    .content { margin: 20px 0; line-height: 1.6; }
-    .details { background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0; }
-    .details-row { display: flex; justify-content: space-between; margin: 8px 0; }
-    .label { font-weight: bold; color: #0f3d7a; }
-    .footer { color: #666; font-size: 12px; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2>KLSB Portal - Proposal Reminder</h2>
-    </div>
-    
-    <div class="content">
-      <p>Hi ${personInCharge},</p>
-      
-      <p>This is a reminder about an upcoming <strong>${reminderLabel}</strong> date for a proposal under your charge.</p>
-      
-      <div class="details">
-        <div class="details-row">
-          <span class="label">Reference No:</span>
-          <span>${proposalRefNo || "-"}</span>
-        </div>
-        <div class="details-row">
-          <span class="label">Title/Project:</span>
-          <span>${proposalTitle || "-"}</span>
-        </div>
-        <div class="details-row">
-          <span class="label">Reminder Type:</span>
-          <span>${reminderLabel}</span>
-        </div>
-        <div class="details-row">
-          <span class="label">Due Date:</span>
-          <span>${dueDate}</span>
-        </div>
-        <div class="details-row">
-          <span class="label">Time Remaining:</span>
-          <span><strong>${daysText}</strong></span>
-        </div>
-      </div>
-      
-      <p>Please take the necessary action to ensure this proposal meets its deadline.</p>
-      
-      <p>Best regards,<br><strong>KLSB Portal System</strong></p>
-    </div>
-    
-    <div class="footer">
-      <p>This is an automated message from the KLSB Portal. Please do not reply to this email.</p>
-    </div>
-  </div>
-</body>
-</html>
-    `.trim();
-
-    // TODO: Integrate with email service (SendGrid, Mailgun, etc.)
-    // For now, log the reminder that would be sent
-    picEmails.forEach((email) => {
-      console.log(`[REMINDER EMAIL] To: ${email}`);
-      console.log(`Subject: Proposal ${reminderLabel} Reminder - ${proposalRefNo}`);
-      console.log(`Body: ${emailBody}`);
-    });
-
-    // Log to audit trail in Firestore (optional)
     try {
-      const db = admin.firestore();
-      // Log one entry per recipient
-      for (const email of picEmails) {
-        await db.collection("email_reminders_log").add({
-          proposalId,
-          proposalRefNo,
-          personInCharge,
-          picEmail: email,
-          reminderType,
-          dueDate,
-          daysLeft,
-          sentAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: "sent", // Would be "pending" if queued, "failed" if error
-        });
+      // Send appropriate reminder based on type
+      if (reminderType === "maturation") {
+        await sendMaturationReminder(proposalData, picEmails, daysLeft || 0);
+      } else if (reminderType === "deadline") {
+        await sendDeadlineReminder(proposalData, picEmails, daysLeft || 0);
+      } else {
+        throw new Error(`Invalid reminderType: ${reminderType}`);
       }
-    } catch (logError) {
-      console.error("Failed to log reminder:", logError);
-      // Don't fail the request, just log the error
-    }
 
-    return NextResponse.json({
-      success: true,
-      message: `Reminder queued for ${picEmails.length} recipient${picEmails.length === 1 ? "" : "s"}`,
-      recipients: picEmails,
-      reminderType,
-      proposalRefNo,
-    });
+      // Log to audit trail in Firestore
+      const db = admin.firestore();
+      await db.collection("email_reminders_log").add({
+        proposalId,
+        proposalRefNo,
+        personInCharge,
+        reminderType,
+        dueDate,
+        daysLeft: daysLeft || 0,
+        picEmails,
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "sent",
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `${reminderType} reminder sent to ${picEmails.length} recipient${picEmails.length === 1 ? "" : "s"}`,
+        recipients: picEmails,
+        reminderType,
+        proposalRefNo,
+        daysRemaining: daysLeft,
+      });
+    } catch (emailError) {
+      console.error("Failed to send reminder email:", emailError);
+
+      // Log failure
+      const db = admin.firestore();
+      await db.collection("email_reminders_log").add({
+        proposalId,
+        proposalRefNo,
+        personInCharge,
+        reminderType,
+        dueDate,
+        daysLeft: daysLeft || 0,
+        picEmails,
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        status: "failed",
+        error: emailError.message,
+      });
+
+      throw emailError;
+    }
   } catch (err) {
     console.error("Reminder send error:", err);
     return NextResponse.json(

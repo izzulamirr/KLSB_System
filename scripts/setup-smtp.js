@@ -18,7 +18,7 @@ SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=webnotify@kemuncaklanai.com.my
 SMTP_PASS=Web@notifykls8
-SMTP_FROM=KLSB Helpdesk <webnotify@kemuncaklanai.com.my>
+SMTP_FROM=KLSB PORTAL <webnotify@kemuncaklanai.com.my>
 
 # Portal URL for email links
 PORTAL_URL=https://your-portal-url.com
@@ -76,7 +76,7 @@ console.log('SMTP_PORT                 465');
 console.log('SMTP_SECURE               true');
 console.log('SMTP_USER                 webnotify@kemuncaklanai.com.my');
 console.log('SMTP_PASS                 Web@notifykls8');
-console.log('SMTP_FROM                 KLSB Helpdesk <webnotify@...>');
+console.log('SMTP_FROM                 KLSB PORTAL <webnotify@kemuncaklanai.com.my>');
 console.log('PORTAL_URL                https://your-portal.com');
 console.log('CRON_SECRET_KEY           your-random-secret');
 console.log('ADMIN_NOTIFICATION_EMAILS comma-separated-emails');

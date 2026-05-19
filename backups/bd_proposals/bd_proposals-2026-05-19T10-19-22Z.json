@@ -1,0 +1,3769 @@
+{
+  "collection": "bd_proposals",
+  "exportedAt": "2026-05-19T10:19:22.612Z",
+  "documentCount": 120,
+  "documents": [
+    {
+      "id": "0BZPOa68OWftDudfgVxV",
+      "path": "bd_proposals/0BZPOa68OWftDudfgVxV",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2930",
+        "dateReceived": "2026-03-06",
+        "titleProjectName": "Technical Safety & Security Consultancy",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Baram Discovery",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-17",
+        "bidValidity": 120,
+        "status": "DECLINED",
+        "personInCharge": "AHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:08:33.000Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T07:03:52.357Z"
+        }
+      }
+    },
+    {
+      "id": "1L21u59ltObEJEhrS95k",
+      "path": "bd_proposals/1L21u59ltObEJEhrS95k",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2956",
+        "dateReceived": "2026-04-16",
+        "submissionDate": "2026-04-23",
+        "titleProjectName": "PTTEP Market Survey AVEVA PI License",
+        "stage": "Market Survey / Screening",
+        "client": "PTTEP",
+        "scopeBusiness": "Software",
+        "deadline": "2026-04-23",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-10-19",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:38:28.630Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:38:28.630Z"
+        }
+      }
+    },
+    {
+      "id": "1vt7hRF6GA3pxRxYIgll",
+      "path": "bd_proposals/1vt7hRF6GA3pxRxYIgll",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2904",
+        "dateReceived": "2026-02-06",
+        "submissionDate": "2026-02-09",
+        "titleProjectName": "AVEVA PI System Support - Sabah Shell Petroleum Company",
+        "stage": "Market Survey / Screening",
+        "client": "Baram Discovery",
+        "scopeBusiness": "Software",
+        "deadline": "2026-02-09",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-09",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:34:28.116Z"
+        },
+        "personInCharge": "ASMS, MAR",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "29oRV9X7bkP5Q6oS9Vml",
+      "path": "bd_proposals/29oRV9X7bkP5Q6oS9Vml",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2927",
+        "dateReceived": "2026-03-03",
+        "submissionDate": "2026-03-11",
+        "titleProjectName": "Gamma Scanning",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Arkema",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-11",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-08",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:04:43.594Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:04:43.594Z"
+        }
+      }
+    },
+    {
+      "id": "2ZBHp9WW08OdaZJ1RLtl",
+      "path": "bd_proposals/2ZBHp9WW08OdaZJ1RLtl",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2871",
+        "dateReceived": "2026-01-06",
+        "submissionDate": "2026-01-12",
+        "titleProjectName": "ROG STRIX G16 - NB-ASUS-G614P-HRV057W-GRY",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-01-12",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-12",
+        "valueRM": 11000,
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:23:05.508Z"
+        },
+        "personInCharge": "NZA, SOBRY, AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "2nmYFkCzFYj1thP0kV3d",
+      "path": "bd_proposals/2nmYFkCzFYj1thP0kV3d",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2972",
+        "dateReceived": "2026-02-28",
+        "titleProjectName": "UTP - Digitalization Transform",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Digitalization & ICT",
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:54:21.094Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:54:21.094Z"
+        }
+      }
+    },
+    {
+      "id": "3YVuI9XENIs48qJlca8C",
+      "path": "bd_proposals/3YVuI9XENIs48qJlca8C",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2966",
+        "dateReceived": "2026-04-24",
+        "submissionDate": "2026-04-29",
+        "titleProjectName": "PJES PROVISION OF MAINTENANCE SERVICES OF REFRACTORY FOR SARAWAK PETCHEM (MS)",
+        "stage": "Market Survey / Screening",
+        "client": "PJES",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-04-29",
+        "status": "PENDING",
+        "personInCharge": "NH",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:48:40.824Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:48:40.824Z"
+        }
+      }
+    },
+    {
+      "id": "3d7oZN75sH8R5HtIs2Zt",
+      "path": "bd_proposals/3d7oZN75sH8R5HtIs2Zt",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2885",
+        "dateReceived": "2026-01-16",
+        "submissionDate": "2026-02-25",
+        "titleProjectName": " Proposal_Tracker_AR11 Proposal_Tracker_AR11  100% 10 E19  Perkhidmatan Membekal Dan Menghantar Smart TV 65'' Ke Prasekolah Kementerian Pendidikan (KPM) Tahun 2026 Summarise this data      \t Perkhidmatan Membekal Dan Menghantar Smart TV 65'' Ke Prasekolah Kementerian Pendidikan (KPM) Tahun 2026 Turn on screen reader support To enable screen reader support, press Ctrl+Alt+Z To learn about keyboard shortcuts, press Ctrl+slash",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "E-Perolehan",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-02-25",
+        "bidValidity": 270,
+        "maturityOnDate": "2026-11-22",
+        "valueRM": 31078454.88,
+        "status": "KIV",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:16:17.936Z"
+        },
+        "personInCharge": "NZA, MFR",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "4ikFlX9qeErgL4xv9xov",
+      "path": "bd_proposals/4ikFlX9qeErgL4xv9xov",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2947",
+        "dateReceived": "2026-04-17",
+        "submissionDate": "2026-05-04",
+        "titleProjectName": "MARA Bandar Penawar (S.Harga 512_2026_0003)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA BANDAR PENAWAR",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-04",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-08-01",
+        "valueRM": 399880,
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:28:13.165Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:28:13.165Z"
+        }
+      }
+    },
+    {
+      "id": "4woC2x9By9TzRyNcnA24",
+      "path": "bd_proposals/4woC2x9By9TzRyNcnA24",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2940",
+        "dateReceived": "2026-03-26",
+        "titleProjectName": "Longbest Automation MP - PI Engineer",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Longbest Automation",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:20:22.097Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:44:12.677Z"
+        }
+      }
+    },
+    {
+      "id": "53IZW6cu94WkppIO20an",
+      "path": "bd_proposals/53IZW6cu94WkppIO20an",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2887",
+        "dateReceived": "2026-01-19",
+        "titleProjectName": "General Civil Maintenance Works at UTP",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-01-27",
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:18:04.116Z"
+        },
+        "personInCharge": "FAS, SR",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "60idROO2KSPRE4WQAFBn",
+      "path": "bd_proposals/60idROO2KSPRE4WQAFBn",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2917",
+        "dateReceived": "2026-02-23",
+        "submissionDate": "2026-03-10",
+        "titleProjectName": "Renovation And Alteration Works at Male & Female Toilets, Chancellor Hall Universiti Teknologi Petronas",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-03-10",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-07",
+        "valueRM": 527880,
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:52:36.208Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:55:13.554Z"
+        }
+      }
+    },
+    {
+      "id": "6HGYmsh7Tp5jTqE21uJU",
+      "path": "bd_proposals/6HGYmsh7Tp5jTqE21uJU",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2915",
+        "dateReceived": "2026-02-20",
+        "submissionDate": "2026-02-20",
+        "titleProjectName": "Provision of Technical Manpower for Structural Engineer (2 pax)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Vibratec Asia Pacific",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-02-20",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-03-21",
+        "valueRM": 88128,
+        "status": "LOST",
+        "personInCharge": "MAR",
+        "remarks": "Candidate refuse to join",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:49:38.624Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:49:38.624Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:49:38.624Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:49:38.624Z"
+        }
+      }
+    },
+    {
+      "id": "6lY3Dr29C7ugQKirP6C9",
+      "path": "bd_proposals/6lY3Dr29C7ugQKirP6C9",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2914",
+        "dateReceived": "2026-02-19",
+        "submissionDate": "2026-03-11",
+        "titleProjectName": "Terms Contract for Continuation of Plant Information (PI) System Services Under Flex License Including Engineering Services & Maintenance Support",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PETROS",
+        "scopeBusiness": "Software",
+        "deadline": "2026-03-11",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-08",
+        "valueRM": 6447600,
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:47:52.802Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T05:55:19.645Z"
+        }
+      }
+    },
+    {
+      "id": "7EuutuyTVDdjJpyDHLQl",
+      "path": "bd_proposals/7EuutuyTVDdjJpyDHLQl",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2899",
+        "dateReceived": "2026-01-30",
+        "submissionDate": "2026-02-25",
+        "titleProjectName": "Cadangan Menaik Taraf Dan Penggantian Aset Rangkaian Di Kampus UNIKL",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-02-25",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-08-23",
+        "valueRM": 1221000,
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:28:15.869Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "SOBRY, MFR, AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:31:42.285Z"
+        }
+      }
+    },
+    {
+      "id": "7MOKhZ2NWOuMiPJn9dIM",
+      "path": "bd_proposals/7MOKhZ2NWOuMiPJn9dIM",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2894",
+        "dateReceived": "2026-01-27",
+        "submissionDate": "2026-01-27",
+        "titleProjectName": "R4299-ES-010 - Provision of Engineering Services (Senior Pipeline Designer II) - PROVISION OF ENGINEERING, PROCUREMENT, CONSTRUCTION, INSTALLATION & COMMISSIONING (EPCIC) FOR SUBSEA PRODUCTION SYSTEM (SPS), UMBILICAL, RISER & FLOWLINES (SURF) AND GAS EXPORT PIPELINE (GEP) FOR KELIDANG CLUSTER DEVELOPMENT (KCD) PROJECT",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MCDERMOTT",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-27",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-02-26",
+        "valueRM": 393984,
+        "status": "WON",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:18:13.980Z"
+        },
+        "googleFolderLink": "ss",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:32:04.104Z"
+        }
+      }
+    },
+    {
+      "id": "7mKEvbyzJGEMqTa2rzlU",
+      "path": "bd_proposals/7mKEvbyzJGEMqTa2rzlU",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2893",
+        "dateReceived": "2026-01-27",
+        "submissionDate": "2026-01-27",
+        "titleProjectName": "Laser Scanning",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PCEPE",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-02-23",
+        "bidValidity": 60,
+        "maturityOnDate": "2026-04-24",
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:11:56.581Z"
+        },
+        "personInCharge": "NZA, ASMS, MAR",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "81QwtpplNEZzZ8kZkOxr",
+      "path": "bd_proposals/81QwtpplNEZzZ8kZkOxr",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2961",
+        "dateReceived": "2026-04-21",
+        "submissionDate": "2026-04-28",
+        "titleProjectName": "ENEOS - Provision of Annual Asset Integrity (MS)",
+        "stage": "Market Survey / Screening",
+        "client": "ENEOS",
+        "deadline": "2026-04-28",
+        "status": "PENDING",
+        "personInCharge": "AHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:44:01.041Z"
+        },
+        "googleFolderLink": "",
+        "scopeBusiness": "Consultation",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:45:17.137Z"
+        }
+      }
+    },
+    {
+      "id": "8CdpF0u3ZVFcGorL3k66",
+      "path": "bd_proposals/8CdpF0u3ZVFcGorL3k66",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2879",
+        "dateReceived": "2026-01-13",
+        "submissionDate": "2026-01-23",
+        "titleProjectName": "AVEVA PI System Licensing",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "AEM Enersol",
+        "scopeBusiness": "Digitalization & ICT",
+        "deadline": "2026-01-23",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-02-22",
+        "valueRM": 117300,
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:09:13.487Z"
+        },
+        "personInCharge": "MAR, ASMS",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:49:02.720Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "No update as of 5/5/2026",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:49:02.720Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:49:02.720Z"
+        }
+      }
+    },
+    {
+      "id": "8TsvXZqwhgUlbLWXC3SN",
+      "path": "bd_proposals/8TsvXZqwhgUlbLWXC3SN",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2952",
+        "dateReceived": "2026-04-08",
+        "submissionDate": "2026-04-07",
+        "titleProjectName": "PERKHIDMATAN PENYEDIAAN LUKISAN TERUKUR BAGI PEMBINAAN SISTEM PERLINDUNGAN KILAT BAGI SISTEM ANTENA DI KOMPLEKS OPERASI ANGKASA (SOC), AGENSI ANGKASA MALAYSIA (MYSA),TEMERLOH, PAHANG.",
+        "stage": "RFP / Proposal",
+        "client": "DCSE TECH SDN BHD",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-04-07",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-05",
+        "valueRM": 18690,
+        "status": "ON-GOING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:33:41.628Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:33:41.628Z"
+        }
+      }
+    },
+    {
+      "id": "8VVd84lp1qZn5l3cgG7v",
+      "path": "bd_proposals/8VVd84lp1qZn5l3cgG7v",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2926",
+        "dateReceived": "2026-03-02",
+        "submissionDate": "2026-03-05",
+        "titleProjectName": "ITB Offshore Structural Designer for GranMorgu Project - Round 0",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-05",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-02",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:03:39.819Z"
+        },
+        "personInCharge": "SR, FAS",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "9mQvN8lpXe3eejptk95z",
+      "path": "bd_proposals/9mQvN8lpXe3eejptk95z",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2981",
+        "dateReceived": "2026-05-06",
+        "titleProjectName": "MARA MRSM BENTONG (S.harga 171-2026-0001)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA MRSM BENTONG",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-20",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:59:52.628Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "MFR",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:33:09.243Z"
+        }
+      }
+    },
+    {
+      "id": "9ny5PDgZ0Sipftp9lJ6g",
+      "path": "bd_proposals/9ny5PDgZ0Sipftp9lJ6g",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2913",
+        "dateReceived": "2026-02-13",
+        "submissionDate": "2026-02-13",
+        "titleProjectName": "Provision of Implementation Services for Integrated Digital Solutions",
+        "stage": "Market Survey / Screening",
+        "client": "CPOC",
+        "scopeBusiness": "Digitalization & ICT",
+        "deadline": "2026-02-13",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-13",
+        "status": "PENDING",
+        "remarks": "Submission via link provided",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:46:28.750Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:46:28.750Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:46:28.750Z"
+        },
+        "personInCharge": "AHA, ASMS",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "A5OGafMuloMvbHFhn63o",
+      "path": "bd_proposals/A5OGafMuloMvbHFhn63o",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2945",
+        "dateReceived": "2026-04-06",
+        "submissionDate": "2026-05-05",
+        "titleProjectName": "MARA Transkrian (Tender 0021_2026)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-05",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-10-31",
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:26:03.195Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:26:03.195Z"
+        }
+      }
+    },
+    {
+      "id": "AWbRpWbfvjYtkgDFDnrf",
+      "path": "bd_proposals/AWbRpWbfvjYtkgDFDnrf",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2923",
+        "dateReceived": "2026-02-27",
+        "submissionDate": "2026-02-27",
+        "titleProjectName": "Monthly Pricing on Software License Rental",
+        "stage": "Budgetary",
+        "client": "Sophia Engineering",
+        "scopeBusiness": "Software",
+        "deadline": "2026-02-27",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-27",
+        "status": "PENDING",
+        "remarks": "No project won by Sophia yet",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:00:36.970Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:00:36.970Z"
+        },
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T07:06:57.501Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T07:06:57.501Z"
+        }
+      }
+    },
+    {
+      "id": "AjF09jbJ5bm336RzgmMC",
+      "path": "bd_proposals/AjF09jbJ5bm336RzgmMC",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2912",
+        "dateReceived": "2026-02-12",
+        "submissionDate": "2026-02-13",
+        "titleProjectName": "Supply Hand Tools",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-02-13",
+        "bidValidity": 7,
+        "maturityOnDate": "2026-02-19",
+        "valueRM": 73000,
+        "status": "LOST",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:45:10.654Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:45:10.654Z"
+        }
+      }
+    },
+    {
+      "id": "C4GogUH7uG8G44F4M6er",
+      "path": "bd_proposals/C4GogUH7uG8G44F4M6er",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2948",
+        "dateReceived": "2026-04-06",
+        "submissionDate": "2026-04-27",
+        "titleProjectName": "MARA MRSM Dungun (S.Harga 086_2026_0015)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA MRSM DUNGUN",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-27",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-25",
+        "valueRM": 171600,
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:29:29.911Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:29:29.911Z"
+        }
+      }
+    },
+    {
+      "id": "C7BvHHAKb9fCJQ0hLI0T",
+      "path": "bd_proposals/C7BvHHAKb9fCJQ0hLI0T",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2925",
+        "dateReceived": "2026-03-02",
+        "submissionDate": "2026-03-03",
+        "titleProjectName": "Supply & Install Works for HDGV Grating at Chancellor Complex UTP",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-03-03",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-04-01",
+        "valueRM": 114740,
+        "status": "LOST",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:02:52.864Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T01:59:57.773Z"
+        }
+      }
+    },
+    {
+      "id": "CECOvdcv2GjYIC0sT1Dt",
+      "path": "bd_proposals/CECOvdcv2GjYIC0sT1Dt",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2872",
+        "dateReceived": "2026-01-06",
+        "submissionDate": "2026-01-08",
+        "titleProjectName": "Electrical Designer for NFPS COMP4",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-08",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-08",
+        "status": "WON",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:24:41.546Z"
+        },
+        "personInCharge": "SR, FAS",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:47:56.699Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "Pending PO from Technip",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:47:56.699Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:47:56.699Z"
+        }
+      }
+    },
+    {
+      "id": "CJw3WwdmMYrIKAAUFIxY",
+      "path": "bd_proposals/CJw3WwdmMYrIKAAUFIxY",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2889",
+        "dateReceived": "2026-01-21",
+        "submissionDate": "2026-01-21",
+        "titleProjectName": "HESS2026002 - Provision of Manpower Supply For 10 Technical & Non-Technical Personnel",
+        "stage": "Market Survey / Screening",
+        "client": "HESS",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-21",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-21",
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:21:15.454Z"
+        },
+        "personInCharge": "ASMS, NZA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "DZx92Lp7SyR55l21ejfO",
+      "path": "bd_proposals/DZx92Lp7SyR55l21ejfO",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "dateReceived": "2026-04-17",
+        "submissionDate": "2026-04-24",
+        "titleProjectName": "FAMA - Laptop FAMA_BSH_075_2026",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "FAMA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-24",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-22",
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:39:26.694Z"
+        },
+        "refNo": "2957",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:40:27.467Z"
+        }
+      }
+    },
+    {
+      "id": "EPwQdh9h2JbwFBcyQX3f",
+      "path": "bd_proposals/EPwQdh9h2JbwFBcyQX3f",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2941",
+        "dateReceived": "2026-03-30",
+        "submissionDate": "2026-04-07",
+        "titleProjectName": "Renovation Work (Stair, Toilet, Roof)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-04-07",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-05",
+        "valueRM": 268200,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:21:31.379Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:21:31.379Z"
+        }
+      }
+    },
+    {
+      "id": "EcGImoCQB09aykjrOsNv",
+      "path": "bd_proposals/EcGImoCQB09aykjrOsNv",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2974",
+        "dateReceived": "2026-05-04",
+        "titleProjectName": "MARA IKMKL (0026_2026)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA IKMKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-06-09",
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:55:40.412Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:55:40.412Z"
+        }
+      }
+    },
+    {
+      "id": "Ex2ApbXq2d0IbIjA5M8Y",
+      "path": "bd_proposals/Ex2ApbXq2d0IbIjA5M8Y",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2880",
+        "dateReceived": "2026-01-15",
+        "submissionDate": "2026-01-23",
+        "titleProjectName": "Supply Manpower Hull Structure Along with Tool For LCS 4",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Lunas",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-23",
+        "bidValidity": 60,
+        "maturityOnDate": "2026-03-24",
+        "valueRM": 996496,
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:10:25.266Z"
+        },
+        "personInCharge": "NZA, MFR",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "Extend to 1 month for maturation date",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:49:30.584Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:35:19.343Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:35:19.343Z"
+        }
+      }
+    },
+    {
+      "id": "Ex6IuehXIw3DbcRSE28E",
+      "path": "bd_proposals/Ex6IuehXIw3DbcRSE28E",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2946",
+        "dateReceived": "2026-04-06",
+        "submissionDate": "2026-04-23",
+        "titleProjectName": "MARA Sri Gading (S.Harga 366_2026_0001)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA SRI GADING",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-23",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-21",
+        "valueRM": 310000,
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:27:14.657Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T06:55:22.777Z"
+        }
+      }
+    },
+    {
+      "id": "GWCcap22Qq5MzyoCP2KA",
+      "path": "bd_proposals/GWCcap22Qq5MzyoCP2KA",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2935",
+        "dateReceived": "2026-03-13",
+        "titleProjectName": "Provision of Manpower Support Services for SURU",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PJES",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-04-02",
+        "bidValidity": 120,
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:14:19.298Z"
+        },
+        "personInCharge": "AHA, ISMA",
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T06:55:47.202Z"
+        }
+      }
+    },
+    {
+      "id": "GmJzT8ITPgXfBvWUe9Ev",
+      "path": "bd_proposals/GmJzT8ITPgXfBvWUe9Ev",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2969",
+        "dateReceived": "2026-04-27",
+        "titleProjectName": "MARA AUTOMOTIF ILKA (Tender 0023_2026)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA ILKA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-06-03",
+        "bidValidity": 180,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:51:46.192Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:51:46.192Z"
+        }
+      }
+    },
+    {
+      "id": "GsDVFJY4W1N0hlMinUoc",
+      "path": "bd_proposals/GsDVFJY4W1N0hlMinUoc",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2909",
+        "dateReceived": "2026-02-09",
+        "submissionDate": "2026-02-09",
+        "titleProjectName": "SPPID Development",
+        "stage": "RFP / Proposal",
+        "client": "DAR Energy",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-02-09",
+        "status": "PENDING",
+        "personInCharge": "SS",
+        "remarks": "Pending from client response (ED's friend)",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:39:47.295Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:39:47.295Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:39:47.295Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:39:47.295Z"
+        }
+      }
+    },
+    {
+      "id": "GwDPWpcTD50CXQNaBTNH",
+      "path": "bd_proposals/GwDPWpcTD50CXQNaBTNH",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2985",
+        "dateReceived": "2026-05-11",
+        "titleProjectName": "KKTM BALIK PULAU IR4.0",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "KKTM BALIK PULAU",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-06-09",
+        "bidValidity": 180,
+        "status": "PENDING",
+        "personInCharge": "ARIF",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:02:05.712Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:02:05.712Z"
+        }
+      }
+    },
+    {
+      "id": "Jp21abgydm9hbSyr6Fwb",
+      "path": "bd_proposals/Jp21abgydm9hbSyr6Fwb",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2877",
+        "dateReceived": "2026-01-09",
+        "submissionDate": "2026-01-09",
+        "titleProjectName": "Provision of Technical Manpower for Senior Mechanical Piping Drafter",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "JJ-Lurgi",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-09",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-02-08",
+        "valueRM": 19200,
+        "status": "WON",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:06:49.909Z"
+        },
+        "personInCharge": "MHA, SS",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "JsOfSlQtIiEwlHkOytiE",
+      "path": "bd_proposals/JsOfSlQtIiEwlHkOytiE",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2932",
+        "dateReceived": "2026-03-12",
+        "submissionDate": "2026-04-01",
+        "titleProjectName": "Leasing Desktop & Laptop",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "CPOC",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-01",
+        "bidValidity": 150,
+        "maturityOnDate": "2026-08-28",
+        "valueRM": 3237926.4,
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:10:46.897Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "SOBRY, AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:52:49.618Z"
+        }
+      }
+    },
+    {
+      "id": "KYaa5PlItkdg1hT3UEUV",
+      "path": "bd_proposals/KYaa5PlItkdg1hT3UEUV",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2976",
+        "dateReceived": "2026-03-10",
+        "titleProjectName": "AVEVA E3D Software IFP Engineering May 2026",
+        "stage": "Market Survey / Screening",
+        "client": "AVEVA",
+        "scopeBusiness": "Engineering Design",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:56:45.920Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:56:45.920Z"
+        }
+      }
+    },
+    {
+      "id": "LqfEUdB7Ao9sP4ppW4Lw",
+      "path": "bd_proposals/LqfEUdB7Ao9sP4ppW4Lw",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2908",
+        "dateReceived": "2026-02-06",
+        "titleProjectName": "Perkhidmatan Sewaan Komputer Peribadi dan Pencetak Berwarna Multifungsi Secara Sewa Guna (Lease to use) Untuk Keperluan Pejabat Pentadbiran (PDT) Di Sekolah Kementerian Pendidikan Fasa 1 Bagi Temph 66 Bulan Kumpulan 4 (QT260000000000576)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "E-Perolehan",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-27",
+        "bidValidity": 270,
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:38:26.829Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:38:26.829Z"
+        }
+      }
+    },
+    {
+      "id": "LrowdmijdFWxv9vm6X57",
+      "path": "bd_proposals/LrowdmijdFWxv9vm6X57",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2988",
+        "dateReceived": "2026-05-13",
+        "titleProjectName": "MLNG Suppy Hardware (Monitor)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MLNG",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-16",
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:46:30.359Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:46:30.359Z"
+        }
+      }
+    },
+    {
+      "id": "M6SE2QUZOx6MbQ4lxFvv",
+      "path": "bd_proposals/M6SE2QUZOx6MbQ4lxFvv",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2942",
+        "dateReceived": "2026-03-30",
+        "submissionDate": "2026-03-30",
+        "titleProjectName": "TV 86 Inch - PDP",
+        "stage": "Budgetary",
+        "client": "UNIKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-30",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-09-25",
+        "valueRM": 22800,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:22:35.348Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T03:00:43.725Z"
+        }
+      }
+    },
+    {
+      "id": "MbqS334pATsbbvJP6p0k",
+      "path": "bd_proposals/MbqS334pATsbbvJP6p0k",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2939",
+        "dateReceived": "2026-03-19",
+        "submissionDate": "2026-03-30",
+        "titleProjectName": "Smart TV Cybersecurity",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-30",
+        "bidValidity": 120,
+        "maturityOnDate": "2026-07-27",
+        "valueRM": 13800,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:19:35.185Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:19:35.185Z"
+        }
+      }
+    },
+    {
+      "id": "NueFjpDmptiaUFo9pYen",
+      "path": "bd_proposals/NueFjpDmptiaUFo9pYen",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2967",
+        "dateReceived": "2026-04-28",
+        "submissionDate": "2026-05-08",
+        "titleProjectName": "MARA INDRA MAHKOTA (508_2026_0003)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA INDRA MAHKOTA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-08",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-08-05",
+        "valueRM": 478800,
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:49:53.085Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:49:53.085Z"
+        }
+      }
+    },
+    {
+      "id": "O8JpjeukLxr8qsb4CYWS",
+      "path": "bd_proposals/O8JpjeukLxr8qsb4CYWS",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2980",
+        "dateReceived": "2026-05-06",
+        "titleProjectName": "UTP - REFURBISHMENT OF BLOCK F",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:59:14.078Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:59:14.078Z"
+        }
+      }
+    },
+    {
+      "id": "OxuHlIZmOVjgjIzP2SkK",
+      "path": "bd_proposals/OxuHlIZmOVjgjIzP2SkK",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2986",
+        "dateReceived": "2026-05-12",
+        "titleProjectName": "Consurv P-EDMS Engineer Manpower for Petronas",
+        "stage": "Market Survey / Screening",
+        "client": "PETRONAS",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:02:30.057Z"
+        },
+        "googleFolderLink": "https://drive.google.com/drive/folders/17EQ17gzbLeADKHk5P-lAB-14P3ALbHuO?usp=drive_link",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:07:46.827Z"
+        }
+      }
+    },
+    {
+      "id": "QZrwZvbYfQnVLNZZYf4N",
+      "path": "bd_proposals/QZrwZvbYfQnVLNZZYf4N",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "0000",
+        "dateReceived": "2026-05-29",
+        "submissionDate": "2026-08-07",
+        "titleProjectName": "TEST",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PETRONAS",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-21",
+        "bidValidity": 180,
+        "maturityOnDate": "2027-02-02",
+        "status": "PENDING",
+        "personInCharge": "IZZ",
+        "remarks": "TESTING",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-18T06:47:39.013Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-18T06:47:39.013Z"
+        },
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-19T06:51:43.704Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-19T06:51:43.704Z"
+        }
+      }
+    },
+    {
+      "id": "QqQwOP8dQU4TCnzMJPet",
+      "path": "bd_proposals/QqQwOP8dQU4TCnzMJPet",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2903",
+        "dateReceived": "2026-02-05",
+        "submissionDate": "2026-02-06",
+        "titleProjectName": "Provision of Third Party Manpower Supply Services For Total Energies EP Sarawak",
+        "stage": "Market Survey / Screening",
+        "client": "Total Energies",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-02-09",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-06",
+        "status": "PENDING",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:33:16.763Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:33:16.763Z"
+        }
+      }
+    },
+    {
+      "id": "R5svXRruxpf3DFTi4Q5U",
+      "path": "bd_proposals/R5svXRruxpf3DFTi4Q5U",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2964",
+        "dateReceived": "2026-04-21",
+        "submissionDate": "2026-04-21",
+        "titleProjectName": "Petrofac Asset Solutions",
+        "stage": "Market Survey / Screening",
+        "client": "PETROFAC",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-04-21",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-05-20",
+        "status": "PENDING",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:47:10.718Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:47:10.718Z"
+        }
+      }
+    },
+    {
+      "id": "SLJu497k9L3OwSyTZssb",
+      "path": "bd_proposals/SLJu497k9L3OwSyTZssb",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2876",
+        "dateReceived": "2026-01-08",
+        "submissionDate": "2026-01-30",
+        "titleProjectName": "PRICE AGREEMENT (PA) FOR FABRICATION ENGINEERING SHOP DRAWINGS SERVICES (MMHE/SCM/2026/FA001)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MMHE",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-01-30",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-07-29",
+        "valueRM": 18782990,
+        "status": "KIV",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:34:48.701Z"
+        },
+        "personInCharge": "AHA, NZA",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:48:35.291Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "Submission extend from 26/1 to 30/1",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:48:35.291Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:48:35.291Z"
+        }
+      }
+    },
+    {
+      "id": "SoqhGmWUHADREymQD7eh",
+      "path": "bd_proposals/SoqhGmWUHADREymQD7eh",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2907",
+        "dateReceived": "2026-02-06",
+        "titleProjectName": "Perkhidmatan Sewaan Komputer Peribadi dan Pencetak Berwarna Multifungsi Secara Sewa Guna (Lease to use) Untuk Keperluan Pejabat Pentadbiran (PDT) Di Sekolah Kementerian Pendidikan Fasa 1 Bagi Temph 66 Bulan Kumpulan 3 (QT260000000000575)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "E-Perolehan",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-27",
+        "bidValidity": 270,
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:37:38.818Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:37:38.818Z"
+        }
+      }
+    },
+    {
+      "id": "TamyirYiZMrx9IgqVLMP",
+      "path": "bd_proposals/TamyirYiZMrx9IgqVLMP",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2931",
+        "dateReceived": "2026-03-12",
+        "submissionDate": "2026-03-13",
+        "titleProjectName": "SPI Designer for GranMorgu Project",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-13",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-10",
+        "valueRM": 51000,
+        "status": "PENDING",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:09:31.594Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:09:31.594Z"
+        }
+      }
+    },
+    {
+      "id": "U0H5myjcrRxlLtTiIQUO",
+      "path": "bd_proposals/U0H5myjcrRxlLtTiIQUO",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2870",
+        "dateReceived": "2026-01-06",
+        "submissionDate": "2026-01-07",
+        "titleProjectName": "Snr Instrument Engineer",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-07",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-07",
+        "status": "WON",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:21:02.496Z"
+        },
+        "personInCharge": "SR, FAS",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:47:36.674Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "Pending PO from Technip",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:47:36.674Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:47:36.674Z"
+        }
+      }
+    },
+    {
+      "id": "UiuRO9EuL7bNsYDphKXr",
+      "path": "bd_proposals/UiuRO9EuL7bNsYDphKXr",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2936",
+        "dateReceived": "2026-03-17",
+        "submissionDate": "2026-04-06",
+        "titleProjectName": "MIIT 60 Unit Komputer",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-06",
+        "bidValidity": 120,
+        "maturityOnDate": "2026-08-03",
+        "valueRM": 1635000,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:15:22.721Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:15:22.721Z"
+        }
+      }
+    },
+    {
+      "id": "Vm8BdoWKxDXoDtSuN8SY",
+      "path": "bd_proposals/Vm8BdoWKxDXoDtSuN8SY",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2878",
+        "dateReceived": "2026-01-12",
+        "submissionDate": "2026-01-15",
+        "titleProjectName": "Provision of Technical Safety Engineer",
+        "stage": "RFP / Proposal",
+        "client": "Bumi Armada",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-15",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-02-14",
+        "valueRM": 62208,
+        "status": "WON",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:08:01.251Z"
+        },
+        "personInCharge": "FF, MFR, NZA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "Vn6BqueLyIWcmNx3nlKF",
+      "path": "bd_proposals/Vn6BqueLyIWcmNx3nlKF",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2888",
+        "dateReceived": "2026-01-21",
+        "submissionDate": "2026-01-21",
+        "titleProjectName": "Support Services For PCMSB",
+        "stage": "Market Survey / Screening",
+        "client": "PCMSB",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-21",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-21",
+        "status": "LOST",
+        "personInCharge": "AHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:19:20.256Z"
+        },
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:12.173Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "submitted via SMARTGEP",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:12.173Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:12.173Z"
+        }
+      }
+    },
+    {
+      "id": "W0jM8xbbG5elHRHAdAh9",
+      "path": "bd_proposals/W0jM8xbbG5elHRHAdAh9",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2950",
+        "dateReceived": "2026-04-06",
+        "titleProjectName": "UniKL Web Firewall",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA KL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-30",
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:31:05.748Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:31:05.748Z"
+        }
+      }
+    },
+    {
+      "id": "W8190EMPfVOTHU4Ni0bx",
+      "path": "bd_proposals/W8190EMPfVOTHU4Ni0bx",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2886",
+        "dateReceived": "2026-01-19",
+        "submissionDate": "2026-01-27",
+        "titleProjectName": "Supply and Install Roller Blind For Laboratories at UTP",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-01-27",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-27",
+        "valueRM": 280000,
+        "status": "KIV",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:17:20.039Z"
+        },
+        "personInCharge": "NZA, SOBRY, AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "XjzXqu3QQNRrodDAlMSE",
+      "path": "bd_proposals/XjzXqu3QQNRrodDAlMSE",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2979",
+        "dateReceived": "2026-05-06",
+        "titleProjectName": "Prism_2D Drafting Services",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PRISM",
+        "scopeBusiness": "Engineering Design",
+        "status": "PENDING",
+        "personInCharge": "SS",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:58:48.548Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:58:48.548Z"
+        }
+      }
+    },
+    {
+      "id": "Y3VZ34tNdgQqunQ4PhXu",
+      "path": "bd_proposals/Y3VZ34tNdgQqunQ4PhXu",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2922",
+        "dateReceived": "2026-02-27",
+        "titleProjectName": "CADANGAN PEROLEHAN PERKAKASAN SMART CLASSROOM UNTUK KEGUNAAN PROGRAM TEKNIKAL DI MAKTAB RENDAH SAINS MARA (MRSM) TRANSKRIAN",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-12",
+        "bidValidity": 180,
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:58:37.162Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T06:58:40.441Z"
+        }
+      }
+    },
+    {
+      "id": "Ye04iZoiYHdAwj67I4b7",
+      "path": "bd_proposals/Ye04iZoiYHdAwj67I4b7",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2982",
+        "dateReceived": "2026-05-07",
+        "titleProjectName": "Sapura Pinewell PCSB C2 MORF Fabrication Engineering",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "SAPURA",
+        "scopeBusiness": "Engineering Design",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:00:23.572Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:00:23.572Z"
+        }
+      }
+    },
+    {
+      "id": "YlonHU33NYdchaTCaHDd",
+      "path": "bd_proposals/YlonHU33NYdchaTCaHDd",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2875",
+        "dateReceived": "2026-01-08",
+        "submissionDate": "2026-01-13",
+        "titleProjectName": "High performance computers for experimental works",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-01-13",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-13",
+        "valueRM": 83400,
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:31:46.985Z"
+        },
+        "personInCharge": "NZA, SOBRY, AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "Z49UgECKtgBPwvofiec4",
+      "path": "bd_proposals/Z49UgECKtgBPwvofiec4",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2902",
+        "dateReceived": "2026-02-05",
+        "submissionDate": "2026-02-12",
+        "titleProjectName": "MSQ AI Powered Engineering Tools",
+        "stage": "Market Survey / Screening",
+        "client": "MMHE",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-02-12",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-12",
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:32:17.415Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:31:36.958Z"
+        }
+      }
+    },
+    {
+      "id": "Z98ySChNTi0FWpriyxMx",
+      "path": "bd_proposals/Z98ySChNTi0FWpriyxMx",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2951",
+        "dateReceived": "2026-04-06",
+        "submissionDate": "2026-04-09",
+        "titleProjectName": "AVEVA E3D MODEL CONVERSION AND DEVELOPMENT WITH PIPEWORK STRESS",
+        "stage": "RFP / Proposal",
+        "client": "DCSE TECH SDN BHD",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-04-09",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-05-08",
+        "valueRM": 140000,
+        "status": "ON-GOING",
+        "personInCharge": "SS",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:32:13.080Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:56:53.128Z"
+        }
+      }
+    },
+    {
+      "id": "a5RDJIHEEuCsWN5xDnq3",
+      "path": "bd_proposals/a5RDJIHEEuCsWN5xDnq3",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2943",
+        "dateReceived": "2026-04-03",
+        "submissionDate": "2026-04-08",
+        "titleProjectName": "Term Contract for Project Management Support Services for PGB",
+        "stage": "Pre-Q",
+        "client": "PGB",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-04-08",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-06",
+        "status": "PENDING",
+        "personInCharge": "SHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:23:51.240Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T09:37:09.230Z"
+        }
+      }
+    },
+    {
+      "id": "bnpdFsgXFz3KSmxwaeTw",
+      "path": "bd_proposals/bnpdFsgXFz3KSmxwaeTw",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2881",
+        "dateReceived": "2026-01-15",
+        "submissionDate": "2026-01-23",
+        "titleProjectName": "AWP for Industrial Effluent Treatment System Upgrade (IETS) at GPK",
+        "stage": "RFP / Proposal",
+        "client": "DAR Energy",
+        "scopeBusiness": "AWP",
+        "deadline": "2026-01-15",
+        "bidValidity": 60,
+        "maturityOnDate": "2026-03-16",
+        "valueRM": 267000,
+        "status": "LOST",
+        "personInCharge": "AHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:11:26.594Z"
+        },
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:50:24.379Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "DAR is seeking IDCS whereas we can only offer AWP which is part of IDCS",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:50:24.379Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:50:24.379Z"
+        }
+      }
+    },
+    {
+      "id": "c6FjUForIJIbxa37rxKD",
+      "path": "bd_proposals/c6FjUForIJIbxa37rxKD",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2901",
+        "dateReceived": "2026-02-05",
+        "submissionDate": "2026-02-26",
+        "titleProjectName": "Perkhidmatan Sewaan Komputer Bagi Kegunaan Pihak Berkuasa Penerbangan Awam Malaysia",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "CAAM",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-02-26",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-08-24",
+        "valueRM": 18514552.32,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:31:11.342Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:31:11.342Z"
+        }
+      }
+    },
+    {
+      "id": "cZ0i2OCz3VPvdnE1YgcK",
+      "path": "bd_proposals/cZ0i2OCz3VPvdnE1YgcK",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2968",
+        "dateReceived": "2026-04-27",
+        "titleProjectName": "MARA ROBOTIK (Tender 0025_2026)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-21",
+        "bidValidity": 180,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:50:49.928Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:50:49.928Z"
+        }
+      }
+    },
+    {
+      "id": "dSujtcfPQboROkUqIqav",
+      "path": "bd_proposals/dSujtcfPQboROkUqIqav",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2906",
+        "dateReceived": "2026-02-06",
+        "titleProjectName": "Perkhidmatan Sewaan Komputer Peribadi dan Pencetak Berwarna Multifungsi Secara Sewa Guna (Lease to use) Untuk Keperluan Pejabat Pentadbiran (PDT) Di Sekolah Kementerian Pendidikan Fasa 1 Bagi Temph 66 Bulan Kumpulan 2 (QT260000000000493)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "E-Perolehan",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-27",
+        "bidValidity": 270,
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:36:26.095Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:36:26.095Z"
+        }
+      }
+    },
+    {
+      "id": "f0hDsISnR658rM3H1RWM",
+      "path": "bd_proposals/f0hDsISnR658rM3H1RWM",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2921",
+        "dateReceived": "2026-02-27",
+        "titleProjectName": "CADANGAN PEROLEHAN PERKAKASAN, PERISIAN DAN RANGKAIAN ICT BAGI MAKTAB RENDAH SAINS MARA (MRSM) DUNGUN, TERENGGANU",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-27",
+        "bidValidity": 180,
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:57:24.438Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:57:24.438Z"
+        }
+      }
+    },
+    {
+      "id": "f4Lo1yyMtH033ctHwdnh",
+      "path": "bd_proposals/f4Lo1yyMtH033ctHwdnh",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2965",
+        "dateReceived": "2026-04-23",
+        "titleProjectName": "Longitude RFQ 3D Modeling for FSO FEED",
+        "stage": "RFP / Proposal",
+        "client": "Longitude",
+        "scopeBusiness": "Engineering Design",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:47:54.236Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:47:54.236Z"
+        }
+      }
+    },
+    {
+      "id": "fElUFWQpl65JbnR5ajqI",
+      "path": "bd_proposals/fElUFWQpl65JbnR5ajqI",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2954",
+        "dateReceived": "2026-04-10",
+        "titleProjectName": "SBM Offshore Frame Agreement Manpower Supply",
+        "stage": "Confidential Agreement (CA)",
+        "client": "SBM OFFSHORE",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:36:17.069Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:36:17.069Z"
+        }
+      }
+    },
+    {
+      "id": "fOTJrB4eXEC8n1btPX75",
+      "path": "bd_proposals/fOTJrB4eXEC8n1btPX75",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2959",
+        "dateReceived": "2026-04-20",
+        "submissionDate": "2026-04-30",
+        "titleProjectName": "IKM Jasin Melaka (358-2026-0007)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "IKM JASIN MELAKA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-30",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-28",
+        "valueRM": 125000,
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:42:13.441Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T02:46:47.451Z"
+        }
+      }
+    },
+    {
+      "id": "fWs0pxPfxs9F9tTfKlRP",
+      "path": "bd_proposals/fWs0pxPfxs9F9tTfKlRP",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2905",
+        "dateReceived": "2026-02-06",
+        "titleProjectName": "Perkhidmatan Sewaan Komputer Peribadi dan Pencetak Berwarna Multifungsi Secara Sewa Guna (Lease to use) Untuk Keperluan Pejabat Pentadbiran (PDT) Di Sekolah Kementerian Pendidikan Fasa 1 Bagi Temph 66 Bulan Kumpulan 1 (QT260000000000492)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "E-Perolehan",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-27",
+        "bidValidity": 270,
+        "status": "DECLINED",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:35:42.714Z"
+        },
+        "googleFolderLink": "ss",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:36:00.940Z"
+        }
+      }
+    },
+    {
+      "id": "fvDmlouRJDgInpinK37i",
+      "path": "bd_proposals/fvDmlouRJDgInpinK37i",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2960",
+        "dateReceived": "2026-04-20",
+        "submissionDate": "2026-05-08",
+        "titleProjectName": "UTP - REFURBISHMENT WORKS AT BLOCK I & J",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-05-08",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-08-05",
+        "status": "ON-GOING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:43:15.468Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:43:15.468Z"
+        }
+      }
+    },
+    {
+      "id": "gCdmup6INFzMZnJKoVnO",
+      "path": "bd_proposals/gCdmup6INFzMZnJKoVnO",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2928",
+        "dateReceived": "2026-03-05",
+        "submissionDate": "2026-03-06",
+        "titleProjectName": "ITB Snr Piping Designer / Snr Pipe Support Designer Services - Round 0",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-06",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-03",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:05:43.817Z"
+        },
+        "personInCharge": "SR, FAS",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "gcdMnNXSdto7HjMmWocP",
+      "path": "bd_proposals/gcdMnNXSdto7HjMmWocP",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2962",
+        "dateReceived": "2026-04-21",
+        "titleProjectName": "UNIKL MFI - FLEXIBLE MANUFACTURING SYSTEM",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL MFI",
+        "deadline": "2026-05-12",
+        "bidValidity": 90,
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:45:22.640Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:45:22.640Z"
+        }
+      }
+    },
+    {
+      "id": "gmr3vKk8kimzZqYeCW2O",
+      "path": "bd_proposals/gmr3vKk8kimzZqYeCW2O",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2944",
+        "dateReceived": "2026-04-06",
+        "submissionDate": "2026-04-24",
+        "titleProjectName": "MARA komputer & tablet (Tender 0020_2026)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-24",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-10-20",
+        "valueRM": 1999790,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:24:49.059Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:24:49.059Z"
+        }
+      }
+    },
+    {
+      "id": "gwUqk0LIC6cmTunwLaGG",
+      "path": "bd_proposals/gwUqk0LIC6cmTunwLaGG",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2920",
+        "dateReceived": "2026-02-26",
+        "titleProjectName": "Provision of Hardware Support Services for PTTEP Kuala Lumpur Operations",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PTTEP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-09",
+        "bidValidity": 90,
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:56:10.640Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "SOBRY",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:31:23.190Z"
+        }
+      }
+    },
+    {
+      "id": "he0utqSS4Zwd1PgcVdSx",
+      "path": "bd_proposals/he0utqSS4Zwd1PgcVdSx",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2897",
+        "dateReceived": "2026-01-28",
+        "submissionDate": "2026-01-30",
+        "titleProjectName": "Perkakas ICT",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-01-30",
+        "bidValidity": 14,
+        "maturityOnDate": "2026-02-13",
+        "valueRM": 18980,
+        "status": "LOST",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:21:08.294Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:21:08.294Z"
+        }
+      }
+    },
+    {
+      "id": "iBlUrAFnYhLf7MRNsWsk",
+      "path": "bd_proposals/iBlUrAFnYhLf7MRNsWsk",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2891",
+        "dateReceived": "2026-01-23",
+        "submissionDate": "2026-01-26",
+        "titleProjectName": "Penawaran Sebut Harga Bagi Komputer Riba di Ibu Pejabat MARA",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-01-26",
+        "bidValidity": 60,
+        "maturityOnDate": "2026-03-27",
+        "valueRM": 2201650,
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:36:13.535Z"
+        },
+        "personInCharge": "NZA, MFR",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:33.324Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "Wait until maturity",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:33.324Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:33.324Z"
+        }
+      }
+    },
+    {
+      "id": "iIiu2puXNeD39Qdn2VNZ",
+      "path": "bd_proposals/iIiu2puXNeD39Qdn2VNZ",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2924",
+        "dateReceived": "2026-03-05",
+        "titleProjectName": "Price Agreement for Laptop & Tablet Rental",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PETROSAINS",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-05",
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:01:19.454Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T09:24:14.774Z"
+        }
+      }
+    },
+    {
+      "id": "jRtFtqWzyv67kQwSBW6y",
+      "path": "bd_proposals/jRtFtqWzyv67kQwSBW6y",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2955",
+        "dateReceived": "2026-04-15",
+        "submissionDate": "2026-04-16",
+        "titleProjectName": "ITB TEN Snr Piping Designer Gran Morgu",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TEN",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-04-16",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-14",
+        "valueRM": 946800,
+        "status": "ON-GOING",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:37:34.104Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:37:34.104Z"
+        }
+      }
+    },
+    {
+      "id": "jmn9lz6bi7BTUgXn5Et3",
+      "path": "bd_proposals/jmn9lz6bi7BTUgXn5Et3",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2916",
+        "dateReceived": "2026-02-20",
+        "submissionDate": "2026-03-03",
+        "titleProjectName": "Replacement Works For Carpet Tile at Block 1,2 & Block 20. Design, Fabricate, Supply & Install 2\" x 2\" Hollow Square Design HDGV Grating",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-03-03",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-31",
+        "valueRM": 249944,
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "remarks": "Site Visit",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:51:22.793Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:51:22.793Z"
+        },
+        "googleFolderLink": "https://drive.google.com/drive/folders/1sYPcqpXpq3RaVlZbdfHD3RmanMj7y0Ar?usp=drive_link",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T01:51:54.289Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T01:51:54.289Z"
+        }
+      }
+    },
+    {
+      "id": "kqJsPrQnZuPNg97gCe6O",
+      "path": "bd_proposals/kqJsPrQnZuPNg97gCe6O",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2910",
+        "dateReceived": "2026-02-10",
+        "titleProjectName": "Design and Subsription For Asset Performance Management Software (APMS) Phase 1",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PJ Energy",
+        "scopeBusiness": "Software",
+        "deadline": "2026-02-17",
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:42:19.895Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "MAR, ASMS",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:43:05.501Z"
+        }
+      }
+    },
+    {
+      "id": "lFKEguszvR7WNgndpRnh",
+      "path": "bd_proposals/lFKEguszvR7WNgndpRnh",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2900",
+        "dateReceived": "2026-01-31",
+        "submissionDate": "2026-03-11",
+        "titleProjectName": "Digital Transformation & AI Enablement",
+        "stage": "RFP / Proposal",
+        "client": "RISDA",
+        "scopeBusiness": "Digitalization & ICT",
+        "deadline": "2026-03-11",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-08",
+        "status": "PENDING",
+        "personInCharge": "ASMS",
+        "remarks": "Company Presentation @ RISDA",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:29:40.826Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:29:40.826Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:29:40.826Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:29:40.826Z"
+        }
+      }
+    },
+    {
+      "id": "lUs1noNfNBm2pCjzheY9",
+      "path": "bd_proposals/lUs1noNfNBm2pCjzheY9",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2873",
+        "dateReceived": "2026-01-06",
+        "submissionDate": "2026-01-13",
+        "titleProjectName": "TERM CONTRACT FOR PROVISION OF HSE SURVEILLANCE TEAM",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "PCFK",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-13",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-13",
+        "status": "LOST",
+        "personInCharge": "AHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:28:04.710Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:28:04.710Z"
+        }
+      }
+    },
+    {
+      "id": "lmgOvtb3yIfhJIYAeKFE",
+      "path": "bd_proposals/lmgOvtb3yIfhJIYAeKFE",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2918",
+        "dateReceived": "2026-03-23",
+        "submissionDate": "2026-02-23",
+        "titleProjectName": "Provision of Payroll Services",
+        "stage": "RFP / Proposal",
+        "client": "PETROFAC EPS",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-02-23",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-03-24",
+        "valueRM": 454366.51,
+        "status": "WON",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:53:59.435Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:53:59.435Z"
+        }
+      }
+    },
+    {
+      "id": "luyHybapW3N1nq5FEdM6",
+      "path": "bd_proposals/luyHybapW3N1nq5FEdM6",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2882",
+        "dateReceived": "2026-01-15",
+        "submissionDate": "2026-02-05",
+        "titleProjectName": "Perolehan Perkhidmatan Sewaan Komputer, Komputer Riba Dan Tablet Di Ibu Pejabat Jabatan Audit Negara (Jan) Bagi Tempoh 18 Bulan",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "E-Perolehan",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-02-05",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-08-04",
+        "valueRM": 2428848,
+        "status": "KIV",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:13:02.473Z"
+        },
+        "personInCharge": "NZA, FAS, SOBRY",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "mCOSvGEad2uslfFtxVwI",
+      "path": "bd_proposals/mCOSvGEad2uslfFtxVwI",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2987",
+        "dateReceived": "2026-05-13",
+        "submissionDate": "2026-06-16",
+        "titleProjectName": "UTP Supply Laptop Intel",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UTP",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-14",
+        "bidValidity": 180,
+        "maturityOnDate": "2026-12-12",
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T07:18:30.280Z"
+        },
+        "googleFolderLink": "https://drive.google.com/drive/folders/14J38T2sbP0bdLoA82pHPkDC1rE4PcMMO?usp=drive_link",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T07:19:37.580Z"
+        }
+      }
+    },
+    {
+      "id": "mJ8mQ0SJ9VLrapUFe3wm",
+      "path": "bd_proposals/mJ8mQ0SJ9VLrapUFe3wm",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2958",
+        "dateReceived": "2026-04-21",
+        "titleProjectName": "GTS - PFLNG ISOMETRIC DRAWING",
+        "stage": "Budgetary",
+        "client": "GTS",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-08-22",
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:41:13.472Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:41:13.472Z"
+        }
+      }
+    },
+    {
+      "id": "mZQFB9AWDKCyc4isQsC4",
+      "path": "bd_proposals/mZQFB9AWDKCyc4isQsC4",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2983",
+        "dateReceived": "2026-05-08",
+        "titleProjectName": "ENEOS PROVISION OF MAINTENANCE SERVICES DATA CENTRE (Sarawak)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "ENEOS",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "personInCharge": "AHA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:00:50.545Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:00:50.545Z"
+        }
+      }
+    },
+    {
+      "id": "mreYQl8CoggOYMzMU212",
+      "path": "bd_proposals/mreYQl8CoggOYMzMU212",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2949",
+        "dateReceived": "2026-04-06",
+        "submissionDate": "2026-04-22",
+        "titleProjectName": "MARA MRSM Sg Besar (S.Harga 086_2026_0014)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA MRSM SG,. BESAR",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-04-22",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-20",
+        "valueRM": 468000,
+        "status": "ON-GOING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:30:23.823Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:30:23.823Z"
+        }
+      }
+    },
+    {
+      "id": "mz4FpCMA8QwLP04S6Ku0",
+      "path": "bd_proposals/mz4FpCMA8QwLP04S6Ku0",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2977",
+        "dateReceived": "2026-05-05",
+        "titleProjectName": "   \t Market Survey PCMTBE Manpower NDT",
+        "stage": "Market Survey / Screening",
+        "client": "PCMTBE",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:57:29.216Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:57:29.216Z"
+        }
+      }
+    },
+    {
+      "id": "n5Z8QfgXHVPM4iuEpWj7",
+      "path": "bd_proposals/n5Z8QfgXHVPM4iuEpWj7",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2971",
+        "dateReceived": "2026-02-27",
+        "titleProjectName": "PING PETROLEUM - MP",
+        "stage": "RFP / Proposal",
+        "client": "PING PETROLEUM",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "personInCharge": "HAFIZ",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:53:24.046Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:53:24.046Z"
+        }
+      }
+    },
+    {
+      "id": "nR2vrU7nsxQ95iijwxF8",
+      "path": "bd_proposals/nR2vrU7nsxQ95iijwxF8",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2934",
+        "dateReceived": "2026-03-13",
+        "submissionDate": "2026-03-17",
+        "titleProjectName": "Sr Engineer & Designer GranMorgu",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-17",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-14",
+        "valueRM": 397800,
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:12:53.730Z"
+        },
+        "googleFolderLink": "",
+        "personInCharge": "SOBRY, AAA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:35:36.216Z"
+        }
+      }
+    },
+    {
+      "id": "nuM14vw4Td9Oc9gk2vWU",
+      "path": "bd_proposals/nuM14vw4Td9Oc9gk2vWU",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2898",
+        "dateReceived": "2026-01-29",
+        "submissionDate": "2026-02-05",
+        "titleProjectName": "Project no: C372 , RFQ- 3D Modelling for Equipment",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "JJ Lurgi",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-02-05",
+        "bidValidity": 60,
+        "maturityOnDate": "2026-04-05",
+        "status": "LOST",
+        "personInCharge": "SS",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:25:12.403Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:25:12.403Z"
+        }
+      }
+    },
+    {
+      "id": "oGVu5WjUKl83Ou53jREK",
+      "path": "bd_proposals/oGVu5WjUKl83Ou53jREK",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2896",
+        "dateReceived": "2026-01-28",
+        "submissionDate": "2026-01-30",
+        "titleProjectName": "Provision of SPPID Designers For Drafting & Database Building",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Aker",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-30",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-03-03",
+        "status": "WON",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:20:08.228Z"
+        },
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:52:09.784Z"
+        },
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "Pending PO, amended pax to be supplied from 4 down to 2 pax",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:52:09.784Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:52:09.784Z"
+        }
+      }
+    },
+    {
+      "id": "oSYEHwQdWHxesgD97Noc",
+      "path": "bd_proposals/oSYEHwQdWHxesgD97Noc",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2953",
+        "dateReceived": "2026-04-14",
+        "submissionDate": "2026-04-24",
+        "titleProjectName": "PJES - Provision of Engineering Study & Design Services (MS)",
+        "stage": "Market Survey / Screening",
+        "client": "PJES",
+        "scopeBusiness": "Engineering Design",
+        "deadline": "2026-04-24",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-07-22",
+        "status": "PENDING",
+        "personInCharge": "ISMA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:34:32.002Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:34:32.002Z"
+        }
+      }
+    },
+    {
+      "id": "ocZB3gglWH91MM8DdQsJ",
+      "path": "bd_proposals/ocZB3gglWH91MM8DdQsJ",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2937",
+        "dateReceived": "2026-03-18",
+        "submissionDate": "2026-03-18",
+        "titleProjectName": "Appointment of ICT Consultant for Enterprise-Wide ICT Blueprint & 5 year Digital Transformation Roadmap",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Mikro MSC",
+        "deadline": "2026-03-18",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-15",
+        "valueRM": 41040,
+        "status": "WON",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:17:25.773Z"
+        },
+        "googleFolderLink": "",
+        "scopeBusiness": "Consultation",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T08:22:12.550Z"
+        }
+      }
+    },
+    {
+      "id": "pQZRnyBFBclMQxX7UKki",
+      "path": "bd_proposals/pQZRnyBFBclMQxX7UKki",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2874",
+        "dateReceived": "2026-01-06",
+        "submissionDate": "2026-01-08",
+        "titleProjectName": " LASER SCANNING & DC SURVEY SERVICES FOR DUTA KENCANA SDN BHD",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Duta Kencana",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-08",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-02-07",
+        "status": "LOST",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:29:50.169Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T07:29:50.169Z"
+        }
+      }
+    },
+    {
+      "id": "qFJqezcWxZRUoaxeYWO5",
+      "path": "bd_proposals/qFJqezcWxZRUoaxeYWO5",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2978",
+        "dateReceived": "2026-05-05",
+        "titleProjectName": "MARA KPM SRI ISKANDAR (509-2026-0007)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA KPM SERI ISKANDAR",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-20",
+        "bidValidity": 90,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:58:13.995Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:58:13.995Z"
+        }
+      }
+    },
+    {
+      "id": "r0RwFaurDjet5XddhOtZ",
+      "path": "bd_proposals/r0RwFaurDjet5XddhOtZ",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2919",
+        "dateReceived": "2026-02-24",
+        "submissionDate": "2026-02-25",
+        "titleProjectName": "SNR Piping Designer (Material Handling)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-02-25",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-25",
+        "status": "PENDING",
+        "personInCharge": "SR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:55:10.736Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:55:10.736Z"
+        }
+      }
+    },
+    {
+      "id": "sBNVeuBuvvbLU0nTk3kr",
+      "path": "bd_proposals/sBNVeuBuvvbLU0nTk3kr",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2938",
+        "dateReceived": "2026-03-18",
+        "titleProjectName": "Provision of Third-Party Manpower Services for TotalEnergies",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Total Energies",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-04-02",
+        "bidValidity": 90,
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:18:32.347Z"
+        },
+        "personInCharge": "MAR, AHA",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "sDjMpttliNpmr1RO85sl",
+      "path": "bd_proposals/sDjMpttliNpmr1RO85sl",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2970",
+        "dateReceived": "2026-02-27",
+        "titleProjectName": "MARA AUTOMOTIF KKTM (Tender 0024_2026)",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA KKTM",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-06-03",
+        "bidValidity": 180,
+        "status": "PENDING",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:52:45.045Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:52:45.045Z"
+        }
+      }
+    },
+    {
+      "id": "sDtkAK7NO9rkaMkbLS5F",
+      "path": "bd_proposals/sDtkAK7NO9rkaMkbLS5F",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2984",
+        "dateReceived": "2026-05-08",
+        "titleProjectName": "Total Energies Market Survey AI-Powered ATS Dashboard (Sarawak)",
+        "stage": "Market Survey / Screening",
+        "client": "Total Energies",
+        "scopeBusiness": "Supply & Trading ICT",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:01:17.234Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T09:01:17.234Z"
+        }
+      }
+    },
+    {
+      "id": "tsWPKxkchHdN42HkgUEY",
+      "path": "bd_proposals/tsWPKxkchHdN42HkgUEY",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2884",
+        "dateReceived": "2026-01-21",
+        "titleProjectName": "Senior Architect NFPS COMP4 ",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-23",
+        "bidValidity": 90,
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:14:48.890Z"
+        },
+        "personInCharge": "FAS, SR",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "uCzTF2yd5WJXfqv1BhY6",
+      "path": "bd_proposals/uCzTF2yd5WJXfqv1BhY6",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2963",
+        "dateReceived": "2026-04-21",
+        "titleProjectName": "UNIKL MFI - PERALATAN ROBOTIK",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UNIKL MFI",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-05-12",
+        "bidValidity": 90,
+        "status": "PENDING",
+        "personInCharge": "NZA",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:46:16.467Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:46:16.467Z"
+        }
+      }
+    },
+    {
+      "id": "uPMuVW2xiaTGyNgv0201",
+      "path": "bd_proposals/uPMuVW2xiaTGyNgv0201",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2929",
+        "dateReceived": "2026-03-05",
+        "submissionDate": "2026-03-09",
+        "titleProjectName": "ITB Snr Piping Engineer/Snr Piping Designer for NFPS COMP4 - Round 0",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-03-09",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-06-06",
+        "status": "PENDING",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:07:42.254Z"
+        },
+        "personInCharge": "SR, FAS",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T10:08:19.244Z"
+        }
+      }
+    },
+    {
+      "id": "usK1b1Ut1bfa7ETRnVjk",
+      "path": "bd_proposals/usK1b1Ut1bfa7ETRnVjk",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2890",
+        "dateReceived": "2026-01-23",
+        "titleProjectName": "Provision of Manpower Support Services for SURU",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "Shell",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-02-11",
+        "bidValidity": 120,
+        "status": "DECLINED",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:22:36.552Z"
+        },
+        "personInCharge": "NZA, ASMS",
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T02:49:52.546Z"
+        }
+      }
+    },
+    {
+      "id": "vFP0ZAsaBgLbKqvCLMuh",
+      "path": "bd_proposals/vFP0ZAsaBgLbKqvCLMuh",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2973",
+        "dateReceived": "2026-04-30",
+        "titleProjectName": "UTP ESG Dashboard Development",
+        "stage": "RFP / Proposal",
+        "client": "UTP",
+        "scopeBusiness": "Digitalization & ICT",
+        "status": "PENDING",
+        "personInCharge": "NH",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:54:58.478Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T03:11:49.732Z"
+        }
+      }
+    },
+    {
+      "id": "w1yk1sbKuLT0p9yGdbdA",
+      "path": "bd_proposals/w1yk1sbKuLT0p9yGdbdA",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2933",
+        "dateReceived": "2026-03-13",
+        "submissionDate": "2026-03-13",
+        "titleProjectName": "Kajian Pasaran TV Mara",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "MARA",
+        "scopeBusiness": "Supply & Trading ICT",
+        "deadline": "2026-03-13",
+        "bidValidity": 30,
+        "maturityOnDate": "2026-04-11",
+        "valueRM": 12000,
+        "status": "LOST",
+        "personInCharge": "SOBRY",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:11:47.747Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T09:23:59.930Z"
+        }
+      }
+    },
+    {
+      "id": "wXtNMdrGLqrtHy1tmiJb",
+      "path": "bd_proposals/wXtNMdrGLqrtHy1tmiJb",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2883",
+        "dateReceived": "2026-01-16",
+        "submissionDate": "2026-01-21",
+        "titleProjectName": "Telecom_Engineering_STT Project",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "TECHNIP",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-01-21",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-04-21",
+        "valueRM": 26400,
+        "status": "LOST",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:14:04.088Z"
+        },
+        "personInCharge": "FAS, SR",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarks": "None of the proposed candidate selected",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:50:46.991Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T03:11:54.108Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T03:11:54.108Z"
+        }
+      }
+    },
+    {
+      "id": "xBgEiyaMF7B9zo0Idr24",
+      "path": "bd_proposals/xBgEiyaMF7B9zo0Idr24",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2911",
+        "dateReceived": "2026-02-11",
+        "submissionDate": "2026-02-11",
+        "titleProjectName": "Operation Technical Support Sabah",
+        "stage": "Market Survey / Screening",
+        "client": "PJ Energy",
+        "scopeBusiness": "Manpower Supply",
+        "deadline": "2026-02-11",
+        "bidValidity": 90,
+        "maturityOnDate": "2026-05-11",
+        "status": "PENDING",
+        "personInCharge": "MAR",
+        "remarks": "Support PJ Energy for this MS",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "remarksCreatedBy": "bd@gmail.com",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:43:41.985Z"
+        },
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T07:43:41.985Z"
+        },
+        "googleFolderLink": "",
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T09:04:53.961Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-14T09:04:53.961Z"
+        }
+      }
+    },
+    {
+      "id": "xEPZ9UGRzRQKGs5PBaS4",
+      "path": "bd_proposals/xEPZ9UGRzRQKGs5PBaS4",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2895",
+        "dateReceived": "2026-01-28",
+        "titleProjectName": "ASSAI Maintenance Renewal 2026",
+        "stage": "RFP / Proposal",
+        "client": "Total Energies",
+        "scopeBusiness": "Digitalization & ICT",
+        "deadline": "2026-02-05",
+        "bidValidity": 60,
+        "status": "DECLINED",
+        "personInCharge": "MAR",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:19:20.969Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T09:19:20.969Z"
+        }
+      }
+    },
+    {
+      "id": "xuV7djVpLFjivhr9RYIJ",
+      "path": "bd_proposals/xuV7djVpLFjivhr9RYIJ",
+      "exists": true,
+      "data": {
+        "submitted": true,
+        "refNo": "2892",
+        "dateReceived": "2026-01-26",
+        "submissionDate": "2026-02-10",
+        "titleProjectName": "Laluan Pejalan Kaki",
+        "stage": "RFQ / ITQ / ITB / Sebut Harga",
+        "client": "UPM",
+        "scopeBusiness": "Construction",
+        "deadline": "2026-02-10",
+        "valueRM": 2878800,
+        "status": "WON",
+        "remarks": "SUPPORT SBJ COMPANY (DOCUMENTATION)",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-04-13T08:53:52.832Z"
+        },
+        "personInCharge": "NZA, FAS",
+        "remarksUpdatedBy": "bd@gmail.com",
+        "googleFolderLink": "",
+        "remarksCreatedBy": "bd@gmail.com",
+        "remarksCreatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T02:51:52.434Z"
+        },
+        "remarksUpdatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T03:00:30.362Z"
+        },
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-15T03:00:30.362Z"
+        }
+      }
+    },
+    {
+      "id": "zJSS15tankfrVySJc7TQ",
+      "path": "bd_proposals/zJSS15tankfrVySJc7TQ",
+      "exists": true,
+      "data": {
+        "submitted": false,
+        "refNo": "2975",
+        "dateReceived": "2026-05-06",
+        "titleProjectName": "APPLUS  - MP",
+        "stage": "RFP / Proposal",
+        "client": "APPLUS",
+        "scopeBusiness": "Manpower Supply",
+        "status": "PENDING",
+        "personInCharge": "HAFIZ",
+        "createdBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "updatedBy": "ESfVoUCo6MNe8BK6UIwpYvNzpdh1",
+        "createdAt": {
+          "_type": "timestamp",
+          "value": "2026-05-12T08:56:08.921Z"
+        },
+        "googleFolderLink": "",
+        "updatedAt": {
+          "_type": "timestamp",
+          "value": "2026-05-13T06:20:28.828Z"
+        }
+      }
+    }
+  ]
+}

@@ -116,6 +116,13 @@ export default function BDProposalTrackerPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reminderNotice, setReminderNotice] = useState(null);
+  const noticeTimerRef = useRef(null);
+  const [sendingReminderId, setSendingReminderId] = useState(null);
+  const [reminderTypeById, setReminderTypeById] = useState({});
+  const [openReminderMenuId, setOpenReminderMenuId] = useState(null);
+  const [reminderMenuOpenUp, setReminderMenuOpenUp] = useState(false);
+  const [reminderMenuStyle, setReminderMenuStyle] = useState(null);
   const [titleQuery, setTitleQuery] = useState(initialState.titleQuery);
   const [clientQuery, setClientQuery] = useState(initialState.clientQuery);
   const [picQuery, setPicQuery] = useState(initialState.picQuery);
@@ -174,6 +181,16 @@ export default function BDProposalTrackerPage() {
 
   useEffect(() => {
     hasHydratedRef.current = true;
+  }, []);
+
+  // Clear any pending notice timer when component unmounts
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) {
+        clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = null;
+      }
+    };
   }, []);
 
   async function load() {
@@ -272,6 +289,91 @@ export default function BDProposalTrackerPage() {
 
     const parsed = new Date(deadline);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function getDaysUntil(dateValue) {
+    const targetDate = parseDeadline(dateValue);
+    if (!targetDate) return null;
+
+    const dayMs = 1000 * 60 * 60 * 24;
+    const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    return Math.max(0, Math.ceil((startOfTarget - startOfToday) / dayMs));
+  }
+
+  async function sendManualReminder(item, reminderType = "deadline") {
+    const normalizedReminderType = reminderType === "maturation" ? "maturation" : "deadline";
+    const dueDate = normalizedReminderType === "maturation" ? item.maturityOnDate : item.deadline;
+    const reminderLabel = normalizedReminderType === "maturation" ? "maturation date" : "deadline";
+
+    if (!dueDate) {
+      setReminderNotice({
+        type: "error",
+        message: `Ref No ${item.refNo || item.id} does not have a ${reminderLabel} to send a reminder.`,
+      });
+      return;
+    }
+
+    if (!item.personInCharge) {
+      setReminderNotice({ type: "error", message: `Ref No ${item.refNo || item.id} does not have a PIC assigned.` });
+      return;
+    }
+
+    const confirmSend = window.confirm(
+      `Send a ${reminderLabel} reminder email to ${formatPicString(item.personInCharge) || "the PIC"} for Ref No ${item.refNo || item.id}?`
+    );
+
+    if (!confirmSend) return;
+
+    const daysLeft = getDaysUntil(dueDate);
+
+    try {
+      setSendingReminderId(item.id);
+      setReminderNotice(null);
+
+      await bdFetch("/api/bd/send-reminder", {
+        method: "POST",
+        body: JSON.stringify({
+          proposalId: item.id,
+          proposalRefNo: item.refNo,
+          proposalTitle: item.titleProjectName,
+          personInCharge: item.personInCharge,
+          reminderType: normalizedReminderType,
+          dueDate,
+          daysLeft: daysLeft ?? 0,
+          proposal: item,
+        }),
+      });
+
+      // Format message: capitalize sentence and title-case PIC name
+      const picText = formatPicString(item.personInCharge) || "the PIC";
+      const titlePic = picText
+        .split(/\s+/)
+        .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+        .join(" ");
+      const rawMessage = `${reminderLabel} reminder sent to ${titlePic} for Ref No ${item.refNo || item.id}.`;
+      const message = rawMessage.charAt(0).toUpperCase() + rawMessage.slice(1);
+
+      // show success notice and auto-hide after 2 seconds
+      if (noticeTimerRef.current) {
+        clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = null;
+      }
+      setReminderNotice({ type: "success", message });
+      noticeTimerRef.current = setTimeout(() => {
+        setReminderNotice(null);
+        noticeTimerRef.current = null;
+      }, 2000);
+    } catch (err) {
+      setReminderNotice({
+        type: "error",
+        message: err.message || "Failed to send reminder.",
+      });
+    } finally {
+      setSendingReminderId(null);
+    }
   }
 
   function formatNumber(value) {
@@ -640,6 +742,20 @@ export default function BDProposalTrackerPage() {
         </svg>
       </Link>
 
+      {reminderNotice && (
+        <div
+          role="status"
+          aria-live={reminderNotice.type === "success" ? "polite" : "assertive"}
+          className={`fixed top-4 left-4 z-50 max-w-xs rounded-2xl border px-4 py-3 text-sm shadow-lg ${
+            reminderNotice.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-rose-200 bg-rose-50 text-rose-700"
+          }`}
+        >
+          {reminderNotice.message}
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
@@ -702,25 +818,118 @@ export default function BDProposalTrackerPage() {
                   </td>
                   <td className="px-3 py-2">{formatPicString(item.personInCharge) || "-"}</td>
                   <td className="px-3 py-2">
-                    <Link
-                      href={`/bd/proposals/${item.id}/edit?returnTo=${encodeURIComponent(`/bd/proposals${trackerQuery ? `?${trackerQuery}` : ""}`)}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (typeof window !== "undefined") {
-                          const nextState = getCurrentTrackerState();
-                          saveTrackerState(nextState);
-                          window.sessionStorage.setItem(EDIT_RETURN_URL_KEY, buildTrackerPath(nextState));
-                        }
-                      }}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                      aria-label={`Edit proposal ${item.refNo || item.id}`}
-                      title="Edit proposal"
-                    >
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                      </svg>
-                    </Link>
+                    <div className="relative flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Decide whether to open the menu upward if there's insufficient space below
+                          try {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const spaceAbove = rect.top; // space above the button
+                            const estimatedMenuHeight = 140; // px, more compact estimate
+                            const margin = 8;
+                            // Open upward when the menu would overflow the bottom and there's enough room above
+                            const wouldOverflowBottom = rect.bottom + estimatedMenuHeight + margin > window.innerHeight;
+                            const openUp = wouldOverflowBottom && spaceAbove > estimatedMenuHeight + margin;
+                            setReminderMenuOpenUp(openUp);
+
+                            // compute fixed coordinates so the menu escapes any overflowed parent
+                            const menuWidth = 176; // matches w-44
+                            // right-align menu with button
+                            let left = rect.right - menuWidth;
+                            if (left < 8) left = 8;
+
+                            let top;
+                            if (openUp) {
+                              top = rect.top - estimatedMenuHeight - margin;
+                              if (top < 8) top = 8;
+                            } else {
+                              top = rect.bottom + margin;
+                              const maxTop = window.innerHeight - estimatedMenuHeight - 8;
+                              if (top > maxTop) top = Math.max(8, maxTop);
+                            }
+
+                            setReminderMenuStyle({ position: "fixed", left: `${left}px`, top: `${top}px`, zIndex: 2000 });
+                          } catch (err) {
+                            setReminderMenuOpenUp(false);
+                            setReminderMenuStyle(null);
+                          }
+
+                          setOpenReminderMenuId((current) => (current === item.id ? null : item.id));
+                        }}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100 hover:text-amber-900"
+                        aria-label={`Open reminder options for ${item.refNo || item.id}`}
+                        title="Reminder options"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0 1 18 14.172V11a6 6 0 0 0-4-5.659V5a2 2 0 1 0-4 0v.341A6 6 0 0 0 6 11v3.172c0 .538-.214 1.055-.595 1.433L4 17h5" />
+                          <path d="M9 17a3 3 0 0 0 6 0" />
+                        </svg>
+                      </button>
+
+                      {openReminderMenuId === item.id && (
+                        <div
+                          className={`w-44 rounded-xl border border-slate-200 bg-white p-3 shadow-lg`}
+                          style={reminderMenuStyle || undefined}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <label className="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                            Reminder type
+                            <select
+                              value={reminderTypeById[item.id] || "deadline"}
+                              onChange={(e) => setReminderTypeById((current) => ({ ...current, [item.id]: e.target.value }))}
+                              className="mt-1 h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            >
+                              <option value="deadline">Deadline</option>
+                              <option value="maturation">Maturation</option>
+                            </select>
+                          </label>
+
+                          {(() => {
+                            const selectedReminderType = reminderTypeById[item.id] || "deadline";
+                            const reminderTargetDate = selectedReminderType === "maturation" ? item.maturityOnDate : item.deadline;
+                            const reminderTitle = selectedReminderType === "maturation" ? "Send maturation reminder" : "Send deadline reminder";
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void sendManualReminder(item, selectedReminderType);
+                                  setOpenReminderMenuId(null);
+                                }}
+                                disabled={sendingReminderId === item.id || !reminderTargetDate}
+                                className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title={reminderTargetDate ? reminderTitle : "No date available for selected reminder"}
+                              >
+                                {sendingReminderId === item.id ? "Sending..." : "Send reminder"}
+                              </button>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      <Link
+                        href={`/bd/proposals/${item.id}/edit?returnTo=${encodeURIComponent(`/bd/proposals${trackerQuery ? `?${trackerQuery}` : ""}`)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (typeof window !== "undefined") {
+                            const nextState = getCurrentTrackerState();
+                            saveTrackerState(nextState);
+                            window.sessionStorage.setItem(EDIT_RETURN_URL_KEY, buildTrackerPath(nextState));
+                          }
+                        }}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                        aria-label={`Edit proposal ${item.refNo || item.id}`}
+                        title="Edit proposal"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))

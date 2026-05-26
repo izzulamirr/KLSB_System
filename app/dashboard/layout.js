@@ -85,6 +85,8 @@ export default function DashboardLayout({ children }) {
     { href: "/dashboard", label: "Dashboard", icon: "DB" },
     { href: "/dashboard/manpower", label: "PO/SO Database", icon: "PO" },
     { href: "/dashboard/timesheet", label: "Timesheet Management", icon: "TS" },
+    { href: "/dashboard/invoicing", label: "Invoicing", icon: "IV" },
+    { href: "/dashboard/finance", label: "Finance", icon: "FN" },
     ...(role === "sysdev" ? [{ href: "/dashboard/control", label: "Control Center", icon: "CT" }] : []),
     { href: "/dashboard/settings", label: "System Settings", icon: "ST" },
     ...(role === "sysdev" ? [{ href: "/admin/users", label: "User Management", icon: "US" }] : []),

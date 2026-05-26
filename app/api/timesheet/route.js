@@ -44,6 +44,7 @@ export async function GET(request) {
             sourcePage: entry.sourcePage || idx + 1,
             staffName: entry.staffName || data.staffName,
             poSoNo: entry.poSoNo || data.poSoNo,
+            location: entry.location || data.location || "",
             normalHours: entry.normalHours || 0,
             otHours: entry.otHours || 0,
             nhHours: entry.nhHours || 0,
@@ -62,6 +63,7 @@ export async function GET(request) {
           sourcePage: data.sourcePage || 1,
           staffName: data.staffName,
           poSoNo: data.poSoNo,
+          location: data.location || "",
           normalHours: data.normalHours || 0,
           otHours: data.otHours || 0,
           nhHours: data.nhHours || 0,
@@ -96,6 +98,7 @@ export async function POST(request) {
     const timesheetData = {
       staffName: body.staffName,
       poSoNo: body.poSoNo || "",
+      location: body.location || "",
       date: body.date || new Date().toISOString().split("T")[0],
       normalHours: body.normalHours || 0,
       otHours: body.otHours || 0,

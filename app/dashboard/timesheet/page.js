@@ -1,5 +1,5 @@
-import TimesheetClient from "../../../components/TimesheetClient";
+import TimesheetMonthlyManualClient from "../../../components/TimesheetMonthlyManualClient";
 
 export default function TimesheetPage() {
-  return <TimesheetClient />;
+  return <TimesheetMonthlyManualClient />;
 }

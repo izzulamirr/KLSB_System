@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "../../firebase";
 import useIdleLogout from "../../lib/useIdleLogout";
+import { withBasePath } from "../../lib/apiPath";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function DashboardLayout({ children }) {
       (async () => {
         try {
           const token = await u.getIdToken();
-          const res = await fetch("/api/auth/role", {
+          const res = await fetch(withBasePath("/api/auth/role"), {
             headers: { Authorization: `Bearer ${token}` },
           });
 

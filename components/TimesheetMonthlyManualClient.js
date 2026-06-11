@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import firebaseApp from "../firebase";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { withBasePath } from "../lib/apiPath";
 
 export default function TimesheetMonthlyManualClient() {
   const now = new Date();
@@ -28,7 +29,7 @@ export default function TimesheetMonthlyManualClient() {
   const [modalOpen, setModalOpen] = useState(false);
 
   async function refreshTimesheets() {
-    const rows = await fetch("/api/timesheet").then((r) => r.json());
+    const rows = await fetch(withBasePath("/api/timesheet")).then((r) => r.json());
     const arr = Array.isArray(rows) ? rows : [];
     const map = new Map();
     for (const r of arr) {
@@ -48,7 +49,7 @@ export default function TimesheetMonthlyManualClient() {
   }
 
   useEffect(() => {
-    fetch("/api/manpower?limit=2000")
+    fetch(withBasePath("/api/manpower?limit=2000"))
       .then((r) => r.json())
       .then((rows) => {
         const arr = Array.isArray(rows) ? rows : [];
@@ -175,7 +176,7 @@ export default function TimesheetMonthlyManualClient() {
     };
 
     try {
-      const res = await fetch("/api/timesheet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(withBasePath("/api/timesheet"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create timesheet");
       setMessage({ type: "success", text: "Timesheet created" });
@@ -193,7 +194,7 @@ export default function TimesheetMonthlyManualClient() {
 
   async function loadParentTimesheet(parentId) {
     try {
-      const doc = await fetch(`/api/timesheet?id=${parentId}`).then((r) => r.json());
+      const doc = await fetch(withBasePath(`/api/timesheet?id=${parentId}`)).then((r) => r.json());
       if (!doc || !doc.entries) {
         setMessage({ type: "error", text: "Unable to load timesheet entries" });
         return;
@@ -231,7 +232,7 @@ export default function TimesheetMonthlyManualClient() {
     setSubmitting(true);
     try {
       const payload = { id: editingParentId, entries, attachments: attachments.map((a) => a.url || a) };
-      const res = await fetch("/api/timesheet", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(withBasePath("/api/timesheet"), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to save");
       setMessage({ type: "success", text: "Timesheet updated" });
@@ -251,7 +252,7 @@ export default function TimesheetMonthlyManualClient() {
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/timesheet?id=${encodeURIComponent(parentId)}`, { method: "DELETE" });
+      const res = await fetch(withBasePath(`/api/timesheet?id=${encodeURIComponent(parentId)}`), { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to delete timesheet");
 

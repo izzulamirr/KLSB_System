@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
+import { withBasePath } from "../../lib/apiPath";
 import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
 import HighlightNumbers from "../HighlightNumbers";
 
@@ -59,7 +60,7 @@ export default function FloatingRemindersWidget() {
       try {
         setLoading(true);
         const idToken = await user.getIdToken();
-        const response = await fetch("/api/bd/proposals", {
+        const response = await fetch(withBasePath("/api/bd/proposals"), {
           headers: { Authorization: `Bearer ${idToken}` },
         });
 

@@ -2,11 +2,14 @@
   "name": "klsb-portal",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.20.2"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "lint": "eslint"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.4",

@@ -5,6 +5,7 @@ import { auth } from "../firebase";
 import MondayDateInput from "./MondayDateInput";
 import { formatPicString } from "../lib/picEmailMap";
 import HighlightNumbers from "./HighlightNumbers";
+import { withBasePath } from "../lib/apiPath";
 
 const defaultForm = {
   submitted: true,
@@ -53,7 +54,7 @@ export default function BDProposalClient() {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
-    return fetch(url, { ...options, headers });
+    return fetch(withBasePath(url), { ...options, headers });
   }, []);
 
   const loadProposals = useCallback(async () => {

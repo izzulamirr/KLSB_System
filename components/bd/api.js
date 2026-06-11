@@ -1,6 +1,7 @@
 "use client";
 
 import { auth } from "../../firebase";
+import { withBasePath } from "../../lib/apiPath";
 
 export async function bdFetch(path, options = {}) {
   const user = auth.currentUser;
@@ -13,7 +14,7 @@ export async function bdFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(path, { ...options, headers });
+  const response = await fetch(withBasePath(path), { ...options, headers });
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || "Request failed");

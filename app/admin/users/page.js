@@ -5,6 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { getAuth } from "firebase/auth";
 import BDStaffManagementClient from "../../../components/bd/BDStaffManagementClient";
+import { withBasePath } from "../../../lib/apiPath";
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function AdminUsersPage() {
 
       try {
         const token = await user.getIdToken();
-        const res = await fetch("/api/auth/role", {
+        const res = await fetch(withBasePath("/api/auth/role"), {
           headers: { Authorization: `Bearer ${token}` },
         });
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { getAuth } from "firebase/auth";
+import { withBasePath } from "../../lib/apiPath";
 
 export default function BDStaffManagementClient({ viewRole } = {}) {
   const [users, setUsers] = useState([]);
@@ -39,7 +40,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(withBasePath("/api/auth/users"), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -77,7 +78,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/role", {
+      const res = await fetch(withBasePath("/api/auth/role"), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -132,7 +133,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(withBasePath("/api/auth/users"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -174,7 +175,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(withBasePath("/api/auth/users"), {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -251,7 +252,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
         payload.password = editingUser.newPassword;
       }
 
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(withBasePath("/api/auth/users"), {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -296,7 +297,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/users", {
+      const res = await fetch(withBasePath("/api/auth/users"), {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -338,7 +339,7 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       }
 
       const token = await currentUser.getIdToken();
-      const res = await fetch("/api/auth/resend-activation", {
+      const res = await fetch(withBasePath("/api/auth/resend-activation"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

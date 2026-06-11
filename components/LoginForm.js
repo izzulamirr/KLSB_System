@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import Image from "next/image";
+import { withBasePath } from "../lib/apiPath";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function LoginForm() {
 
       let targetRoute = "/dashboard";
       try {
-        const roleRes = await fetch("/api/auth/role", {
+        const roleRes = await fetch(withBasePath("/api/auth/role"), {
           headers: { Authorization: `Bearer ${idToken}` },
         });
         if (roleRes.ok) {
@@ -60,7 +61,7 @@ export default function LoginForm() {
     >
       <div className="flex flex-col items-center gap-3 mb-6 text-center">
         <Image
-          src="/logo/KLSB_icon.png"
+          src="/KLSB_icon.png"
           alt="KLSB Icon"
           width={84}
           height={84}

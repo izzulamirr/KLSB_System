@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { getAuth, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { withBasePath } from "../lib/apiPath";
 
 export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -125,7 +126,7 @@ export default function SettingsClient() {
   const handleExportData = async (format) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/manpower");
+      const res = await fetch(withBasePath("/api/manpower"));
       if (!res.ok) throw new Error("Failed to fetch data");
       const data = await res.json();
       

@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { auth } from "../../firebase";
+import { withBasePath } from "../../lib/apiPath";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -44,7 +45,7 @@ export default function DashboardPage() {
         setLoading(true);
       }
       
-      const res = await fetch("/api/manpower");
+      const res = await fetch(withBasePath("/api/manpower"));
       if (res.ok) {
         const data = await res.json();
         

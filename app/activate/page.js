@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { withBasePath } from "../../lib/apiPath";
 
 export default function Page() {
   const [error, setError] = useState(null);
@@ -14,7 +15,7 @@ export default function Page() {
           return;
         }
 
-        const res = await fetch(`/api/auth/activate?token=${encodeURIComponent(token)}`);
+        const res = await fetch(withBasePath(`/api/auth/activate?token=${encodeURIComponent(token)}`));
 
         // If the server redirected (successful activation), follow it
         if (res.redirected) {

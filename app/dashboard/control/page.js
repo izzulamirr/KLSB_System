@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "../../../firebase";
+import { withBasePath } from "../../../lib/apiPath";
 import ControlClient from "../../../components/ControlClient";
 
 export default function ControlPage() {
@@ -21,7 +22,7 @@ export default function ControlPage() {
       (async () => {
         try {
           const token = await u.getIdToken();
-          const res = await fetch("/api/auth/role", {
+          const res = await fetch(withBasePath("/api/auth/role"), {
             headers: { Authorization: `Bearer ${token}` },
           });
 

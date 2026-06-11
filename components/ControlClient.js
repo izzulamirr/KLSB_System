@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "../firebase";
+import { withBasePath } from "../lib/apiPath";
 
 async function fetchWithAuth(url, opts = {}) {
   const user = auth.currentUser;
@@ -94,7 +95,7 @@ export default function ControlClient() {
   const fetchRealUsers = useCallback(async () => {
     try {
       setUsersLoading(true);
-      const res = await fetchWithAuth("/api/auth/users");
+      const res = await fetchWithAuth(withBasePath("/api/auth/users"));
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         console.error("fetchRealUsers failed:", res.status, body);
@@ -130,7 +131,7 @@ export default function ControlClient() {
         endpoints.map(async (ep) => {
           const start = Date.now();
           try {
-            const res = await fetch(ep.url);
+            const res = await fetch(withBasePath(ep.url));
             const responseTime = Date.now() - start;
             return { ...ep, status: res.ok ? "healthy" : "degraded", responseTime: `${responseTime}ms`, lastCheck: "now" };
           } catch (err) {
@@ -158,8 +159,8 @@ export default function ControlClient() {
         setLoading(true);
       }
       const [manpowerRes, timesheetRes] = await Promise.all([
-        fetch("/api/manpower?summary=1"),
-        fetch("/api/timesheet?countOnly=1"),
+        fetch(withBasePath("/api/manpower?summary=1")),
+        fetch(withBasePath("/api/timesheet?countOnly=1")),
       ]);
 
       const manpowerSummary = manpowerRes.ok ? await manpowerRes.json() : { total: 0, active: 0, pending: 0 };
@@ -201,7 +202,7 @@ export default function ControlClient() {
 
   const fetchRecentActivities = async (isAutoRefresh = false) => {
     try {
-      const res = await fetch("/api/manpower?limit=5&sortBy=BIL&sortDir=desc");
+      const res = await fetch(withBasePath("/api/manpower?limit=5&sortBy=BIL&sortDir=desc"));
       if (res.ok) {
         const data = await res.json();
         const recentData = Array.isArray(data) ? data : [];
@@ -317,8 +318,8 @@ export default function ControlClient() {
 
   const handleBackupDatabase = async () => {
     try {
-      const manpowerRes = await fetch("/api/manpower");
-      const timesheetRes = await fetch("/api/timesheet");
+      const manpowerRes = await fetch(withBasePath("/api/manpower"));
+      const timesheetRes = await fetch(withBasePath("/api/timesheet"));
 
       const backup = {
         timestamp: new Date().toISOString(),

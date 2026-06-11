@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { auth } from "../../firebase";
 import useIdleLogout from "../../lib/useIdleLogout";
+import { withBasePath } from "../../lib/apiPath";
 
 export default function BdLayout({ children }) {
   const router = useRouter();
@@ -45,7 +46,7 @@ export default function BdLayout({ children }) {
 
       try {
         const idToken = await user.getIdToken();
-        const res = await fetch("/api/auth/role", {
+        const res = await fetch(withBasePath("/api/auth/role"), {
           headers: { Authorization: `Bearer ${idToken}` },
         });
         const data = await res.json();

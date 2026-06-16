@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAllPicEmails, parsePicString } from "../lib/picEmailMap";
+import { PIC_DROPDOWN_OPTIONS, parsePicString } from "../lib/picEmailMap";
 
 export default function PicSelector({ value, onChange }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -29,7 +29,7 @@ export default function PicSelector({ value, onChange }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const allPics = Object.keys(getAllPicEmails()).sort();
+  const allPics = [...PIC_DROPDOWN_OPTIONS].sort();
   const [searchTerm, setSearchTerm] = useState("");
 
   const normalizeText = (input) =>

@@ -107,7 +107,17 @@ export default function BdLayout({ children }) {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="hidden sm:inline text-sm text-slate-600">{email}</span>
+              <Link
+                href="/bd/profile"
+                className="hidden sm:inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-[#0f3d7a]/30 hover:bg-[#eef4fd] hover:text-[#0f3d7a]"
+                title="Open profile settings"
+                aria-label="Open profile settings"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 10-16 0" />
+                  <circle cx="12" cy="8" r="4" />
+                </svg>
+              </Link>
               <button
                 onClick={async () => {
                   await signOut(auth);

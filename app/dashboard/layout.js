@@ -150,7 +150,17 @@ export default function DashboardLayout({ children }) {
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">KLSB Workforce Portal</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-900">Operations Dashboard</h2>
             </div>
-            {/* Open BD Portal button removed */}
+            <Link
+              href="/dashboard/profile"
+              className="inline-flex items-center rounded-full border border-slate-300 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-[#0f3d7a]/30 hover:bg-[#eef4fd] hover:text-[#0f3d7a] self-start sm:self-center"
+              title="Open profile settings"
+              aria-label="Open profile settings"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 10-16 0" />
+                <circle cx="12" cy="8" r="4" />
+              </svg>
+            </Link>
           </div>
         </header>
         <div className="portal-shell p-5 sm:p-7 text-[#0b1e3a]">

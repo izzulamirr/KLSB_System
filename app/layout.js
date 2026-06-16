@@ -2,7 +2,13 @@ import "./globals.css";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import FloatingRemindersWidget from "../components/bd/FloatingRemindersWidget";
 
-export const metadata = { title: "KLSB Portal", description: "Secure Access" };
+export const metadata = {
+  title: "KLSB Portal",
+  description: "Secure Access",
+  icons: {
+    icon: "/KLSB_icon.png",
+  },
+};
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],

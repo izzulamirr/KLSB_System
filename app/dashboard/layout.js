@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }) {
 
   useIdleLogout({
     enabled: !checking,
-    timeoutMs: 5 * 60 * 1000,
+    timeoutMs: 15 * 60 * 1000,
     onTimeout: handleIdleTimeout,
   });
 

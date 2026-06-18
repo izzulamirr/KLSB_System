@@ -23,7 +23,7 @@ export default function BdLayout({ children }) {
 
   useIdleLogout({
     enabled: !checking && authorized,
-    timeoutMs: 5 * 60 * 1000,
+    timeoutMs: 15 * 60 * 1000,
     onTimeout: handleIdleTimeout,
   });
 

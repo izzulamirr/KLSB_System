@@ -88,7 +88,7 @@ export default function LoginForm() {
           role="status"
           className="text-amber-700 text-sm mb-4 text-center bg-amber-50/90 border border-amber-200 px-3 py-2 rounded-lg"
         >
-          Session ended due to 5 minutes of inactivity. Please sign in again.
+          Session ended due to 15 minutes of inactivity. Please sign in again.
         </div>
       )}
 

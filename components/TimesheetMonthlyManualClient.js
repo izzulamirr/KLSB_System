@@ -25,6 +25,9 @@ export default function TimesheetMonthlyManualClient() {
   const [message, setMessage] = useState(null);
 
   const [timesheetList, setTimesheetList] = useState([]);
+  const [selectedClient, setSelectedClient] = useState("");
+  const [reportYear, setReportYear] = useState(initialYear);
+  const [reportMonth, setReportMonth] = useState(initialMonth);
   const [editingParentId, setEditingParentId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -36,12 +39,13 @@ export default function TimesheetMonthlyManualClient() {
       const pid = r.parentId || r.id || `${r.staffName}-${r.date}`;
       const normalSum = Array.isArray(r.entries) ? r.entries.reduce((s, e) => s + (Number(e.normalHours) || 0), 0) : 0;
       const otSum = Array.isArray(r.entries) ? r.entries.reduce((s, e) => s + (Number(e.otHours) || 0), 0) : 0;
-      if (!map.has(pid)) map.set(pid, { parentId: pid, staffName: r.staffName || "", poSoNo: r.poSoNo || "", date: r.date || "", normalHours: normalSum, otHours: otSum, totalHours: normalSum + otSum, sample: r });
+      if (!map.has(pid)) map.set(pid, { parentId: pid, staffName: r.staffName || "", poSoNo: r.poSoNo || "", location: r.location || "", date: r.date || "", normalHours: normalSum, otHours: otSum, totalHours: normalSum + otSum, sample: r });
       else {
         const v = map.get(pid);
         v.normalHours = (v.normalHours || 0) + normalSum;
         v.otHours = (v.otHours || 0) + otSum;
         v.totalHours = (v.normalHours || 0) + (v.otHours || 0);
+        v.location = v.location || r.location || "";
         v.sample = r;
       }
     }
@@ -74,6 +78,63 @@ export default function TimesheetMonthlyManualClient() {
     for (const item of names) m[item.name] = item.record;
     return m;
   }, [names]);
+
+  const clientOptions = useMemo(() => {
+    const seen = new Set();
+    const options = [];
+    for (const row of timesheetList) {
+      const client = (row.location || row.sample?.location || "").toString().trim();
+      if (!client || seen.has(client)) continue;
+      seen.add(client);
+      options.push(client);
+    }
+    return options.sort((a, b) => a.localeCompare(b));
+  }, [timesheetList]);
+
+  const monthlyReportingRows = useMemo(() => {
+    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const bucket = {
+      monthIndex: Number(reportMonth),
+      month: monthLabels[Number(reportMonth) - 1] || "-",
+      year: Number(reportYear),
+      timesheets: 0,
+      normalHours: 0,
+      otHours: 0,
+      totalHours: 0,
+    };
+
+    for (const row of timesheetList) {
+      const dateValue = row?.date;
+      if (!dateValue) continue;
+
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) continue;
+      if (date.getFullYear() !== Number(reportYear) || (date.getMonth() + 1) !== Number(reportMonth)) continue;
+
+      const locationValue = (row.location || row.sample?.location || "").toString().trim();
+      if (selectedClient && locationValue !== selectedClient) continue;
+
+      bucket.timesheets += 1;
+      bucket.normalHours += Number(row.normalHours) || 0;
+      bucket.otHours += Number(row.otHours) || 0;
+      bucket.totalHours += Number(row.totalHours) || (Number(row.normalHours) || 0) + (Number(row.otHours) || 0);
+    }
+
+    return [bucket];
+  }, [reportMonth, reportYear, selectedClient, timesheetList]);
+
+  const monthlyReportingTotals = useMemo(() => {
+    return monthlyReportingRows.reduce(
+      (acc, row) => {
+        acc.timesheets += row.timesheets;
+        acc.normalHours += row.normalHours;
+        acc.otHours += row.otHours;
+        acc.totalHours += row.totalHours;
+        return acc;
+      },
+      { timesheets: 0, normalHours: 0, otHours: 0, totalHours: 0 }
+    );
+  }, [monthlyReportingRows]);
 
   useEffect(() => {
     if (!selectedName) {
@@ -298,7 +359,7 @@ export default function TimesheetMonthlyManualClient() {
   return (
     <div className="max-w-6xl mx-auto p-4 relative min-h-screen">
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div>
             <label className="block text-xs text-slate-500">Month</label>
             <select value={monthNum} onChange={(e) => { const m = Number(e.target.value); setMonthNum(m); setEntries(buildEntriesForMonth(year, m)); }} className="mt-1 border rounded px-3 py-2">
@@ -310,6 +371,19 @@ export default function TimesheetMonthlyManualClient() {
           <div>
             <label className="block text-xs text-slate-500">Year</label>
             <input type="number" value={year} onChange={(e) => { const y = Number(e.target.value); setYear(y); setEntries(buildEntriesForMonth(y, monthNum)); }} className="mt-1 border rounded px-3 py-2 w-28" />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500">Location</label>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="mt-1 border rounded px-3 py-2 min-w-44"
+            >
+              <option value="">All locations</option>
+              {clientOptions.map((client) => (
+                <option key={client} value={client}>{client}</option>
+              ))}
+            </select>
           </div>
         </div>
         <div>
@@ -324,6 +398,7 @@ export default function TimesheetMonthlyManualClient() {
               <tr className="text-left text-slate-700">
                 <th className="py-3 px-4">Name</th>
                 <th className="py-3 px-4">Month</th>
+                <th className="py-3 px-4">Client</th>
                 <th className="py-3 px-4">Normal Hours</th>
                 <th className="py-3 px-4">OT Hours</th>
                 <th className="py-3 px-4">Total Hours</th>
@@ -335,7 +410,7 @@ export default function TimesheetMonthlyManualClient() {
             <tbody>
               {(!timesheetList || timesheetList.length === 0) ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-slate-500">No timesheets found</td>
+                  <td colSpan={9} className="text-center py-8 text-slate-500">No timesheets found</td>
                 </tr>
               ) : (
                 timesheetList
@@ -343,13 +418,18 @@ export default function TimesheetMonthlyManualClient() {
                     if (!t || !t.date) return true;
                     try {
                       const d = new Date(t.date);
-                      return d.getFullYear() === Number(year) && (d.getMonth() + 1) === Number(monthNum);
+                      const matchesDate = d.getFullYear() === Number(year) && (d.getMonth() + 1) === Number(monthNum);
+                      if (!matchesDate) return false;
+                      if (!selectedClient) return true;
+                      const clientValue = (t.location || t.sample?.location || "").toString().trim();
+                      return clientValue === selectedClient;
                     } catch (e) { return true; }
                   })
                   .map((t) => {
                     const d = t.date ? new Date(t.date) : null;
                     const monthLabel = d ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]} ${d.getFullYear()}` : "-";
                     const name = t.staffName || t.sample?.staffName || "-";
+                    const client = t.location || t.sample?.location || "-";
                     const normal = typeof t.normalHours === "number" ? t.normalHours.toFixed(1) : "-";
                     const ot = typeof t.otHours === "number" ? t.otHours.toFixed(1) : "-";
                     const total = (typeof t.totalHours === "number") ? t.totalHours.toFixed(1) : "-";
@@ -359,6 +439,7 @@ export default function TimesheetMonthlyManualClient() {
                       <tr key={t.parentId || name || Math.random()} className="border-t">
                         <td className="py-3 px-4">{name}</td>
                         <td className="py-3 px-4">{monthLabel}</td>
+                        <td className="py-3 px-4">{client}</td>
                         <td className="py-3 px-4">{normal}</td>
                         <td className="py-3 px-4">{ot}</td>
                         <td className="py-3 px-4">{total}</td>
@@ -387,6 +468,87 @@ export default function TimesheetMonthlyManualClient() {
                     );
                   })
               )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Monthly Reporting</h3>
+            <p className="text-sm text-slate-500">
+              Choose a month and year to generate a monthly timesheet report.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-xs text-slate-500">Report Month</label>
+              <select
+                value={reportMonth}
+                onChange={(e) => setReportMonth(Number(e.target.value))}
+                className="mt-1 border rounded px-3 py-2"
+              >
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => (
+                  <option key={m} value={m}>{["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500">Report Year</label>
+              <input
+                type="number"
+                value={reportYear}
+                onChange={(e) => setReportYear(Number(e.target.value))}
+                className="mt-1 border rounded px-3 py-2 w-28"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
+          <div className="rounded-lg border border-slate-200 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Timesheets</div>
+            <div className="text-xl font-semibold text-slate-900">{monthlyReportingTotals.timesheets}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Normal Hours</div>
+            <div className="text-xl font-semibold text-slate-900">{monthlyReportingTotals.normalHours.toFixed(1)}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">OT Hours</div>
+            <div className="text-xl font-semibold text-slate-900">{monthlyReportingTotals.otHours.toFixed(1)}</div>
+          </div>
+          <div className="rounded-lg border border-slate-200 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500">Total Hours</div>
+            <div className="text-xl font-semibold text-slate-900">{monthlyReportingTotals.totalHours.toFixed(1)}</div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-700 border-b border-slate-200">
+                <th className="py-3 px-4">Month</th>
+                <th className="py-3 px-4">Year</th>
+                <th className="py-3 px-4">Timesheets</th>
+                <th className="py-3 px-4">Normal Hours</th>
+                <th className="py-3 px-4">OT Hours</th>
+                <th className="py-3 px-4">Total Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyReportingRows.map((row) => (
+                <tr key={`${row.month}-${row.year}`} className="border-t bg-blue-50/70">
+                  <td className="py-3 px-4 font-medium text-slate-900">{row.month}</td>
+                  <td className="py-3 px-4 text-slate-700">{row.year}</td>
+                  <td className="py-3 px-4 text-slate-700">{row.timesheets}</td>
+                  <td className="py-3 px-4 text-slate-700">{row.normalHours.toFixed(1)}</td>
+                  <td className="py-3 px-4 text-slate-700">{row.otHours.toFixed(1)}</td>
+                  <td className="py-3 px-4 text-slate-700">{row.totalHours.toFixed(1)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

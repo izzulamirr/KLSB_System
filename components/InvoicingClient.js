@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 const initialRows = [
   {
     sent: true,
@@ -146,6 +146,9 @@ const months = [
   "December",
 ];
 
+const currentYear = new Date().getFullYear();
+const timesheetYears = Array.from({ length: 6 }, (_, index) => currentYear - 2 + index);
+
 function statusClass(status) {
   const normalized = String(status || "").toLowerCase();
   if (normalized.includes("paid")) return "bg-emerald-500 text-white";
@@ -163,6 +166,8 @@ function createInvoiceForm(invoiceNo = "") {
     poSoNumber: "",
     clientName: "",
     timesheetMonth: "",
+    timesheetMonthName: months[new Date().getMonth()] || "",
+    timesheetYear: String(currentYear),
     details: "",
     invoiceAmountWoSst: "",
     invoiceAmountWithSst: "",
@@ -184,7 +189,28 @@ export default function InvoicingClient() {
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState(26000508);
   const [formMode, setFormMode] = useState("create");
   const [editingIndex, setEditingIndex] = useState(null);
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState("");
   const [form, setForm] = useState(() => createInvoiceForm());
+
+  useEffect(() => {
+    let active = true;
+    async function loadInvoices() {
+      try {
+        const response = await fetch("/api/invoices");
+        const data = await response.json();
+        if (!active || !response.ok) return;
+        if (Array.isArray(data) && data.length) {
+          setRows(data);
+        }
+      } catch (error) {
+        console.error("Failed to load invoices", error);
+      }
+    }
+    loadInvoices();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function startEdit(index) {
     setEditingIndex(index);
@@ -192,20 +218,14 @@ export default function InvoicingClient() {
     const row = rows[index];
     const baseAmount = parseAmount(row.invoiceAmountWoSst);
     const withSstAmount = parseAmount(row.invoiceAmountWithSst);
+    const monthMatch = String(row.timesheetMonth || "").match(/^(.+?)\s+(\d{4})$/);
     setForm({
       ...row,
       hasSst: Number.isFinite(baseAmount) && Number.isFinite(withSstAmount) ? withSstAmount > baseAmount : true,
+      timesheetMonthName: monthMatch?.[1] || String(row.timesheetMonth || "").trim(),
+      timesheetYear: monthMatch?.[2] || String(currentYear),
     });
     setModalOpen(true);
-  }
-
-  function deleteRow(index) {
-    setRows((prev) => prev.filter((_, i) => i !== index));
-    if (editingIndex === index) {
-      setEditingIndex(null);
-      setFormMode("create");
-      setForm(createInvoiceForm(String(nextInvoiceNumber)));
-    }
   }
 
   const totals = useMemo(() => {
@@ -217,6 +237,37 @@ export default function InvoicingClient() {
   function updateForm(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
+
+  async function persistRows(nextRows) {
+    setRows(nextRows);
+    try {
+      await fetch("/api/invoices", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: nextRows }),
+      });
+    } catch (error) {
+      console.error("Failed to save invoices", error);
+    }
+  }
+
+  function toggleSent(index) {
+    const nextRows = rows.map((row, rowIndex) => (rowIndex === index ? { ...row, sent: !row.sent } : row));
+    persistRows(nextRows);
+  }
+
+  function getTimesheetMonthName(value) {
+    const monthName = String(value || "").trim().split(/\s+/)[0] || "";
+    return monthName.toLowerCase();
+  }
+
+  const filteredRows = useMemo(() => {
+    const filterValue = selectedMonthFilter.toLowerCase();
+    return rows
+      .map((row, originalIndex) => ({ row, originalIndex }))
+      .filter(({ row }) => !selectedMonthFilter || getTimesheetMonthName(row.timesheetMonth) === filterValue);
+  }, [rows, selectedMonthFilter]);
+
   // parse numeric amount from string like "RM 1,234.00" or "1,234.00"
   function parseAmount(v) {
     if (v == null) return NaN;
@@ -314,12 +365,15 @@ export default function InvoicingClient() {
 
   function handleAddRow() {
     if (!form.clientName) return;
+    const resolvedTimesheetMonth = form.timesheetMonthName && form.timesheetYear ? `${form.timesheetMonthName} ${form.timesheetYear}` : form.timesheetMonth || "";
     if (formMode === "edit" && editingIndex != null) {
-      setRows((prev) => prev.map((row, index) => (index === editingIndex ? { ...form, invoiceNo: String(form.invoiceNo || row.invoiceNo) } : row)));
+      const nextRows = rows.map((row, index) => (index === editingIndex ? { ...form, timesheetMonth: resolvedTimesheetMonth, invoiceNo: String(form.invoiceNo || row.invoiceNo) } : row));
+      persistRows(nextRows);
     } else {
       const assignedInvoiceNo = form.invoiceNo || String(nextInvoiceNumber);
-      const newForm = { ...form, invoiceNo: String(assignedInvoiceNo) };
-      setRows((prev) => [{ ...newForm }, ...prev]);
+      const newForm = { ...form, timesheetMonth: resolvedTimesheetMonth, invoiceNo: String(assignedInvoiceNo) };
+      const nextRows = [{ ...newForm }, ...rows];
+      persistRows(nextRows);
       setNextInvoiceNumber((n) => Number(n) + 1);
     }
     setModalOpen(false);
@@ -378,14 +432,29 @@ export default function InvoicingClient() {
         </div>
 
         <div className="flex items-center justify-end border-b border-slate-100 px-5 py-4">
-          <button
-            onClick={openModalForNew}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#0f3d7a] text-xl font-semibold text-white shadow-sm transition hover:bg-[#0c3368]"
-            aria-label="Add invoice"
-            title="Add invoice"
-          >
-            +
-          </button>
+          <div className="flex items-end gap-3">
+            <div>
+              <label className="block text-xs text-slate-500">Month Filter</label>
+              <select
+                value={selectedMonthFilter}
+                onChange={(e) => setSelectedMonthFilter(e.target.value)}
+                className="mt-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+              >
+                <option value="">All months</option>
+                {months.map((month) => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={openModalForNew}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#0f3d7a] text-xl font-semibold text-white shadow-sm transition hover:bg-[#0c3368]"
+              aria-label="Add invoice"
+              title="Add invoice"
+            >
+              +
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -397,14 +466,34 @@ export default function InvoicingClient() {
                     {col.label}
                   </th>
                 ))}
-                <th className="border-b border-white/10 px-4 py-4 text-left text-[13px] font-semibold whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
-                <tr key={`${row.invoiceNo}-${index}`} className={index % 2 === 0 ? "bg-white" : "bg-slate-50/70"}>
+              {filteredRows.map(({ row, originalIndex }) => (
+                <tr
+                  key={`${row.invoiceNo}-${originalIndex}`}
+                  className={
+                    `${originalIndex % 2 === 0 ? "bg-white" : "bg-slate-50/70"} cursor-pointer transition-colors hover:bg-[#eff5ff] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f3d7a]/30`
+                  }
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Edit invoice ${row.invoiceNo || originalIndex + 1}`}
+                  onClick={() => startEdit(originalIndex)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      startEdit(originalIndex);
+                    }
+                  }}
+                >
                   <td className="border-b border-slate-200 px-4 py-3 text-center align-middle">
-                    <input type="checkbox" checked={!!row.sent} readOnly className="h-4 w-4 accent-[#0f3d7a]" />
+                    <input
+                      type="checkbox"
+                      checked={!!row.sent}
+                      onChange={() => toggleSent(originalIndex)}
+                      onClick={(event) => event.stopPropagation()}
+                      className="h-4 w-4 accent-[#0f3d7a]"
+                    />
                   </td>
 
                   <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900 whitespace-nowrap">{row.invoiceNo}</td>
@@ -426,35 +515,6 @@ export default function InvoicingClient() {
                   <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.dueDate}</td>
                   <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.paymentDate}</td>
                   <td className="border-b border-slate-200 px-4 py-3 min-w-[260px] text-slate-700">{row.notes}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <button
-                        onClick={() => startEdit(index)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200"
-                        aria-label="Edit invoice"
-                        title="Edit invoice"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]" aria-hidden="true">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => deleteRow(index)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100"
-                        aria-label="Delete invoice"
-                        title="Delete invoice"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current stroke-[1.8]" aria-hidden="true">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6" />
-                          <path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" />
-                          <path d="M10 10v6" />
-                          <path d="M14 10v6" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -550,13 +610,13 @@ export default function InvoicingClient() {
                   if (key === "invoiceAmountWoSst") {
                     return (
                       <div key={key} className="space-y-2 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="block font-medium text-[#0e2b57]">{label}</span>
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="block min-w-0 whitespace-nowrap overflow-hidden text-ellipsis font-medium text-[#0e2b57]">{label}</span>
+                          <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
                               onClick={setNoSst}
-                              className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
                                 form.hasSst ? "bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-[#0f3d7a] text-white"
                               }`}
                             >
@@ -565,7 +625,7 @@ export default function InvoicingClient() {
                             <button
                               type="button"
                               onClick={setWithSst}
-                              className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
+                              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
                                 form.hasSst ? "bg-[#0f3d7a] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                               }`}
                             >
@@ -608,19 +668,33 @@ export default function InvoicingClient() {
                   // month select
                   if (key === "timesheetMonth") {
                     return (
-                      <label key={key} className="space-y-1 text-sm">
-                        <span className="block font-medium text-[#0e2b57]">{label}</span>
-                        <select
-                          value={form.timesheetMonth}
-                          onChange={(e) => updateForm("timesheetMonth", e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
-                        >
-                          <option value="">-- Select month --</option>
-                          {months.map((m) => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </label>
+                      <React.Fragment key={key}>
+                        <label className="space-y-1 text-sm">
+                          <span className="block font-medium text-[#0e2b57]">Timesheet Month</span>
+                          <select
+                            value={form.timesheetMonthName}
+                            onChange={(e) => updateForm("timesheetMonthName", e.target.value)}
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          >
+                            <option value="">-- Select month --</option>
+                            {months.map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="space-y-1 text-sm">
+                          <span className="block font-medium text-[#0e2b57]">Timesheet Year</span>
+                          <select
+                            value={form.timesheetYear}
+                            onChange={(e) => updateForm("timesheetYear", e.target.value)}
+                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          >
+                            {timesheetYears.map((year) => (
+                              <option key={year} value={String(year)}>{year}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </React.Fragment>
                     );
                   }
 

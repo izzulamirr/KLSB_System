@@ -1,5 +1,6 @@
 "use client";
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { withBasePath } from "../lib/apiPath";
 const initialRows = [
   {
     sent: true,
@@ -55,7 +56,7 @@ const initialRows = [
     sstAmount: "",
     paidAmount: "0.00",
     balance: "150.00",
-    status: "CANCELLED",
+    status: "PENDING",
     days: "",
     dueDate: "07-Dec-24",
     paymentDate: "",
@@ -159,7 +160,7 @@ function statusClass(status) {
 
 function createInvoiceForm(invoiceNo = "") {
   return {
-    sent: true,
+    sent: false,
     invoiceNo,
     invoiceType: "ACTUAL",
     dateIssued: "",
@@ -191,12 +192,13 @@ export default function InvoicingClient() {
   const [editingIndex, setEditingIndex] = useState(null);
   const [selectedMonthFilter, setSelectedMonthFilter] = useState("");
   const [form, setForm] = useState(() => createInvoiceForm());
+  const formDraftRef = useRef(createInvoiceForm());
 
   useEffect(() => {
     let active = true;
     async function loadInvoices() {
       try {
-        const response = await fetch("/api/invoices");
+        const response = await fetch(withBasePath(`/api/invoices?live=1&_ts=${Date.now()}`), { cache: "no-store" });
         const data = await response.json();
         if (!active || !response.ok) return;
         if (Array.isArray(data) && data.length) {
@@ -207,8 +209,17 @@ export default function InvoicingClient() {
       }
     }
     loadInvoices();
+
+    function handleFocus() {
+      loadInvoices();
+    }
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
     return () => {
       active = false;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
     };
   }, []);
 
@@ -219,12 +230,14 @@ export default function InvoicingClient() {
     const baseAmount = parseAmount(row.invoiceAmountWoSst);
     const withSstAmount = parseAmount(row.invoiceAmountWithSst);
     const monthMatch = String(row.timesheetMonth || "").match(/^(.+?)\s+(\d{4})$/);
-    setForm({
+    const nextForm = {
       ...row,
       hasSst: Number.isFinite(baseAmount) && Number.isFinite(withSstAmount) ? withSstAmount > baseAmount : true,
       timesheetMonthName: monthMatch?.[1] || String(row.timesheetMonth || "").trim(),
       timesheetYear: monthMatch?.[2] || String(currentYear),
-    });
+    };
+    formDraftRef.current = nextForm;
+    setForm(nextForm);
     setModalOpen(true);
   }
 
@@ -235,13 +248,26 @@ export default function InvoicingClient() {
   }, [rows]);
 
   function updateForm(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const nextForm = { ...prev, [field]: value };
+      formDraftRef.current = nextForm;
+
+      if (field === "status" && editingIndex != null) {
+        setRows((currentRows) =>
+          currentRows.map((row, rowIndex) =>
+            rowIndex === editingIndex ? { ...row, status: value } : row,
+          ),
+        );
+      }
+
+      return nextForm;
+    });
   }
 
   async function persistRows(nextRows) {
     setRows(nextRows);
     try {
-      await fetch("/api/invoices", {
+      await fetch(withBasePath("/api/invoices"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows: nextRows }),
@@ -364,14 +390,15 @@ export default function InvoicingClient() {
   }, [form.dateIssued, form.dueDate]);
 
   function handleAddRow() {
-    if (!form.clientName) return;
-    const resolvedTimesheetMonth = form.timesheetMonthName && form.timesheetYear ? `${form.timesheetMonthName} ${form.timesheetYear}` : form.timesheetMonth || "";
+    const currentForm = formDraftRef.current;
+    if (!currentForm.clientName) return;
+    const resolvedTimesheetMonth = currentForm.timesheetMonthName && currentForm.timesheetYear ? `${currentForm.timesheetMonthName} ${currentForm.timesheetYear}` : currentForm.timesheetMonth || "";
     if (formMode === "edit" && editingIndex != null) {
-      const nextRows = rows.map((row, index) => (index === editingIndex ? { ...form, timesheetMonth: resolvedTimesheetMonth, invoiceNo: String(form.invoiceNo || row.invoiceNo) } : row));
+      const nextRows = rows.map((row, index) => (index === editingIndex ? { ...currentForm, timesheetMonth: resolvedTimesheetMonth, invoiceNo: String(currentForm.invoiceNo || row.invoiceNo) } : row));
       persistRows(nextRows);
     } else {
-      const assignedInvoiceNo = form.invoiceNo || String(nextInvoiceNumber);
-      const newForm = { ...form, timesheetMonth: resolvedTimesheetMonth, invoiceNo: String(assignedInvoiceNo) };
+      const assignedInvoiceNo = currentForm.invoiceNo || String(nextInvoiceNumber);
+      const newForm = { ...currentForm, timesheetMonth: resolvedTimesheetMonth, invoiceNo: String(assignedInvoiceNo) };
       const nextRows = [{ ...newForm }, ...rows];
       persistRows(nextRows);
       setNextInvoiceNumber((n) => Number(n) + 1);
@@ -379,13 +406,34 @@ export default function InvoicingClient() {
     setModalOpen(false);
     setEditingIndex(null);
     setFormMode("create");
-    setForm(createInvoiceForm());
+    const resetForm = createInvoiceForm();
+    formDraftRef.current = resetForm;
+    setForm(resetForm);
+  }
+
+  function handleDeleteRow() {
+    if (editingIndex == null) return;
+    const row = rows[editingIndex];
+    const invoiceLabel = row?.invoiceNo || `#${editingIndex + 1}`;
+    const confirmed = window.confirm(`Delete invoice ${invoiceLabel}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    const nextRows = rows.filter((_, index) => index !== editingIndex);
+    persistRows(nextRows);
+    setModalOpen(false);
+    setEditingIndex(null);
+    setFormMode("create");
+    const resetForm = createInvoiceForm();
+    formDraftRef.current = resetForm;
+    setForm(resetForm);
   }
 
   function openModalForNew() {
     setEditingIndex(null);
     setFormMode("create");
-    setForm(createInvoiceForm(String(nextInvoiceNumber)));
+    const nextForm = createInvoiceForm(String(nextInvoiceNumber));
+    formDraftRef.current = nextForm;
+    setForm(nextForm);
     setModalOpen(true);
   }
 
@@ -393,6 +441,7 @@ export default function InvoicingClient() {
     setModalOpen(false);
     setEditingIndex(null);
     setFormMode("create");
+    formDraftRef.current = createInvoiceForm();
   }
 
   return (
@@ -735,13 +784,23 @@ export default function InvoicingClient() {
 
               </div>
 
-              <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
-                <button onClick={closeInvoiceModal} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
-                  Cancel
-                </button>
-                <button onClick={handleAddRow} className="rounded-xl bg-[#0f3d7a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0c3368]">
-                  {formMode === "edit" ? "Update Invoice" : "Save Invoice"}
-                </button>
+              <div className={`mt-6 flex items-center border-t border-slate-200 pt-4 ${formMode === "edit" ? "justify-between" : "justify-end"}`}>
+                {formMode === "edit" && (
+                  <button
+                    onClick={handleDeleteRow}
+                    className="rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                  >
+                    Delete Invoice
+                  </button>
+                )}
+                <div className="flex items-center gap-3">
+                  <button onClick={closeInvoiceModal} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+                    Cancel
+                  </button>
+                  <button onClick={handleAddRow} className="rounded-xl bg-[#0f3d7a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0c3368]">
+                    {formMode === "edit" ? "Update Invoice" : "Save Invoice"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

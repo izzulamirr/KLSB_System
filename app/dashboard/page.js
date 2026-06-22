@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,6 +17,8 @@ export default function DashboardPage() {
   const [projectSummary, setProjectSummary] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [dataChanged, setDataChanged] = useState(false);
+  const previousTotalRef = useRef(0);
+  const dataChangedTimerRef = useRef(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -26,18 +28,7 @@ export default function DashboardPage() {
     return () => unsub();
   }, [router]);
 
-  useEffect(() => {
-    if (user) {
-      fetchDashboardData();
-      // Auto-refresh every 30 seconds
-      const interval = setInterval(() => {
-        fetchDashboardData(true);
-      }, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
-
-  const fetchDashboardData = async (isAutoRefresh = false) => {
+  const fetchDashboardData = useCallback(async (isAutoRefresh = false) => {
     try {
       if (isAutoRefresh) {
         setRefreshing(true);
@@ -53,10 +44,13 @@ export default function DashboardPage() {
         
         // Check if data changed (for notifications)
         const newTotal = data.length;
-        const oldTotal = stats.total;
+        const oldTotal = previousTotalRef.current;
         if (isAutoRefresh && newTotal !== oldTotal && oldTotal !== 0) {
           setDataChanged(true);
-          setTimeout(() => setDataChanged(false), 3000);
+          if (dataChangedTimerRef.current) {
+            clearTimeout(dataChangedTimerRef.current);
+          }
+          dataChangedTimerRef.current = setTimeout(() => setDataChanged(false), 3000);
         }
         
         // ===== DYNAMIC STATS COLLECTION =====
@@ -89,6 +83,7 @@ export default function DashboardPage() {
         }).length;
         
         setStats({ total, active, pending, monthly, hourly });
+        previousTotalRef.current = total;
 
         // ===== ACTIVE PROJECTS - Dynamic by PO/SO =====
         const projectMap = {};
@@ -207,7 +202,26 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (dataChangedTimerRef.current) {
+        clearTimeout(dataChangedTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+      // Auto-refresh every 30 seconds
+      const interval = setInterval(() => {
+        fetchDashboardData(true);
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user, fetchDashboardData]);
 
   const handleManualRefresh = () => {
     fetchDashboardData(true);

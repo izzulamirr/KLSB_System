@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { readInvoiceRows, writeInvoiceRows } from "../../../lib/invoiceStore";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const rows = await readInvoiceRows();
+    let live = false;
+    try {
+      const url = new URL(request.url);
+      live = url.searchParams.get("live") === "1";
+    } catch {
+      live = false;
+    }
+
+    const rows = await readInvoiceRows({ preferLive: live });
     return NextResponse.json(rows);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

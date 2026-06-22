@@ -1,7 +1,8 @@
 import { getFinanceData } from "../../../lib/finance";
 
 export const metadata = { title: "Finance | KLSB Portal" };
-export const revalidate = 10;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function statusBadgeClasses(status) {
   const normalized = String(status || "").toLowerCase();

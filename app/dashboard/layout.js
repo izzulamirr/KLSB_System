@@ -101,7 +101,7 @@ export default function DashboardLayout({ children }) {
       <aside className="hidden md:flex md:flex-col fixed left-0 top-0 w-72 h-screen z-40 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <div className="relative px-6 py-6 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <Image src="/logo-full.svg" alt="KLSB Logo" width={180} height={56} className="object-contain" />
+            <Image src="/logo-full.svg" alt="KLSB Logo" width={180} height={56} className="object-contain" unoptimized />
           </div>
           <p className="mt-4 text-[11px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 flex items-center gap-2 font-semibold">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Secure Access

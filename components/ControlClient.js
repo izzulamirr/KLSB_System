@@ -49,12 +49,14 @@ export default function ControlClient() {
   const [togglingUserId, setTogglingUserId] = useState("");
   // Tick every 30s so relative timestamps stay fresh
   const [, setTick] = useState(0);
+  // Only endpoints that respond to a plain GET can be health-checked this
+  // way; /api/extract-pdf and /api/ocr-vision only accept POST with a file
+  // payload, so they're intentionally left out rather than shown with fake
+  // "healthy" placeholder numbers that are never actually verified.
   const [apiEndpoints, setApiEndpoints] = useState([
-    { name: "/api/manpower", status: "healthy", responseTime: "45ms", lastCheck: "now" },
-    { name: "/api/timesheet", status: "healthy", responseTime: "52ms", lastCheck: "now" },
-    { name: "/api/extract-pdf", status: "healthy", responseTime: "1.2s", lastCheck: "now" },
-    { name: "/api/ocr-vision", status: "healthy", responseTime: "2.1s", lastCheck: "now" },
-    { name: "/api/bd/proposals", status: "healthy", responseTime: "38ms", lastCheck: "now" },
+    { name: "/api/manpower", status: "checking", responseTime: "-", lastCheck: "pending" },
+    { name: "/api/timesheet", status: "checking", responseTime: "-", lastCheck: "pending" },
+    { name: "/api/bd/proposals", status: "checking", responseTime: "-", lastCheck: "pending" },
   ]);
   const [systemAlerts, setSystemAlerts] = useState([
     { id: 1, severity: "info", message: "Database backup completed successfully", timestamp: new Date(Date.now() - 300000) },
@@ -125,6 +127,7 @@ export default function ControlClient() {
       const endpoints = [
         { name: "/api/manpower", url: "/api/manpower" },
         { name: "/api/timesheet", url: "/api/timesheet" },
+        { name: "/api/bd/proposals", url: "/api/bd/proposals" },
       ];
 
       const updated = await Promise.all(
@@ -140,8 +143,8 @@ export default function ControlClient() {
         })
       );
 
-      setApiEndpoints(
-        apiEndpoints.map((ep) => {
+      setApiEndpoints((prev) =>
+        prev.map((ep) => {
           const updated_ep = updated.find((u) => u.name === ep.name);
           return updated_ep || ep;
         })
@@ -170,25 +173,25 @@ export default function ControlClient() {
       const activeStaff = Number(manpowerSummary.active || 0);
       const pendingStaff = Number(manpowerSummary.pending || 0);
 
-      const oldTotal = stats.totalStaff;
-      if (isAutoRefresh && totalStaff !== oldTotal && oldTotal !== 0) {
-        setDataChanged(true);
-        setTimeout(() => setDataChanged(false), 3000);
-      }
-
-      setStats((prev) => ({
-        ...prev,
-        totalStaff,
-        activeStaff,
-        pendingStaff,
-        totalTimesheets: Number(timesheetSummary.total || 0),
-        systemHealth: "Good",
-        dbStatus: "Online",
-        lastBackup: new Date().toLocaleDateString(),
-        uptime: "99.8%",
-        cpuUsage: String(Math.floor(Math.random() * 40 + 10)) + "%",
-        memoryUsage: String(Math.floor(Math.random() * 30 + 30)) + "%",
-      }));
+      setStats((prev) => {
+        if (isAutoRefresh && totalStaff !== prev.totalStaff && prev.totalStaff !== 0) {
+          setDataChanged(true);
+          setTimeout(() => setDataChanged(false), 3000);
+        }
+        return {
+          ...prev,
+          totalStaff,
+          activeStaff,
+          pendingStaff,
+          totalTimesheets: Number(timesheetSummary.total || 0),
+          systemHealth: "Good",
+          dbStatus: "Online",
+          lastBackup: new Date().toLocaleDateString(),
+          uptime: "99.8%",
+          cpuUsage: String(Math.floor(Math.random() * 40 + 10)) + "%",
+          memoryUsage: String(Math.floor(Math.random() * 30 + 30)) + "%",
+        };
+      });
       
       setLastUpdated(new Date());
     } catch (err) {
@@ -202,7 +205,7 @@ export default function ControlClient() {
 
   const fetchRecentActivities = async (isAutoRefresh = false) => {
     try {
-      const res = await fetch(withBasePath("/api/manpower?limit=5&sortBy=BIL&sortDir=desc"));
+      const res = await fetch(withBasePath("/api/manpower?limit=5&sortBy=updatedAt&sortDir=desc"));
       if (res.ok) {
         const data = await res.json();
         const recentData = Array.isArray(data) ? data : [];
@@ -357,6 +360,7 @@ export default function ControlClient() {
   const getStatusColor = (status) => {
     if (status === "healthy") return "bg-emerald-100 text-emerald-800 border-emerald-200";
     if (status === "degraded") return "bg-amber-100 text-amber-800 border-amber-200";
+    if (status === "checking") return "bg-slate-100 text-slate-600 border-slate-200";
     return "bg-rose-100 text-rose-800 border-rose-200";
   };
 

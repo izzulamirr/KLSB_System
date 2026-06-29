@@ -85,9 +85,8 @@ export default function BDStaffManagementClient({ viewRole } = {}) {
       if (res.ok) {
         const data = await res.json();
         const role = String(data?.role || "").toLowerCase();
-        const email = String(data?.email || currentUser.email || "").toLowerCase();
         const respIsAdmin = Boolean(data?.isAdmin);
-        if (role === "sysdev" || email === "bd@gmail.com" || respIsAdmin) {
+        if (role === "sysdev" || respIsAdmin) {
           setIsAdmin(true);
           fetchStaff();
         } else {

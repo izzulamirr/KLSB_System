@@ -95,7 +95,7 @@ export default function BDScopeBreakdownPage() {
 
   return (
     <div className="space-y-6">
-      <BDSummaryOverview />
+      <BDSummaryOverview rows={rows} error={error} />
 
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-700">{error}</section>

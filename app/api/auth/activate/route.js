@@ -16,16 +16,21 @@ export async function GET(req) {
 
     const doc = snapshot.docs[0];
     const data = doc.data() || {};
-    if (data.activationExpiresAt && data.activationExpiresAt.toDate && data.activationExpiresAt.toDate() < new Date()) {
+    const rawExpiresAt = data.activationExpiresAt;
+    const expiresAt = rawExpiresAt?.toDate ? rawExpiresAt.toDate() : rawExpiresAt ? new Date(rawExpiresAt) : null;
+    // Fail closed: a token must have a valid, unexpired expiry to be honored.
+    if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt < new Date()) {
       return NextResponse.json({ error: "Token expired" }, { status: 400 });
     }
 
     const uid = doc.id;
-    // Enable user
-    await admin.auth().updateUser(uid, { disabled: false });
 
-    // Clear activation token and set role on claims
+    // Clear the activation token first so a concurrent/replayed request
+    // against the same token can't also pass the lookup above, then enable
+    // the user. If enabling fails after this, the token is already burned
+    // rather than left valid for reuse.
     await admin.firestore().collection(roleCollection).doc(uid).set({ activationToken: null, activationExpiresAt: null }, { merge: true });
+    await admin.auth().updateUser(uid, { disabled: false });
 
     const role = String(data.role || "staff").toLowerCase();
     // Set custom claims so frontend can redirect appropriately

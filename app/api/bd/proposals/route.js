@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../../lib/firebaseAdmin";
-import { isBdRole, resolveUserRole } from "../../../../lib/roleResolver";
+import { isBdRole, isSysdevRole, resolveUserRole } from "../../../../lib/roleResolver";
 import { sendProposalCreationEmail } from "../../../../lib/emailService";
 import { getPicEmails } from "../../../../lib/picEmailMap";
+import { filterEmailNotificationRecipients } from "../../../../lib/notificationPreferences";
 
 async function authorizeBd(req) {
   const authHeader = req.headers.get("authorization") || "";
@@ -12,7 +13,7 @@ async function authorizeBd(req) {
   const admin = await initAdmin();
   const decoded = await admin.auth().verifyIdToken(idToken);
   const role = await resolveUserRole(admin, decoded);
-  if (!isBdRole(role)) throw new Error("Forbidden");
+  if (!isBdRole(role) && !isSysdevRole(role)) throw new Error("Forbidden");
 
   return { admin, decoded };
 }
@@ -107,6 +108,10 @@ export async function POST(req) {
     const { admin, decoded } = await authorizeBd(req);
     const db = admin.firestore();
     const body = await req.json();
+
+    const validationError = validateRequiredFields(body);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+
     const payload = buildRemarksAudit(normalizePayload(body), null, decoded, admin);
 
     const docRef = await db.collection(getCollectionName()).add({
@@ -120,14 +125,14 @@ export async function POST(req) {
     // Send notification email to PICs
     if (payload.personInCharge) {
       try {
-        const picEmails = getPicEmails(payload.personInCharge);
+        const picEmails = await filterEmailNotificationRecipients(getPicEmails(payload.personInCharge));
         if (picEmails.length > 0) {
           const proposalData = {
             id: docRef.id,
             ...payload,
           };
           await sendProposalCreationEmail(proposalData, picEmails);
-          
+
           // Log email notification
           await db.collection("email_notifications_log").add({
             proposalId: docRef.id,
@@ -152,17 +157,48 @@ export async function POST(req) {
   }
 }
 
+function timestampToMillis(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value._seconds === "number") {
+    return value._seconds * 1000 + Math.round((value._nanoseconds || 0) / 1e6);
+  }
+  if (typeof value.seconds === "number") {
+    return value.seconds * 1000 + Math.round((value.nanoseconds || 0) / 1e6);
+  }
+  return null;
+}
+
+function validateRequiredFields(data) {
+  if (!String(data?.refNo || "").trim()) return "Ref No. is required.";
+  if (!String(data?.titleProjectName || "").trim()) return "Title / Project is required.";
+  if (!String(data?.client || "").trim()) return "Client is required.";
+  return null;
+}
+
 export async function PUT(req) {
   try {
     const { admin, decoded } = await authorizeBd(req);
     const db = admin.firestore();
     const body = await req.json();
-    const { id, ...data } = body;
+    const { id, expectedUpdatedAt, ...data } = body;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+    const validationError = validateRequiredFields(data);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
 
     const docRef = db.collection(getCollectionName()).doc(id);
     const existingDoc = await docRef.get();
     if (!existingDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const currentMillis = timestampToMillis(existingDoc.data()?.updatedAt);
+    const expectedMillis = timestampToMillis(expectedUpdatedAt);
+    if (currentMillis !== null && expectedMillis !== null && currentMillis !== expectedMillis) {
+      return NextResponse.json(
+        { error: "This proposal was updated by someone else. Reload the page and try again.", code: "CONFLICT" },
+        { status: 409 }
+      );
+    }
 
     const payload = buildRemarksAudit(normalizePayload(data), existingDoc.data(), decoded, admin);
     await docRef.set(
@@ -184,12 +220,24 @@ export async function PUT(req) {
 
 export async function DELETE(req) {
   try {
-    await authorizeBd(req);
-    const admin = await initAdmin();
+    const { admin, decoded } = await authorizeBd(req);
     const db = admin.firestore();
     const body = await req.json();
     if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-    await db.collection(getCollectionName()).doc(body.id).delete();
+
+    const docRef = db.collection(getCollectionName()).doc(body.id);
+    const existingDoc = await docRef.get();
+    if (!existingDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    await db.collection("bd_proposals_deletions_log").add({
+      proposalId: body.id,
+      proposalRefNo: existingDoc.data()?.refNo || "",
+      proposalSnapshot: existingDoc.data(),
+      deletedBy: getActorLabel(decoded),
+      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await docRef.delete();
     return NextResponse.json({ ok: true });
   } catch (error) {
     const status = error.message === "No ID token provided" ? 401 : error.message === "Forbidden" ? 403 : 500;

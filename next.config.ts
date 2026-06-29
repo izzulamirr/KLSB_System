@@ -15,7 +15,18 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
+    // The app writes JSON backups into data/ on every request (finance,
+    // manpower, etc). Without this, webpack's dev watcher treats those
+    // writes as source changes and triggers a recompile mid-request,
+    // which is what produces "module not found in React Client Manifest".
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: ['**/node_modules/**', '**/.git/**', '**/data/**'],
+      };
+    }
+
     // Externalize pdf-parse for server-side only
     if (isServer) {
       config.externals = config.externals || [];

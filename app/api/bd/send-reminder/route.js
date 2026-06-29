@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPicEmails } from "../../../../lib/picEmailMap";
 import initAdmin from "../../../../lib/firebaseAdmin";
-import { isBdRole, resolveUserRole } from "../../../../lib/roleResolver";
+import { isBdRole, isSysdevRole, resolveUserRole } from "../../../../lib/roleResolver";
 import {
   sendMaturationReminder,
   sendDeadlineReminder,
 } from "../../../../lib/emailService";
+import { filterEmailNotificationRecipients } from "../../../../lib/notificationPreferences";
 
 /**
  * POST /api/bd/send-reminder
@@ -30,7 +31,7 @@ async function authorizeBd(req) {
   const admin = await initAdmin();
   const decoded = await admin.auth().verifyIdToken(idToken);
   const role = await resolveUserRole(admin, decoded);
-  if (!isBdRole(role)) throw new Error("Forbidden");
+  if (!isBdRole(role) && !isSysdevRole(role)) throw new Error("Forbidden");
 
   return { admin, decoded };
 }
@@ -61,10 +62,18 @@ export async function POST(req) {
     }
 
     // Get PIC emails
-    const picEmails = getPicEmails(personInCharge);
-    if (picEmails.length === 0) {
+    const allPicEmails = getPicEmails(personInCharge);
+    if (allPicEmails.length === 0) {
       return NextResponse.json(
         { error: `No valid PICs found in "${personInCharge}"` },
+        { status: 400 }
+      );
+    }
+
+    const picEmails = await filterEmailNotificationRecipients(allPicEmails);
+    if (picEmails.length === 0) {
+      return NextResponse.json(
+        { error: "All recipients have email notifications disabled in their account settings" },
         { status: 400 }
       );
     }
@@ -132,7 +141,7 @@ export async function POST(req) {
     console.error("Reminder send error:", err);
     return NextResponse.json(
       { error: err.message || "Failed to send reminder" },
-      { status: err.message === "Forbidden" ? 403 : 500 }
+      { status: err.message === "No ID token provided" ? 401 : err.message === "Forbidden" ? 403 : 500 }
     );
   }
 }
@@ -152,7 +161,8 @@ export async function GET(req) {
     const url = new URL(req.url);
     const proposalId = url.searchParams.get("proposalId");
     const limitParam = url.searchParams.get("limit") || "50";
-    const limit = Math.min(Math.max(1, parseInt(limitParam)), 500); // Between 1-500
+    const parsedLimit = parseInt(limitParam, 10);
+    const limit = Math.min(Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 50), 500); // Between 1-500
 
     let query = db.collection("email_reminders_log").orderBy("sentAt", "desc");
 
@@ -174,7 +184,7 @@ export async function GET(req) {
     console.error("Get reminders error:", err);
     return NextResponse.json(
       { error: err.message || "Failed to get reminders" },
-      { status: err.message === "Forbidden" ? 403 : 500 }
+      { status: err.message === "No ID token provided" ? 401 : err.message === "Forbidden" ? 403 : 500 }
     );
   }
 }

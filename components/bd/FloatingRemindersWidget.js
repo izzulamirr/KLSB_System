@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
 import { withBasePath } from "../../lib/apiPath";
@@ -44,12 +45,20 @@ function formatDisplayDate(date) {
 }
 
 export default function FloatingRemindersWidget() {
+  const pathname = usePathname();
+  const isBdRoute = /^\/bd(\/|$)/.test(pathname || "");
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [available, setAvailable] = useState(false);
 
   useEffect(() => {
+    if (!isBdRoute) {
+      setAvailable(false);
+      setLoading(false);
+      return undefined;
+    }
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setAvailable(false);
@@ -81,7 +90,7 @@ export default function FloatingRemindersWidget() {
     });
 
     return () => unsub();
-  }, []);
+  }, [isBdRoute]);
 
   const reminders = useMemo(() => {
     const today = new Date();
@@ -112,6 +121,7 @@ export default function FloatingRemindersWidget() {
           title: row.titleProjectName || "-",
           personInCharge: formatPicString(row.personInCharge) || "-",
           picEmails: getPicEmails(row.personInCharge),
+          googleFolderLink: row.googleFolderLink || "",
         });
       }
     }
@@ -172,7 +182,19 @@ export default function FloatingRemindersWidget() {
                     <span className="text-xs font-medium text-slate-600">{item.daysLeft === 0 ? "Today" : `${item.daysLeft} day${item.daysLeft === 1 ? "" : "s"}`}</span>
                   </div>
                   <p className="mt-1 text-sm font-medium text-slate-800 truncate" title={item.title}>
-                    <HighlightNumbers text={item.refNo} /> - {item.title}
+                    {item.googleFolderLink ? (
+                      <a
+                        href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-700 underline decoration-indigo-400 decoration-2 underline-offset-2 hover:text-indigo-900"
+                      >
+                        <HighlightNumbers text={item.refNo} />
+                      </a>
+                    ) : (
+                      <HighlightNumbers text={item.refNo} />
+                    )}{" "}
+                    - {item.title}
                   </p>
                   <p className="text-xs text-slate-500">Due: {formatDisplayDate(item.dueDate)}</p>
                 </div>

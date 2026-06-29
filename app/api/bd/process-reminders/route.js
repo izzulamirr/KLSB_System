@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../../lib/firebaseAdmin";
-import { isBdRole, resolveUserRole } from "../../../../lib/roleResolver";
+import { isBdRole, isSysdevRole, resolveUserRole } from "../../../../lib/roleResolver";
 import { processReminders } from "../../../../lib/reminderScheduler";
 
 /**
@@ -26,7 +26,7 @@ async function authorizeBd(req) {
   const admin = await initAdmin();
   const decoded = await admin.auth().verifyIdToken(idToken);
   const role = await resolveUserRole(admin, decoded);
-  if (!isBdRole(role)) throw new Error("Forbidden");
+  if (!isBdRole(role) && !isSysdevRole(role)) throw new Error("Forbidden");
 
   return { admin, authorized: true, isScheduled: false };
 }

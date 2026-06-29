@@ -49,37 +49,31 @@ export default function BdLayout({ children }) {
         const res = await fetch(withBasePath("/api/auth/role"), {
           headers: { Authorization: `Bearer ${idToken}` },
         });
-        const data = await res.json();
 
-        if (!res.ok && userEmail !== "admin@klsb.com" && userEmail !== "bd@gmail.com") {
+        if (!res.ok) {
           setChecking(false);
           router.push("/dashboard");
           return;
         }
 
+        const data = await res.json();
         const resolvedRole = String(data?.role || "").toLowerCase();
         const respIsAdmin = Boolean(data?.isAdmin);
-        if (resolvedRole !== "bd" && userEmail !== "admin@klsb.com" && userEmail !== "bd@gmail.com") {
+
+        if (resolvedRole !== "bd" && resolvedRole !== "sysdev") {
           setChecking(false);
           router.push("/dashboard");
           return;
         }
 
-        const isStaffAdmin =
-          resolvedRole === "sysdev" || userEmail === "admin@klsb.com" || userEmail === "bd@gmail.com" || respIsAdmin;
-
         setAuthorized(true);
         setEmail(userEmail);
-        setCanManageStaff(isStaffAdmin);
+        setCanManageStaff(resolvedRole === "sysdev" || respIsAdmin);
       } catch {
-        if (userEmail !== "admin@klsb.com") {
-          setChecking(false);
-          router.push("/dashboard");
-          return;
-        }
-        setAuthorized(true);
-        setEmail(userEmail);
-        setCanManageStaff(true);
+        // Fail closed: an error resolving the role should never grant access.
+        setChecking(false);
+        router.push("/dashboard");
+        return;
       } finally {
         setChecking(false);
       }

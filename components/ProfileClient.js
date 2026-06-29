@@ -73,20 +73,23 @@ export default function ProfileClient() {
 
   const requestVerificationCode = async ({ silent = false } = {}) => {
     if (!user) return;
-    if (!newPassword || !confirmPassword) {
-      showMessage("error", "Enter the new password first before sending a verification code.");
-      return;
+    const changingPassword = Boolean(newPassword || confirmPassword);
+    if (changingPassword) {
+      if (!newPassword || !confirmPassword) {
+        showMessage("error", "Enter the new password first before sending a verification code.");
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        showMessage("error", "New passwords do not match.");
+        return;
+      }
+      if (newPassword.length < 6) {
+        showMessage("error", "Password must be at least 6 characters.");
+        return;
+      }
     }
     if (!currentPassword) {
       showMessage("error", "Enter your current password first.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      showMessage("error", "New passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      showMessage("error", "Password must be at least 6 characters.");
       return;
     }
 
@@ -196,7 +199,7 @@ export default function ProfileClient() {
       return;
     }
 
-    if (wantsPasswordChange && !codeVerified) {
+    if ((wantsPasswordChange || wantsEmailChange) && !codeVerified) {
       openVerificationModal();
       await requestVerificationCode({ silent: true });
       return;
@@ -214,6 +217,9 @@ export default function ProfileClient() {
       }
 
       if (wantsEmailChange) {
+        if (!codeVerified) {
+          throw new Error("Verify the email code before changing your email address.");
+        }
         await updateEmail(user, nextEmail);
       }
 
@@ -406,7 +412,7 @@ export default function ProfileClient() {
               <button
                 type="button"
                 onClick={handleSendVerificationCode}
-                disabled={codeSending || !newPassword || !confirmPassword}
+                disabled={codeSending}
                 className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {codeSending ? "Sending..." : "Resend Code"}

@@ -4,12 +4,12 @@ import { resolveUserRole, isSysdevRole } from "../../../../lib/roleResolver";
 import { sendEmail } from "../../../../lib/emailService";
 import crypto from "crypto";
 
-const STAFF_ADMIN_EMAILS = ["bd@gmail.com"];
 const ALLOWED_ROLES = new Set(["bd", "sysdev", "hr", "staff"]);
 
 async function hasStaffAdminAccess(admin, decoded, role) {
   const email = String(decoded?.email || "").toLowerCase();
-  if (isSysdevRole(role) || STAFF_ADMIN_EMAILS.includes(email)) return true;
+  const staffAdminEmails = (process.env.STAFF_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (isSysdevRole(role) || staffAdminEmails.includes(email)) return true;
 
   try {
     const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";

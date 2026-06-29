@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bdFetch } from "./api";
-import MondayDateInput from "../MondayDateInput";
 import PicSelector from "../PicSelector";
 import { formatPicString } from "../../lib/picEmailMap";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
+import {
+  Field,
+  calculateMaturityOnDate,
+  formatAuditDate,
+  validateProposalForm,
+} from "./proposalFormHelpers";
 
 const EDIT_RETURN_URL_KEY = "bd:editReturnUrl";
 
@@ -30,6 +35,7 @@ function normalizeForm(data = {}) {
   const status = data.status || "PENDING";
   return {
     id: data.id || "",
+    expectedUpdatedAt: data.updatedAt ?? null,
     submitted: Boolean(data.submitted) || String(status).toUpperCase() === "ON-GOING",
     refNo: data.refNo || "",
     dateReceived: data.dateReceived || "",
@@ -52,106 +58,6 @@ function normalizeForm(data = {}) {
     remarksUpdatedAt: data.remarksUpdatedAt || "",
     remarksUpdatedBy: data.remarksUpdatedBy || "",
   };
-}
-
-function Field({ label, value, onChange, type = "text", disabled = false }) {
-  if (type === "date") {
-    return (
-      <label className="text-sm text-slate-700">
-        <span className="mb-1 block">{label}</span>
-        <MondayDateInput value={value} onChange={onChange} disabled={disabled} />
-      </label>
-    );
-  }
-
-  if (type === "currency") {
-    return (
-      <label className="text-sm text-slate-700">
-        <span className="mb-1 block">{label}</span>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={formatCurrencyDisplay(value)}
-          disabled={disabled}
-          onChange={(e) => onChange(parseCurrencyInput(e.target.value))}
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
-        />
-      </label>
-    );
-  }
-
-  return (
-    <label className="text-sm text-slate-700">
-      <span className="mb-1 block">{label}</span>
-      <input
-        type={type}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500 disabled:shadow-none"
-      />
-    </label>
-  );
-}
-
-function parseCurrencyInput(value) {
-  if (value === null || value === undefined) return "";
-  const digitsOnly = String(value).replace(/[^\d.]/g, "");
-  const [wholePart, ...fractionParts] = digitsOnly.split(".");
-  const fractionPart = fractionParts.join("").replace(/\./g, "").slice(0, 2);
-  return fractionParts.length > 0 ? `${wholePart || "0"}.${fractionPart}` : wholePart;
-}
-
-function formatCurrencyDisplay(value) {
-  if (value === "" || value === null || value === undefined) return "";
-
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return String(value);
-
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numericValue);
-}
-
-function calculateMaturityOnDate(submissionDate, bidValidity) {
-  if (!submissionDate || bidValidity === "" || bidValidity === null || bidValidity === undefined) {
-    return "";
-  }
-
-  const days = Number(bidValidity);
-  if (!Number.isFinite(days)) return "";
-
-  const parsedSubmission = new Date(`${submissionDate}T00:00:00`);
-  if (Number.isNaN(parsedSubmission.getTime())) return "";
-
-  parsedSubmission.setDate(parsedSubmission.getDate() + days);
-  return parsedSubmission.toISOString().split("T")[0];
-}
-
-function formatAuditDate(value) {
-  if (!value) return "";
-
-  if (typeof value === "string") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
-  }
-
-  if (typeof value?.toDate === "function") {
-    return value.toDate().toLocaleString();
-  }
-
-  if (typeof value?.seconds === "number") {
-    return new Date(value.seconds * 1000).toLocaleString();
-  }
-
-  if (typeof value?._seconds === "number") {
-    return new Date(value._seconds * 1000).toLocaleString();
-  }
-
-  return String(value);
 }
 
 export default function BDEditProposalPage({ proposalId, returnTo = "" }) {
@@ -208,7 +114,13 @@ export default function BDEditProposalPage({ proposalId, returnTo = "" }) {
   }, [router, resolvedReturnTo]);
 
   async function saveProposal() {
-    if (!isReady) return;
+    if (!isReady || saving) return;
+
+    const validationError = validateProposalForm(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     setError("");
     setMessage("");
@@ -231,7 +143,7 @@ export default function BDEditProposalPage({ proposalId, returnTo = "" }) {
   }
 
   async function deleteProposal() {
-    if (!isReady || !window.confirm("Delete this proposal?")) return;
+    if (!isReady || saving || !window.confirm("Delete this proposal?")) return;
 
     setError("");
     setMessage("");

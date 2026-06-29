@@ -1,6 +1,29 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../lib/firebaseAdmin";
 
+// Sum per-day entry hours into the parent-doc-level totals so they stay in
+// sync with `entries` instead of being computed once at creation and going
+// stale on every later edit.
+function sumEntryHours(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  return list.reduce(
+    (acc, entry) => ({
+      normalHours: acc.normalHours + (Number(entry?.normalHours) || 0),
+      otHours: acc.otHours + (Number(entry?.otHours) || 0),
+      nhHours: acc.nhHours + (Number(entry?.nhHours) || 0),
+    }),
+    { normalHours: 0, otHours: 0, nhHours: 0 }
+  );
+}
+
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // GET - Fetch all timesheet records
 export async function GET(request) {
   try {
@@ -49,6 +72,10 @@ export async function GET(request) {
             otHours: entry.otHours || 0,
             nhHours: entry.nhHours || 0,
             totalHours: entry.totalHours || (entry.normalHours || 0) + (entry.otHours || 0) + (entry.nhHours || 0),
+            entryMode: data.entryMode || "daily",
+            status: data.status || "submitted",
+            approvedBy: data.approvedBy || "",
+            approvedAt: data.approvedAt || "",
             uploadedBy: data.uploadedBy,
             uploadedAt: data.uploadedAt,
           });
@@ -68,6 +95,10 @@ export async function GET(request) {
           otHours: data.otHours || 0,
           nhHours: data.nhHours || 0,
           totalHours: data.totalHours || (data.normalHours || 0) + (data.otHours || 0) + (data.nhHours || 0),
+          entryMode: data.entryMode || "daily",
+          status: data.status || "submitted",
+          approvedBy: data.approvedBy || "",
+          approvedAt: data.approvedAt || "",
           uploadedBy: data.uploadedBy,
           uploadedAt: data.uploadedAt,
         });
@@ -95,29 +126,47 @@ export async function POST(request) {
     }
 
     // Prepare data
+    const date = body.date || new Date().toISOString().split("T")[0];
+    const entries = body.entries || [];
+    const sums = sumEntryHours(entries);
     const timesheetData = {
       staffName: body.staffName,
       poSoNo: body.poSoNo || "",
       location: body.location || "",
-      date: body.date || new Date().toISOString().split("T")[0],
-      normalHours: body.normalHours || 0,
-      otHours: body.otHours || 0,
-      nhHours: body.nhHours || 0,
-      totalHours: (body.normalHours || 0) + (body.otHours || 0) + (body.nhHours || 0),
-      entries: body.entries || [],
+      date,
+      entryMode: body.entryMode || "daily",
+      status: body.status || "submitted",
+      normalHours: sums.normalHours,
+      otHours: sums.otHours,
+      nhHours: sums.nhHours,
+      totalHours: sums.normalHours + sums.otHours + sums.nhHours,
+      entries,
       rawText: body.rawText || "",
       needsManualReview: body.needsManualReview || false,
       uploadedBy: body.uploadedBy || "system",
       uploadedAt: body.uploadedAt || new Date().toISOString(),
     };
 
-    // Add to Firestore
-    const docRef = await db.collection("timesheets").add(timesheetData);
-    
-    return NextResponse.json({ 
-      id: docRef.id, 
+    // Use a deterministic id per staff+month so a duplicate create request
+    // (retry, double submission across tabs) fails loudly instead of
+    // silently creating a second parent doc with split hours. Joined with
+    // "-" (not "_") because PUT/DELETE below treat "_" as the separator
+    // that splits a flattened "<parentId>_<entryIndex>" id back to its
+    // parent — an underscore in the parent id itself would break that.
+    const deterministicId = `${slugify(body.staffName)}-${date}`;
+    try {
+      await db.collection("timesheets").doc(deterministicId).create(timesheetData);
+    } catch (createError) {
+      if (createError?.code === 6 || /already exists/i.test(String(createError?.message))) {
+        return NextResponse.json({ error: "A timesheet for this staff and month already exists. Edit it instead of creating a new one." }, { status: 409 });
+      }
+      throw createError;
+    }
+
+    return NextResponse.json({
+      id: deterministicId,
       ...timesheetData,
-      message: "Timesheet created successfully" 
+      message: "Timesheet created successfully"
     }, { status: 201 });
   } catch (error) {
     console.error("POST Error:", error);
@@ -141,9 +190,16 @@ export async function PUT(request) {
     // Remove parent ID if it exists (for flattened entries)
     const actualId = id.includes("_") ? id.split("_")[0] : id;
 
+    // Recompute the parent-level hour totals whenever entries change, so
+    // they don't go stale relative to the per-day data being saved.
+    const recomputedTotals = Array.isArray(updateData.entries) ? sumEntryHours(updateData.entries) : null;
+
     // Update document
     await db.collection("timesheets").doc(actualId).update({
       ...updateData,
+      ...(recomputedTotals
+        ? { normalHours: recomputedTotals.normalHours, otHours: recomputedTotals.otHours, nhHours: recomputedTotals.nhHours, totalHours: recomputedTotals.normalHours + recomputedTotals.otHours + recomputedTotals.nhHours }
+        : {}),
       updatedAt: new Date().toISOString(),
     });
 

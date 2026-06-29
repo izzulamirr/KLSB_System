@@ -15,16 +15,20 @@ async function verifyToken(req, admin) {
   return decoded;
 }
 
+// Human-readable identity for audit fields (createdBy/updatedBy) — falls
+// back to the uid only if no email/name claim is present on the token.
+function getActorIdentity(decoded) {
+  return decoded?.email || decoded?.name || decoded?.uid || "unknown";
+}
+
 function getCollectionName() {
   return process.env.MANPOWER_COLLECTION_NAME || "manpower";
 }
 
 function applyOptionalFilters(queryRef, params) {
-  const bil = params.get("bil");
   const po = params.get("po");
   const location = params.get("location");
 
-  if (bil) return queryRef.where("BIL", "==", Number.isNaN(Number(bil)) ? bil : Number(bil));
   if (po) return queryRef.where("PO_SO_No", "==", po);
   if (location) return queryRef.where("LOCATION", "==", location);
   return queryRef;
@@ -123,6 +127,8 @@ export async function POST(req) {
     const body = await req.json();
     const collectionName = getCollectionName();
 
+    const actor = getActorIdentity(decoded);
+
     if (Array.isArray(body?.rows)) {
       const rows = body.rows;
       if (!rows.length) return NextResponse.json({ created: 0, rows: [] }, { status: 201 });
@@ -130,6 +136,7 @@ export async function POST(req) {
       const colRef = db.collection(collectionName);
       const created = [];
       const nowServer = admin.firestore.FieldValue.serverTimestamp();
+      const nowIso = new Date().toISOString();
 
       for (let i = 0; i < rows.length; i += 400) {
         const chunk = rows.slice(i, i + 400);
@@ -139,12 +146,12 @@ export async function POST(req) {
           const cleaned = stripEmpty(row);
           const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
           const docRef = colRef.doc();
-          created.push({ id: docRef.id, ...payload });
+          created.push({ id: docRef.id, ...payload, createdBy: actor, createdAt: nowIso, updatedBy: actor, updatedAt: nowIso });
           batch.set(docRef, {
             ...payload,
-            createdBy: decoded.uid,
+            createdBy: actor,
             createdAt: nowServer,
-            updatedBy: decoded.uid,
+            updatedBy: actor,
             updatedAt: nowServer,
           });
         });
@@ -157,14 +164,15 @@ export async function POST(req) {
 
     const cleaned = stripEmpty(body);
     const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
+    const nowIso = new Date().toISOString();
     const doc = await db.collection(collectionName).add({
       ...payload,
-      createdBy: decoded.uid,
+      createdBy: actor,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedBy: decoded.uid,
+      updatedBy: actor,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    return NextResponse.json({ id: doc.id }, { status: 201 });
+    return NextResponse.json({ id: doc.id, createdBy: actor, createdAt: nowIso, updatedBy: actor, updatedAt: nowIso }, { status: 201 });
   } catch (e) {
     // 401 for auth issues, 500 for other errors
     const status = e.message && e.message.includes("No ID token") ? 401 : 500;
@@ -179,10 +187,13 @@ export async function PUT(req) {
     const body = await req.json();
     const collectionName = getCollectionName();
 
+    const actor = getActorIdentity(decoded);
+
     if (Array.isArray(body?.rows)) {
       const rows = body.rows.filter((r) => r && r.id);
       if (!rows.length) return NextResponse.json({ updated: 0, ok: true });
 
+      const nowIso = new Date().toISOString();
       for (let i = 0; i < rows.length; i += 400) {
         const chunk = rows.slice(i, i + 400);
         const batch = db.batch();
@@ -194,7 +205,7 @@ export async function PUT(req) {
             db.collection(collectionName).doc(id),
             {
               ...payload,
-              updatedBy: decoded.uid,
+              updatedBy: actor,
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
@@ -203,15 +214,16 @@ export async function PUT(req) {
         await batch.commit();
       }
 
-      return NextResponse.json({ ok: true, updated: rows.length });
+      return NextResponse.json({ ok: true, updated: rows.length, updatedBy: actor, updatedAt: nowIso });
     }
 
     if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
     const { id, ...data } = body;
     const cleaned = stripEmpty(data);
     const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
-    await db.collection(collectionName).doc(id).set({ ...payload, updatedBy: decoded.uid, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    return NextResponse.json({ ok: true, updated: 1 });
+    const nowIso = new Date().toISOString();
+    await db.collection(collectionName).doc(id).set({ ...payload, updatedBy: actor, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    return NextResponse.json({ ok: true, updated: 1, updatedBy: actor, updatedAt: nowIso });
   } catch (e) {
     const status = e.message && e.message.includes("No ID token") ? 401 : 500;
     return NextResponse.json({ error: e.message }, { status });
@@ -240,11 +252,11 @@ function mapStaffToManpower(doc) {
   const s = doc;
   return {
     id: s.id,
-    BIL: s.BIL || s.bil || null,
     STAFF_NAME: s.name || s.fullName || s.STAFF_NAME || "",
     POSITION: s.position || s.role || s.POSITION || "",
     STATUS: s.status || "active",
-    LOCATION: s.location || s.office || s.LOCATION || "",
+    LOCATION: s.client || s.LOCATION || "",
+    SITE: s.location || s.office || s.SITE || "",
     PO_SO_No: s.poNo || s.PO_SO_No || "",
     START_DATE: s.startDate || s.START_DATE || null,
     END_DATE: s.endDate || s.END_DATE || null,
@@ -253,17 +265,19 @@ function mapStaffToManpower(doc) {
     Rate: s.rate || s.Rate || null,
     NH: s.nh || s.NH || null,
     OT: s.ot || s.OT || null,
+    KLSB_RATE_NORMAL: s.klsbRateNormal || s.KLSB_RATE_NORMAL || null,
+    KLSB_RATE_OT: s.klsbRateOt || s.KLSB_RATE_OT || null,
   };
 }
 
 function mapManpowerToStaff(man) {
   // Convert portal manpower shape into a 'staff' doc shape. Adjust as needed.
   return {
-    BIL: man.BIL,
     name: man.STAFF_NAME,
     position: man.POSITION,
     status: man.STATUS,
-    location: man.LOCATION,
+    client: man.LOCATION,
+    location: man.SITE,
     poNo: man.PO_SO_No,
     startDate: man.START_DATE,
     endDate: man.END_DATE,
@@ -272,6 +286,8 @@ function mapManpowerToStaff(man) {
     rate: man.Rate,
     nh: man.NH,
     ot: man.OT,
+    klsbRateNormal: man.KLSB_RATE_NORMAL,
+    klsbRateOt: man.KLSB_RATE_OT,
   };
 }
 

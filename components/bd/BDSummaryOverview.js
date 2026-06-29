@@ -76,27 +76,37 @@ function MiniMetric({ label, value, tone, note }) {
   );
 }
 
-export default function BDSummaryOverview() {
-  const [rows, setRows] = useState([]);
-  const [error, setError] = useState("");
+// Accepts optional `rows`/`error` props so a parent that already fetched
+// proposals (e.g. BDScopeBreakdownPage) can pass them down instead of this
+// component re-fetching the same collection. Falls back to fetching its own
+// data when used standalone (no `rows` prop supplied).
+export default function BDSummaryOverview({ rows: rowsProp, error: errorProp } = {}) {
+  const [internalRows, setInternalRows] = useState([]);
+  const [internalError, setInternalError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalRows, setModalRows] = useState([]);
   const router = useRouter();
 
+  const hasRowsProp = rowsProp !== undefined;
+  const rows = hasRowsProp ? rowsProp : internalRows;
+  const error = hasRowsProp ? errorProp || "" : internalError;
+
   useEffect(() => {
+    if (hasRowsProp) return;
+
     async function load() {
-      setError("");
+      setInternalError("");
       try {
         const data = await bdFetch("/api/bd/proposals");
-        setRows(Array.isArray(data) ? data : []);
+        setInternalRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        setError(err.message || "Failed to load summary");
+        setInternalError(err.message || "Failed to load summary");
       }
     }
 
     load();
-  }, []);
+  }, [hasRowsProp]);
 
   const analytics = useMemo(() => {
     const total = rows.length;

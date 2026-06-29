@@ -22,11 +22,13 @@ async function getSheetsClient() {
 function headerToFieldValue(header, doc) {
   if (!header) return '';
   const h = String(header).toLowerCase();
-  if (h.includes('bil') || h.includes('no') || h.includes('id')) return doc.BIL ?? '';
   if (h.includes('staff') || h.includes('name')) return doc.STAFF_NAME ?? '';
   if (h.includes('position') || h.includes('role')) return doc.POSITION ?? '';
   if (h.includes('status')) return doc.STATUS ?? '';
-  if (h.includes('location') || h.includes('client')) return doc.LOCATION ?? '';
+  // LOCATION historically stores the client name (shown as "Client" in the
+  // UI); SITE is the newer work-location field (shown as "Location").
+  if (h.includes('client')) return doc.LOCATION ?? '';
+  if (h.includes('site') || h.includes('location')) return doc.SITE ?? '';
   if (h.includes('po') || h.includes('so') || h.includes('secondment')) return doc.PO_SO_No ?? '';
   if (h.includes('start')) return doc.START_DATE ?? '';
   if (h.includes('end')) return doc.END_DATE ?? '';
@@ -72,6 +74,21 @@ export async function POST(req) {
     const headers = (headerRes.data && headerRes.data.values && headerRes.data.values[0]) ? headerRes.data.values[0] : [];
     const values = headers.map(h => headerToFieldValue(h, doc));
     const range = `${tabName}!A${Number(sheetRow)}`;
+
+    // Re-read the doc right before writing to the sheet: if it changed since
+    // we first read it (e.g. a concurrent PUT to /api/manpower), the values
+    // we built above are stale — bail out instead of overwriting the sheet
+    // with outdated data, so the caller can retry against the latest doc.
+    const recheckSnap = await db.collection(process.env.MANPOWER_COLLECTION_NAME || 'manpower').doc(docId).get();
+    const recheckUpdatedAt = recheckSnap.exists ? recheckSnap.data()?.updatedAt : null;
+    const initialUpdatedAt = doc.updatedAt || null;
+    const initialMillis = initialUpdatedAt?.toMillis ? initialUpdatedAt.toMillis() : initialUpdatedAt;
+    const recheckMillis = recheckUpdatedAt?.toMillis ? recheckUpdatedAt.toMillis() : recheckUpdatedAt;
+    const changedSinceRead = initialMillis !== recheckMillis;
+    if (changedSinceRead) {
+      return NextResponse.json({ ok: false, reason: 'stale-doc', message: 'Record changed during sync; retry.' }, { status: 409 });
+    }
+
     await sheets.spreadsheets.values.update({ spreadsheetId: sheetId, range, valueInputOption: 'RAW', requestBody: { values: [values] } });
 
     return NextResponse.json({ ok: true });

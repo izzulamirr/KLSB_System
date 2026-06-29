@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyC7W1OPTTPpNVZWr_CIuQulFE2Rai9XfM0",
   authDomain: "klsb-portal.firebaseapp.com",
   projectId: "klsb-portal",
-  storageBucket: "klsb-portal.appspot.com", // <- note .appspot.com
+  storageBucket: "klsb-portal.firebasestorage.app",
   messagingSenderId: "431652906449",
   appId: "1:431652906449:web:a3011946996a49ea682cf0",
 };

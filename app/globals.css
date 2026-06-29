@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Manual light/dark/auto switching: SettingsClient toggles the `dark` class
+   on <html> directly (see app/layout.js's inline init script), rather than
+   relying on Tailwind's default prefers-color-scheme-only variant, so an
+   explicit Light/Dark choice can override the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f3f6fb;
   --foreground: #10233f;
@@ -11,6 +17,19 @@
   --success: #13795b;
   --warning: #9a6500;
   --danger: #b42318;
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  --surface: #111a2e;
+  --surface-muted: #0d1626;
+  --border: #283450;
+  --primary: #3b82f6;
+  --primary-strong: #60a5fa;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
 }
 
 @theme inline {

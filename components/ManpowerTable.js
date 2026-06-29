@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { getAuth } from "firebase/auth";
 import MondayDateInput from "./MondayDateInput";
+import { computeStatusColorFromDates, isEndDateExceeded, isRegularEndDateExceeded } from "../lib/manpowerStatus";
 
 /**
  * Modern blue-themed manpower table
@@ -31,12 +32,12 @@ const STORAGE_KEY = "klsb:manpower:demo";
 
 function emptyRow() {
   return {
-    BIL: null,
     STAFF_NAME: "",
     POSITION: "",
     STATUS: "",  // Employment type: Permanent, Monthly, Hourly, etc.
     STATUS_COLOR: "Active",  // Work situation: Active, Pending, Completed, Terminated
-    LOCATION: "",
+    LOCATION: "", // Client name (historical field name; displayed as "Client")
+    SITE: "", // Physical work location/site, displayed as "Location"
     PO_SO_No: "",
     START_DATE: "",
     END_DATE: "",
@@ -45,54 +46,9 @@ function emptyRow() {
     PAY_TYPE: "",
     NH: "",
     OT: "",
+    KLSB_RATE_NORMAL: "", // Rate KLSB pays the personnel per normal hour — used for cost calc on the Timesheet page, separate from the client invoice amount.
+    KLSB_RATE_OT: "", // Rate KLSB pays the personnel per OT hour.
   };
-}
-
-// Function to check if KLSB end date has been exceeded
-function isEndDateExceeded(endDateKlsb) {
-  if (!endDateKlsb) return false;
-  try {
-    const end = new Date(endDateKlsb);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
-    return end < today;
-  } catch (e) {
-    return false;
-  }
-}
-
-// Function to check if regular end date has been exceeded
-function isRegularEndDateExceeded(endDate) {
-  if (!endDate) return false;
-  try {
-    const end = new Date(endDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return end < today;
-  } catch (e) {
-    return false;
-  }
-}
-
-// Function to determine correct status color based on dates (for pill display)
-function computeStatusColorFromDates(row) {
-  const klsbExpired = isEndDateExceeded(row.END_DATE_KLSB);
-  const endDateExpired = isRegularEndDateExceeded(row.END_DATE);
-  
-  // If both dates exceeded → Terminated
-  if (klsbExpired && endDateExpired) {
-    return "Terminated";
-  }
-  // If KLSB end date exceeded but END_DATE not yet exceeded → Pending
-  if (klsbExpired && !endDateExpired) {
-    return "Pending";
-  }
-  // If END_DATE exceeded (but not KLSB) → Completed
-  if (endDateExpired) {
-    return "Completed";
-  }
-  // Default to Active if no dates exceeded
-  return row.STATUS_COLOR || "Active";
 }
 
 function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expiryLabel }) {
@@ -102,11 +58,11 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
   // Determine CSS class. If expired, show red/rose styling but remain editable.
   const v = String(colorStatus || "").trim().toLowerCase();
   // Base color follows the explicit status color (or STATUS fallback).
-  let cls = "bg-sky-50 text-sky-800 ring-1 ring-sky-200";
-  if (v === "active" || v === "ongoing") cls = "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200";
-  else if (v === "pending") cls = "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
-  else if (v === "completed") cls = "bg-slate-100 text-slate-700 ring-1 ring-slate-300";
-  else if (v === "terminated") cls = "bg-rose-50 text-rose-800 ring-1 ring-rose-200";
+  let cls = "bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-400 ring-1 ring-sky-200 dark:ring-sky-800";
+  if (v === "active" || v === "ongoing") cls = "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800";
+  else if (v === "pending") cls = "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 ring-1 ring-amber-200 dark:ring-amber-800";
+  else if (v === "completed") cls = "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-300 dark:ring-slate-600";
+  else if (v === "terminated") cls = "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-400 ring-1 ring-rose-200 dark:ring-rose-800";
 
   // If the KLSB end date is exceeded, visually emphasize expiration but don't override the
   // selected color — this allows users to change a terminated row back to another status/color.
@@ -117,7 +73,7 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
   if (editing) {
     return (
       <select
-        className={`px-2 py-1 rounded text-xs font-medium border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white min-w-[120px]`}
+        className={`px-2 py-1 rounded text-xs font-medium border border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-slate-900 min-w-[120px]`}
         value={colorStatus || ""}
         onChange={e => {
           setEditing(false);
@@ -153,7 +109,7 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
 
 function Cell({ children, className = "", onClick }) {
   return (
-    <td className={`px-4 py-3 align-top text-[13px] leading-5 text-slate-700 ${className}`} onClick={onClick}>{children}</td>
+    <td className={`px-4 py-3 align-top text-[13px] leading-5 text-slate-700 dark:text-slate-300 ${className}`} onClick={onClick}>{children}</td>
   );
 }
 
@@ -166,7 +122,7 @@ function ActionIconButton({ title, onClick, children, className = "" }) {
       }}
       aria-label={title}
       title={title}
-      className={className || "p-2 rounded-md border border-transparent hover:border-slate-300 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"}
+      className={className || "p-2 rounded-md border border-transparent hover:border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/40 transition"}
     >
       {children}
     </button>
@@ -197,9 +153,8 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
   return (
     <tr
       onClick={() => onSelect?.(r)}
-      className={`border-t border-slate-200/90 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/45"} hover:bg-[#eef4fd] transition-colors`}
+      className={`border-t border-slate-200/90 dark:border-slate-700/60 ${i % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50/45 dark:bg-slate-800/40"} hover:bg-[#eef4fd] dark:hover:bg-slate-800 transition-colors`}
     >
-      <Cell className="whitespace-nowrap text-slate-800 font-medium">{r.BIL}</Cell>
       <Cell>{r.STAFF_NAME || "-"}</Cell>
       <Cell>{r.POSITION || "-"}</Cell>
       <Cell>
@@ -219,10 +174,16 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
             };
             onEdit(i, updatedRow);
             try {
-              await fetchWithAuth("/api/manpower", {
+              const res = await fetchWithAuth("/api/manpower", {
                 method: "PUT",
                 body: JSON.stringify(updatedRow),
               });
+              if (res.ok) {
+                const json = await res.json().catch(() => null);
+                if (json?.updatedBy || json?.updatedAt) {
+                  onEdit(i, { ...updatedRow, updatedBy: json.updatedBy, updatedAt: json.updatedAt });
+                }
+              }
             } catch (err) {
               // Optionally show error
               console.error("Failed to update status color", err);
@@ -231,6 +192,7 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
         />
       </Cell>
       <Cell>{r.LOCATION || "-"}</Cell>
+      <Cell>{r.SITE || "-"}</Cell>
       <Cell>{r.PO_SO_No || "-"}</Cell>
   <Cell>{formatDate(r.START_DATE)}</Cell>
   <Cell>{formatDate(r.END_DATE)}</Cell>
@@ -243,6 +205,8 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
       }</Cell>
       <Cell>{r.NH || "-"}</Cell>
       <Cell>{r.OT || "-"}</Cell>
+      <Cell>{r.KLSB_RATE_NORMAL || "-"}</Cell>
+      <Cell>{r.KLSB_RATE_OT || "-"}</Cell>
       {/* Action buttons intentionally removed from rows.
           Use the detail sidebar's "Edit Record" button instead. */}
     </tr>
@@ -304,7 +268,10 @@ export default function ManpowerTable({ initial = [] }) {
         const res = await fetchWithAuth("/api/manpower?limit=2000");
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length) {
+          if (Array.isArray(data)) {
+            // Trust a genuinely empty array from a successful response —
+            // only fall back to the stale local cache below when the
+            // request itself failed or returned something unusable.
             setRows(sortByLocationAndPoSoNoAsc(data));
             return;
           }
@@ -330,33 +297,39 @@ export default function ManpowerTable({ initial = [] }) {
   const submitForm = useCallback(
     (e) => {
       e?.preventDefault?.();
-      if (!form.STAFF_NAME || !form.BIL) {
-        alert("Please provide at least BIL and STAFF NAME");
+      if (!form.STAFF_NAME) {
+        alert("Please provide at least STAFF NAME");
         return;
       }
   // Use selected PAY_TYPE if set, otherwise compute
   const withPayType = { ...form, PAY_TYPE: form.PAY_TYPE || computePayType(form) };
       if (editingIndex >= 0) {
+        let targetId;
         setRows((r) => {
           const cp = r.map((x) => ({ ...x }));
-          const targetId = cp[editingIndex]?.id;
+          targetId = cp[editingIndex]?.id;
           cp[editingIndex] = { ...cp[editingIndex], ...withPayType };
-          // fire-and-forget PUT for persisted rows
-          if (targetId) {
-            (async () => {
-              try {
-                await fetchWithAuth("/api/manpower", {
-                  method: "PUT",
-                  body: JSON.stringify({ id: targetId, ...withPayType }),
-                });
-              } catch (err) {
-                console.error("Update failed", err);
-                alert("Update failed: " + (err.message || err));
-              }
-            })();
-          }
           return cp;
         });
+        if (targetId) {
+          (async () => {
+            try {
+              const res = await fetchWithAuth("/api/manpower", {
+                method: "PUT",
+                body: JSON.stringify({ id: targetId, ...withPayType }),
+              });
+              if (res.ok) {
+                const json = await res.json().catch(() => null);
+                if (json?.updatedBy || json?.updatedAt) {
+                  setRows((r) => r.map((row) => (row.id === targetId ? { ...row, updatedBy: json.updatedBy, updatedAt: json.updatedAt } : row)));
+                }
+              }
+            } catch (err) {
+              console.error("Update failed", err);
+              alert("Update failed: " + (err.message || err));
+            }
+          })();
+        }
       } else {
         (async () => {
           const auth = getAuth();
@@ -369,7 +342,7 @@ export default function ManpowerTable({ initial = [] }) {
               });
               if (res.ok) {
                 const json = await res.json();
-                setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType, id: json.id }]));
+                setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType, id: json.id, createdBy: json.createdBy, createdAt: json.createdAt, updatedBy: json.updatedBy, updatedAt: json.updatedAt }]));
                 closeForm();
                 return;
               }
@@ -387,13 +360,12 @@ export default function ManpowerTable({ initial = [] }) {
   );
 
   const openAddForm = useCallback((prefill = null) => {
-    const maxBIL = rows.length ? Math.max(...rows.map((x) => Number(x.BIL || 0))) : 0;
-    const base = { ...emptyRow(), BIL: maxBIL + 1 };
+    const base = emptyRow();
     if (prefill) Object.assign(base, prefill);
     setForm(base);
     setEditingIndex(-1);
     setShowForm(true);
-  }, [rows]);
+  }, []);
 
   // Allow row update for status change without opening modal
   const openEditForm = useCallback(
@@ -549,8 +521,6 @@ export default function ManpowerTable({ initial = [] }) {
     }
     setImporting(true);
     try {
-      const maxBIL = rows.length ? Math.max(...rows.map((x) => Number(x.BIL || 0))) : 0;
-      let c = 0;
       function normalizeKey(k) {
         return String(k || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       }
@@ -593,20 +563,17 @@ export default function ManpowerTable({ initial = [] }) {
           return getVal(...fallbackAliases);
         }
 
-        const bilRaw = getMapped("BIL", "BIL", "bil", "Bil");
-        const bilNum = bilRaw ? Number(String(bilRaw).replace(/[^0-9]/g, "")) : null;
-        const bil = !Number.isNaN(bilNum) && bilNum !== 0 ? bilNum : (maxBIL + (++c));
-
         const out = {};
-        out.BIL = bil;
         const staff = getMapped("STAFF_NAME", "STAFF_NAME", "STAFF NAME", "Name", "Staff Name");
         if (staff) out.STAFF_NAME = staff;
         const pos = getMapped("POSITION", "POSITION", "Job Title", "Role");
         if (pos) out.POSITION = pos;
         const status = getMapped("STATUS", "STATUS", "State");
         if (status) out.STATUS = status;
-        const loc = getMapped("LOCATION", "LOCATION", "Location", "Office");
-        if (loc) out.LOCATION = loc;
+        const client = getMapped("LOCATION", "LOCATION", "Client", "CLIENT");
+        if (client) out.LOCATION = client;
+        const site = getMapped("SITE", "SITE", "Location", "Office");
+        if (site) out.SITE = site;
         const po = getMapped("PO_SO_No", "PO_SO_No", "PO/SO No", "PO", "PO No", "PO No.");
         if (po) out.PO_SO_No = po;
         const sd = getMapped("START_DATE", "START_DATE", "START DATE", "Start Date");
@@ -622,6 +589,10 @@ export default function ManpowerTable({ initial = [] }) {
         if (nh) out.NH = nh;
         const ot = getMapped("OT", "OT", "O/T");
         if (ot) out.OT = ot;
+        const klsbRate = getMapped("KLSB_RATE_NORMAL", "KLSB_RATE_NORMAL", "KLSB RATE", "KLSB Rate");
+        if (klsbRate) out.KLSB_RATE_NORMAL = klsbRate;
+        const klsbOtRate = getMapped("KLSB_RATE_OT", "KLSB_RATE_OT", "KLSB OT RATE", "KLSB OT Rate");
+        if (klsbOtRate) out.KLSB_RATE_OT = klsbOtRate;
   // compute pay type based on NH/OT presence
   out.PAY_TYPE = computePayType(out);
 
@@ -631,9 +602,9 @@ export default function ManpowerTable({ initial = [] }) {
       // Debug: show what we're about to import (first 3 rows)
       try { console.log("[Import] normalized sample:", normalized.slice(0, 3)); } catch {}
 
-      // If nothing except BIL mapped, prompt user to map columns
+      // If nothing mapped, prompt user to map columns
       const anyData = normalized.some((r) => (
-        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.NH || r.OT
+        r.STAFF_NAME || r.POSITION || r.STATUS || r.LOCATION || r.SITE || r.PO_SO_No || r.START_DATE || r.END_DATE || r.EXTENSION_STATUS || r.NH || r.OT
       ));
       if (!anyData) {
         alert("No CSV columns matched. Please map columns before importing.");
@@ -722,9 +693,9 @@ export default function ManpowerTable({ initial = [] }) {
   const paginated = sortedFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/40 ring-1 ring-slate-200 overflow-hidden">
+    <div className="rounded-2xl bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/40 ring-1 ring-slate-200 dark:ring-slate-700 overflow-hidden">
       {/* Top bar */}
-      <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-5 py-5 text-slate-900">
+      <div className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 px-5 py-5 text-slate-900 dark:text-slate-100">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-[#0f3d7a] text-white ring-1 ring-[#0f3d7a]/20 shadow-sm">
@@ -733,8 +704,8 @@ export default function ManpowerTable({ initial = [] }) {
               </svg>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">KLSB Workforce Register</div>
-              <div className="text-xl font-semibold tracking-tight text-slate-900">Records: {sortedFiltered.length} / {rows.length}</div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">KLSB Workforce Register</div>
+              <div className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Records: {sortedFiltered.length} / {rows.length}</div>
             </div>
           </div>
 
@@ -743,10 +714,10 @@ export default function ManpowerTable({ initial = [] }) {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search anywhere (BIL, Name, Position, PO, Location)"
-                className="w-80 max-w-[75vw] pl-9 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
+                placeholder="Search anywhere (Name, Position, PO, Location)"
+                className="w-80 max-w-[75vw] pl-9 pr-3 py-2.5 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
               />
-              <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5.5 5.5a7.5 7.5 0 0 0 11.2 11.2Z" />
               </svg>
             </div>
@@ -765,7 +736,7 @@ export default function ManpowerTable({ initial = [] }) {
             <button
               disabled={importing}
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-slate-800 border border-slate-300 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40 disabled:opacity-60"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -774,14 +745,14 @@ export default function ManpowerTable({ initial = [] }) {
             </button>
 
             <div
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-semibold"
               title="Statuses are updated automatically every 60 seconds and on load"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span>{statusSyncing ? "Auto-syncing status..." : "Status auto-sync on"}</span>
-              <span className="text-[11px] font-medium text-emerald-700/80">{formatRelativeTime(statusLastSyncedAt)}</span>
+              <span className="text-[11px] font-medium text-emerald-700/80 dark:text-emerald-400/80">{formatRelativeTime(statusLastSyncedAt)}</span>
             </div>
 
             <button
@@ -791,7 +762,7 @@ export default function ManpowerTable({ initial = [] }) {
                 setPositionFilter("");
                 setProjectFilter("");
               }}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white text-slate-700 border border-slate-300 font-medium hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40"
             >
               Clear
             </button>
@@ -815,11 +786,11 @@ export default function ManpowerTable({ initial = [] }) {
                 className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
                   active
                     ? "bg-[#0f3d7a] text-white border-[#0f3d7a]"
-                    : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`}
               >
                 <span>{v.label}</span>
-                <span className={`rounded-full px-1.5 py-0.5 ${active ? "bg-white/20" : "bg-slate-100"}`}>{statusCounters[v.key]}</span>
+                <span className={`rounded-full px-1.5 py-0.5 ${active ? "bg-white/20" : "bg-slate-100 dark:bg-slate-800"}`}>{statusCounters[v.key]}</span>
               </button>
             );
           })}
@@ -831,20 +802,20 @@ export default function ManpowerTable({ initial = [] }) {
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             placeholder="Filter by Name"
-            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           />
           <input
             value={positionFilter}
             onChange={(e) => setPositionFilter(e.target.value)}
             placeholder="Filter by Position"
-            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 placeholder:text-slate-500 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           />
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 bg-white border border-slate-300 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
+            className="pl-3 pr-3 py-2.5 rounded-xl text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/30"
           >
-            <option value="">All Locations</option>
+            <option value="">All Clients</option>
             {projectOptions.map((location) => (
               <option key={location} value={location}>{location}</option>
             ))}
@@ -853,28 +824,30 @@ export default function ManpowerTable({ initial = [] }) {
       </div>
 
       {/* Table */}
-        <div className="overflow-auto border-t border-slate-200 bg-white">
-          <table className="w-full min-w-[1180px] table-auto text-sm">
+        <div className="overflow-auto border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+          <table className="w-full min-w-[1380px] table-auto text-sm">
           <thead className="sticky top-0 z-10 shadow-sm">
             <tr>
               {[
-                "BIL",
                 "STAFF NAME",
                 "POSITION",
                 "STATUS",
+                "CLIENT",
                 "LOCATION",
                 "PO/SO No",
                 "START DATE",
                 "END DATE",
                 "END DATE KLSB",
-                "EXTENSION STATUS",
+                "REMARKS",
                 "PAY TYPE",
                 "NH",
                 "OT",
+                "KLSB RATE",
+                "KLSB OT RATE",
               ].map((h, i) => (
                 <th
                   key={i}
-                  className="text-left px-4 py-3 bg-slate-100 text-slate-700 border-b border-slate-300 font-semibold text-[11px] uppercase tracking-[0.1em] first:rounded-tl-xl last:rounded-tr-xl"
+                  className="text-left px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-600 font-semibold text-[11px] uppercase tracking-[0.1em] first:rounded-tl-xl last:rounded-tr-xl"
                 >
                   {h}
                 </th>
@@ -884,11 +857,11 @@ export default function ManpowerTable({ initial = [] }) {
           <tbody>
             {paginated.length ? (
               paginated.map((r, i) => (
-                <MemoRow key={r.id ?? `${r.BIL}-${(page-1)*PAGE_SIZE + i}`} r={r} i={(page-1)*PAGE_SIZE + i} onEdit={openEditForm} onRemove={remove} onSelect={setSelectedRow} />
+                <MemoRow key={r.id ?? `${r.PO_SO_No || "row"}-${(page-1)*PAGE_SIZE + i}`} r={r} i={(page-1)*PAGE_SIZE + i} onEdit={openEditForm} onRemove={remove} onSelect={setSelectedRow} />
               ))
             ) : (
               <tr>
-                <td colSpan={13} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={15} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                   No matching records. Try adjusting your filters.
                 </td>
               </tr>
@@ -897,8 +870,8 @@ export default function ManpowerTable({ initial = [] }) {
         </table>
       </div>
       {/* Pagination controls */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-5 py-3 bg-slate-50/80 border-t border-slate-200">
-        <div className="text-sm text-slate-600">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-5 py-3 bg-slate-50/80 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700">
+        <div className="text-sm text-slate-600 dark:text-slate-400">
           {sortedFiltered.length
             ? `Showing ${Math.min(sortedFiltered.length, (page - 1) * PAGE_SIZE + 1)}-${Math.min(sortedFiltered.length, page * PAGE_SIZE)} of ${sortedFiltered.length}`
             : "Showing 0 of 0"}
@@ -907,16 +880,16 @@ export default function ManpowerTable({ initial = [] }) {
           <select
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value) || 30)}
-            className="px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-sm"
+            className="px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm"
             title="Rows per page"
           >
             <option value={30}>30 rows</option>
             <option value={50}>50 rows</option>
             <option value={100}>100 rows</option>
           </select>
-          <button onClick={() => setPage((p) => Math.max(1, p-1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50">Prev</button>
-          <div className="text-sm font-medium text-slate-700">Page {page} / {totalPages}</div>
-          <button onClick={() => setPage((p) => Math.min(totalPages, p+1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-50">Next</button>
+          <button onClick={() => setPage((p) => Math.max(1, p-1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">Prev</button>
+          <div className="text-sm font-medium text-slate-700 dark:text-slate-300">Page {page} / {totalPages}</div>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p+1))} disabled={page >= totalPages} className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">Next</button>
         </div>
       </div>
 
@@ -924,35 +897,39 @@ export default function ManpowerTable({ initial = [] }) {
       {selectedRow && (
         <div className="fixed inset-0 z-40 bg-slate-900/40" onClick={() => setSelectedRow(null)}>
           <aside
-            className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 p-5 overflow-y-auto"
+            className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-700 p-5 overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Staff Detail</p>
-                <h3 className="text-xl font-semibold text-slate-900 mt-1">{selectedRow.STAFF_NAME || "Unnamed"}</h3>
+                <p className="text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Staff Detail</p>
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mt-1">{selectedRow.STAFF_NAME || "Unnamed"}</h3>
               </div>
-              <button onClick={() => setSelectedRow(null)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">✕</button>
+              <button onClick={() => setSelectedRow(null)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400">✕</button>
             </div>
 
             <div className="mt-5 space-y-3 text-sm">
               {[
-                ["BIL", selectedRow.BIL],
                 ["Position", selectedRow.POSITION],
                 ["Status", selectedRow.STATUS_COLOR || computeStatusColorFromDates(selectedRow) || selectedRow.STATUS],
-                ["Location", selectedRow.LOCATION],
+                ["Client", selectedRow.LOCATION],
+                ["Location", selectedRow.SITE],
                 ["PO/SO", selectedRow.PO_SO_No],
                 ["Start Date", formatDate(selectedRow.START_DATE)],
                 ["End Date", formatDate(selectedRow.END_DATE)],
                 ["End Date KLSB", formatDate(selectedRow.END_DATE_KLSB)],
-                ["Extension", selectedRow.EXTENSION_STATUS],
+                ["Remarks", selectedRow.EXTENSION_STATUS],
                 ["Pay Type", computePayType(selectedRow) === "M" ? "Monthly" : "Hourly"],
                 ["NH", selectedRow.NH],
                 ["OT", selectedRow.OT],
+                ["KLSB Rate", selectedRow.KLSB_RATE_NORMAL],
+                ["KLSB OT Rate", selectedRow.KLSB_RATE_OT],
+                ["Last Updated By", selectedRow.updatedBy || selectedRow.createdBy || "-"],
+                ["Last Updated", formatTimestamp(selectedRow.updatedAt || selectedRow.createdAt)],
               ].map(([label, value]) => (
-                <div key={label} className="flex items-start justify-between gap-4 border-b border-slate-100 pb-2">
-                  <span className="text-slate-500">{label}</span>
-                  <span className="text-slate-900 font-medium text-right">{value || "-"}</span>
+                <div key={label} className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <span className="text-slate-500 dark:text-slate-400">{label}</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-medium text-right">{value || "-"}</span>
                 </div>
               ))}
             </div>
@@ -978,30 +955,29 @@ export default function ManpowerTable({ initial = [] }) {
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4">
-          <form onSubmit={submitForm} className="bg-white rounded-2xl p-6 w-[min(720px,95vw)] shadow-xl ring-1 ring-slate-200">
+          <form onSubmit={submitForm} className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-[min(720px,95vw)] shadow-xl ring-1 ring-slate-200 dark:ring-slate-700">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 {editingIndex >= 0 ? "Edit Staff" : "Add Staff"}
               </h3>
-              <button type="button" onClick={closeForm} className="p-2 rounded-lg hover:bg-slate-100">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 text-slate-600">
+              <button type="button" onClick={closeForm} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 text-slate-600 dark:text-slate-400">
                   <path d="M6 6l12 12M6 18L18 6" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
               </button>
             </div>
 
             <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-              {renderInput("BIL", "BIL")}
               {renderInput("Staff Name", "STAFF_NAME")}
               {renderInput("Position", "POSITION")}
               {renderInput("Status", "STATUS")}
               {/* Editable STATUS_COLOR */}
               <label className="flex flex-col">
-                <span className="text-xs text-slate-500 mb-1">Status Color</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">Status Color</span>
                 <select
                   value={form.STATUS_COLOR || ""}
                   onChange={e => setForm({ ...form, STATUS_COLOR: e.target.value })}
-                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                  className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 >
                   <option value="">(none)</option>
                   <option value="Active">Active (Green)</option>
@@ -1010,26 +986,17 @@ export default function ManpowerTable({ initial = [] }) {
                   <option value="Terminated">Terminated (Red)</option>
                 </select>
               </label>
-              {/* Lock to prevent automatic batch updates from overwriting manual status changes */}
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={Boolean(form.STATUS_LOCKED)}
-                  onChange={e => setForm({ ...form, STATUS_LOCKED: e.target.checked })}
-                  className="rounded border"
-                />
-                <span className="text-sm text-slate-600">Lock status from auto-updates</span>
-              </label>
-              {renderInput("Location", "LOCATION")}
+              {renderInput("Client", "LOCATION")}
+              {renderInput("Location", "SITE")}
               {renderInput("PO/SO No", "PO_SO_No")}
               {renderInput("Start Date", "START_DATE", "date")}
               {/* Editable PAY_TYPE */}
               <label className="flex flex-col">
-                <span className="text-xs text-slate-500 mb-1">Pay Type</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">Pay Type</span>
                 <select
                   value={form.PAY_TYPE || ""}
                   onChange={e => setForm({ ...form, PAY_TYPE: e.target.value })}
-                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                  className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 >
                   <option value="">(auto)</option>
                   <option value="M">Monthly</option>
@@ -1038,26 +1005,28 @@ export default function ManpowerTable({ initial = [] }) {
               </label>
               {/* Editable END_DATE */}
               <label className="flex flex-col">
-                <span className="text-xs text-slate-500 mb-1">End Date</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">End Date</span>
                 <input
                   type="date"
                   value={form.END_DATE || ""}
                   onChange={e => setForm({ ...form, END_DATE: e.target.value })}
-                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                  className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 />
               </label>
-              {/* Editable EXTENSION_STATUS */}
+              {/* Editable EXTENSION_STATUS (displayed as "Remarks") */}
               <label className="flex flex-col">
-                <span className="text-xs text-slate-500 mb-1">Extension Status</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">Remarks</span>
                 <input
                   type="text"
                   value={form.EXTENSION_STATUS || ""}
                   onChange={e => setForm({ ...form, EXTENSION_STATUS: e.target.value })}
-                  className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+                  className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 />
               </label>
               {renderInput("NH", "NH")}
               {renderInput("OT", "OT")}
+              {renderInput("KLSB Rate", "KLSB_RATE_NORMAL")}
+              {renderInput("KLSB OT Rate", "KLSB_RATE_OT")}
               {renderInput("End Date (KLSB)", "END_DATE_KLSB", "date")}
             </div>
 
@@ -1083,7 +1052,7 @@ export default function ManpowerTable({ initial = [] }) {
               </div>
 
               <div className="flex gap-2">
-                <button type="button" onClick={closeForm} className="px-3 py-2 border rounded-lg text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="button" onClick={closeForm} className="px-3 py-2 border rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</button>
                 <button type="submit" className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white font-medium shadow hover:brightness-110">Save</button>
               </div>
             </div>
@@ -1093,15 +1062,15 @@ export default function ManpowerTable({ initial = [] }) {
       {/* Raw CSV preview modal (shown right after file selection) */}
       {showRawPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[min(980px,98vw)] shadow-xl ring-1 ring-slate-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-[min(980px,98vw)] shadow-xl ring-1 ring-slate-200 dark:ring-slate-700">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">CSV Preview ({rawCsvRows.length} rows)</h3>
-              <div className="text-sm text-slate-500">Showing first 50 rows</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">Showing first 50 rows</div>
             </div>
 
             <div className="max-h-72 overflow-auto border rounded">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50">
+                <thead className="bg-slate-50 dark:bg-slate-800">
                   <tr>
                     {rawCsvRows[0] && Object.keys(rawCsvRows[0]).map((h) => (
                       <th key={h} className="p-2 text-left">{h}</th>
@@ -1110,7 +1079,7 @@ export default function ManpowerTable({ initial = [] }) {
                 </thead>
                 <tbody>
                   {rawCsvRows.slice(0, 50).map((r, i) => (
-                    <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                    <tr key={i} className={`${i % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'}`}>
                       {Object.keys(rawCsvRows[0]).map((k) => (
                         <td key={k} className="p-2">{r[k]}</td>
                       ))}
@@ -1125,7 +1094,7 @@ export default function ManpowerTable({ initial = [] }) {
               <button onClick={() => { setShowRawPreview(false); setShowMappingModal(true); }} className="px-3 py-2 border rounded-lg">Map columns</button>
               <button onClick={() => { /* Auto-import: reuse normalized confirm flow to avoid empty-field writes */
                 confirmRawImport();
-              }} className="px-3 py-2 rounded-lg bg-white/5 text-slate-900">Auto-import</button>
+              }} className="px-3 py-2 rounded-lg bg-white/5 text-slate-900 dark:text-slate-100">Auto-import</button>
               <button onClick={() => confirmRawImport()} className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white">Confirm Import</button>
             </div>
           </div>
@@ -1135,18 +1104,18 @@ export default function ManpowerTable({ initial = [] }) {
       {/* Mapping modal */}
       {showMappingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="bg-white rounded-2xl p-6 w-[min(880px,98vw)] shadow-xl ring-1 ring-slate-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-[min(880px,98vw)] shadow-xl ring-1 ring-slate-200 dark:ring-slate-700">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Map CSV Columns</h3>
-              <button onClick={() => { setShowMappingModal(false); setShowRawPreview(true); }} className="p-2 rounded hover:bg-slate-100">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 text-slate-600"><path d="M6 6l12 12M6 18L18 6" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              <button onClick={() => { setShowMappingModal(false); setShowRawPreview(true); }} className="p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 text-slate-600 dark:text-slate-400"><path d="M6 6l12 12M6 18L18 6" strokeWidth="1.8" strokeLinecap="round" /></svg>
               </button>
             </div>
-            <p className="text-sm text-slate-600 mb-3">Choose where each CSV column should go. Unmapped columns will be ignored.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">Choose where each CSV column should go. Unmapped columns will be ignored.</p>
 
             <div className="max-h-80 overflow-auto border rounded">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50">
+                <thead className="bg-slate-50 dark:bg-slate-800">
                   <tr>
                     <th className="p-2 text-left">CSV Header</th>
                     <th className="p-2 text-left">Map to field</th>
@@ -1155,7 +1124,7 @@ export default function ManpowerTable({ initial = [] }) {
                 <tbody>
                   {csvHeaders.map((h) => (
                     <tr key={h} className="border-t">
-                      <td className="p-2 align-top font-medium text-slate-700">{h}</td>
+                      <td className="p-2 align-top font-medium text-slate-700 dark:text-slate-300">{h}</td>
                       <td className="p-2">
                         <select
                           value={mapping[h] || ''}
@@ -1164,8 +1133,9 @@ export default function ManpowerTable({ initial = [] }) {
                         >
                           <option value="">(skip)</option>
                           {[
-                            'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'PO_SO_No',
-                            'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT'
+                            'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'SITE', 'PO_SO_No',
+                            'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT',
+                            'KLSB_RATE_NORMAL', 'KLSB_RATE_OT'
                           ].map(col => (
                             <option key={col} value={col}>{col}</option>
                           ))}
@@ -1194,11 +1164,11 @@ export default function ManpowerTable({ initial = [] }) {
     if (type === "date") {
       return (
         <label className="flex flex-col">
-          <span className="text-xs text-slate-500 mb-1">{label}</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</span>
           <MondayDateInput
             value={val}
             onChange={(nextValue) => setForm({ ...form, [key]: nextValue })}
-            className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+            className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
           />
         </label>
       );
@@ -1206,12 +1176,12 @@ export default function ManpowerTable({ initial = [] }) {
 
     return (
       <label className="flex flex-col">
-        <span className="text-xs text-slate-500 mb-1">{label}</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</span>
         <input
           type={type}
           value={val}
           onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-          className="border px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
+          className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
         />
       </label>
     );
@@ -1246,20 +1216,6 @@ function sortByLocationAndPoSoNoAsc(list) {
 
 
 
-function sortByBilAsc(list) {
-  if (!Array.isArray(list)) return list;
-  return list.slice().sort((a, b) => {
-    const aBil = Number(a?.BIL ?? a?.bil ?? -Infinity);
-    const bBil = Number(b?.BIL ?? b?.bil ?? -Infinity);
-    const aValid = !Number.isNaN(aBil);
-    const bValid = !Number.isNaN(bBil);
-    if (aValid && bValid) return aBil - bBil; // ascending
-    if (aValid) return -1; // valid BILs first
-    if (bValid) return 1;
-    return 0;
-  });
-}
-
 function parseTimestamp(v) {
   if (!v) return null;
   if (typeof v === "number") return v;
@@ -1273,6 +1229,22 @@ function formatDate(v) {
   const d = new Date(v);
   if (isNaN(d.getTime())) return String(v);
   return d.toISOString().slice(0, 10);
+}
+
+// Handles a Firestore Timestamp serialized as {_seconds, _nanoseconds}
+// (what the API returns for older, server-stamped values), an ISO string
+// (what newer responses return for immediate optimistic display), or a
+// plain epoch-ms number.
+function formatTimestamp(v) {
+  if (!v) return "-";
+  let d;
+  if (typeof v === "object" && v._seconds != null) {
+    d = new Date(v._seconds * 1000 + Math.floor((v._nanoseconds || 0) / 1e6));
+  } else {
+    d = new Date(v);
+  }
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleString();
 }
 
 function normalizeDate(v) {
@@ -1315,10 +1287,10 @@ function matchFilter(row, q, nameQ, positionQ) {
   try {
     if (q) {
       const s = String(q).trim().toLowerCase();
-      if (String(row.BIL ?? "").toLowerCase().includes(s)) return true;
       if (String(row.STAFF_NAME ?? "").toLowerCase().includes(s)) return true;
       if (String(row.POSITION ?? "").toLowerCase().includes(s)) return true;
       if (String(row.LOCATION ?? "").toLowerCase().includes(s)) return true;
+      if (String(row.SITE ?? "").toLowerCase().includes(s)) return true;
       if (String(row.PO_SO_No ?? "").toLowerCase().includes(s)) return true;
       return false;
     }
@@ -1400,13 +1372,13 @@ function parseCSV(text) {
   if (!rows.length) return [];
 
   const headers = rows[0].map((h) => String(h || '').trim());
-  // Forward-fill for merged cells: only for STAFF_NAME, POSITION, STATUS, LOCATION
-  // Forward-fill for merged cells: only for STAFF_NAME, POSITION, STATUS, LOCATION (with header variants)
+  // Forward-fill for merged cells: STAFF_NAME, POSITION, STATUS, and the
+  // client/location columns (with header variants)
   const forwardFillKeys = [
     k => /^(staff[ _]?name|name)$/i.test(k),
     k => /^position$/i.test(k),
     k => /^status$/i.test(k),
-    k => /^location$/i.test(k)
+    k => /^(location|client|site)$/i.test(k)
   ];
   const lastVals = {};
   const out = [];
@@ -1438,14 +1410,21 @@ function parseCSV(text) {
 function guessMapping(headers) {
   // Make every CSV column available for mapping to any table header, and vice versa
   const tableHeaders = [
-    'BIL', 'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'PO_SO_No',
-    'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT'
+    'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'SITE', 'PO_SO_No',
+    'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT',
+    'KLSB_RATE_NORMAL', 'KLSB_RATE_OT'
   ];
   function normalize(s) {
     return String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
   }
   // Build a mapping from normalized table header to table header
   const normalizedTable = Object.fromEntries(tableHeaders.map(h => [normalize(h), h]));
+  // LOCATION is displayed as "Client" and SITE is displayed as "Location" now,
+  // so a CSV column literally titled "Location" should land in SITE (the new
+  // genuine location field) while "Client" lands in LOCATION (the existing data).
+  normalizedTable[normalize('Client')] = 'LOCATION';
+  normalizedTable[normalize('Location')] = 'SITE';
+  normalizedTable[normalize('Office')] = 'SITE';
   const m = {};
   (headers || []).forEach((csvHeader) => {
     const norm = normalize(csvHeader);

@@ -6,7 +6,7 @@ import crypto from "crypto";
 
 async function hasStaffAdminAccess(admin, decoded, role) {
   const email = String(decoded?.email || "").toLowerCase();
-  const STAFF_ADMIN_EMAILS = (process.env.STAFF_ADMIN_EMAILS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const STAFF_ADMIN_EMAILS = (process.env.STAFF_ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (isSysdevRole(role) || STAFF_ADMIN_EMAILS.includes(email)) return true;
 
   try {
@@ -24,7 +24,7 @@ async function hasStaffAdminAccess(admin, decoded, role) {
 // Body: { email: string }
 export async function POST(req) {
   try {
-    const allowDevBypass = process.env.NODE_ENV !== "production";
+    const allowDevBypass = process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_AUTH_BYPASS === "true";
 
     let admin = null;
     let decoded = null;

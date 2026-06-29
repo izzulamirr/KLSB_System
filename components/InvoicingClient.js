@@ -155,7 +155,11 @@ function statusClass(status) {
   if (normalized.includes("paid")) return "bg-emerald-500 text-white";
   if (normalized.includes("cancel")) return "bg-rose-500 text-white";
   if (normalized.includes("pending")) return "bg-amber-400 text-slate-900";
-  return "bg-slate-200 text-slate-800";
+  return "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200";
+}
+
+function normalizeStatusValue(status) {
+  return String(status || "").trim().toUpperCase();
 }
 
 function createInvoiceForm(invoiceNo = "") {
@@ -201,7 +205,7 @@ export default function InvoicingClient() {
         const response = await fetch(withBasePath(`/api/invoices?live=1&_ts=${Date.now()}`), { cache: "no-store" });
         const data = await response.json();
         if (!active || !response.ok) return;
-        if (Array.isArray(data) && data.length) {
+        if (Array.isArray(data)) {
           setRows(data);
         }
       } catch (error) {
@@ -242,8 +246,9 @@ export default function InvoicingClient() {
   }
 
   const totals = useMemo(() => {
-    const paid = rows.filter((row) => String(row.status).toLowerCase().includes("paid")).length;
-    const cancelled = rows.filter((row) => String(row.status).toLowerCase().includes("cancel")).length;
+    const statuses = rows.map((row) => deriveRowDisplay(row).status);
+    const paid = statuses.filter((status) => String(status).toLowerCase().includes("paid")).length;
+    const cancelled = statuses.filter((status) => String(status).toLowerCase().includes("cancel")).length;
     return { count: rows.length, paid, cancelled };
   }, [rows]);
 
@@ -251,15 +256,6 @@ export default function InvoicingClient() {
     setForm((prev) => {
       const nextForm = { ...prev, [field]: value };
       formDraftRef.current = nextForm;
-
-      if (field === "status" && editingIndex != null) {
-        setRows((currentRows) =>
-          currentRows.map((row, rowIndex) =>
-            rowIndex === editingIndex ? { ...row, status: value } : row,
-          ),
-        );
-      }
-
       return nextForm;
     });
   }
@@ -278,7 +274,16 @@ export default function InvoicingClient() {
   }
 
   function toggleSent(index) {
-    const nextRows = rows.map((row, rowIndex) => (rowIndex === index ? { ...row, sent: !row.sent } : row));
+    const nextRows = rows.map((row, rowIndex) => {
+      if (rowIndex !== index) return row;
+      const nextSent = !row.sent;
+      let nextStatus = row.status;
+      // Sending a draft moves it into the active AR pipeline; un-sending
+      // drops it back to draft so it stops counting as a receivable.
+      if (nextSent && normalizeStatusValue(row.status) === "DRAFT") nextStatus = "PENDING";
+      if (!nextSent && normalizeStatusValue(row.status) === "PENDING") nextStatus = "DRAFT";
+      return { ...row, sent: nextSent, status: nextStatus };
+    });
     persistRows(nextRows);
   }
 
@@ -310,6 +315,20 @@ export default function InvoicingClient() {
     return `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  // Stored balance/status can drift from the amount fields (e.g. paidAmount
+  // edited without recomputing balance). Derive both the same way the edit
+  // modal does so the table always matches what opening "Edit" will show.
+  function deriveRowDisplay(row) {
+    const total = parseAmount(row.invoiceAmountWithSst);
+    const paid = parseAmount(row.paidAmount);
+    if (!Number.isFinite(total)) {
+      return { balance: row.balance, status: row.status };
+    }
+    const remaining = total - (Number.isFinite(paid) ? paid : 0);
+    const status = remaining <= 0 && total > 0 && normalizeStatusValue(row.status) === "PENDING" ? "PAID" : row.status;
+    return { balance: formatCurrency(remaining), status };
+  }
+
   function formatCurrencyInput(v) {
     if (v == null || v === "") return "";
     const n = parseAmount(v);
@@ -327,13 +346,21 @@ export default function InvoicingClient() {
   function blurCurrencyInput(field) {
     setForm((prev) => ({ ...prev, [field]: formatCurrencyInput(prev[field]) }));
   }
-  // auto-calc balance when total or paid changes
+  // auto-calc balance when total or paid changes, and auto-settle a sent
+  // invoice to PAID once the client has fully paid it off.
   useEffect(() => {
     const total = parseAmount(form.invoiceAmountWithSst);
     const paid = parseAmount(form.paidAmount);
     if (!Number.isNaN(total)) {
       const b = Number.isNaN(paid) ? 0 : paid;
-      setForm((prev) => ({ ...prev, balance: formatCurrency(total - b) }));
+      const remaining = total - b;
+      setForm((prev) => {
+        const next = { ...prev, balance: formatCurrency(remaining) };
+        if (remaining <= 0 && total > 0 && normalizeStatusValue(prev.status) === "PENDING") {
+          next.status = "PAID";
+        }
+        return next;
+      });
     } else {
       setForm((prev) => ({ ...prev, balance: "" }));
     }
@@ -448,46 +475,46 @@ export default function InvoicingClient() {
     <section className="space-y-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#0e2b57]/70">Operations</p>
-          <h1 className="mt-1 text-3xl font-semibold text-[#0b1e3a]">Invoicing</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[#0e2b57]/70">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#0e2b57]/70 dark:text-slate-400">Operations</p>
+          <h1 className="mt-1 text-3xl font-semibold text-[#0b1e3a] dark:text-slate-100">Invoicing</h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#0e2b57]/70 dark:text-slate-400">
             Use the table below as the input reference for invoice tracking, payment status, and time-based billing details.
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-2xl border border-[#7aa4cf]/30 bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-3 gap-3 rounded-2xl border border-[#7aa4cf]/30 bg-white dark:bg-slate-900 p-4 shadow-sm">
           <div>
-            <p className="text-xs uppercase text-[#0e2b57]/60">Invoices</p>
-            <p className="text-2xl font-semibold text-[#0b1e3a]">{totals.count}</p>
+            <p className="text-xs uppercase text-[#0e2b57]/60 dark:text-slate-400">Invoices</p>
+            <p className="text-2xl font-semibold text-[#0b1e3a] dark:text-slate-100">{totals.count}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-[#0e2b57]/60">Paid</p>
+            <p className="text-xs uppercase text-[#0e2b57]/60 dark:text-slate-400">Paid</p>
             <p className="text-2xl font-semibold text-emerald-600">{totals.paid}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-[#0e2b57]/60">Cancelled</p>
+            <p className="text-xs uppercase text-[#0e2b57]/60 dark:text-slate-400">Cancelled</p>
             <p className="text-2xl font-semibold text-rose-600">{totals.cancelled}</p>
           </div>
         </div>
       </header>
 
-      <section className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-        <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <section className="overflow-hidden rounded-[22px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <div className="flex flex-col gap-2 border-b border-slate-200 dark:border-slate-700 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Invoice Table Reference</h2>
-            <p className="text-sm text-slate-500">Scrollable input table based on the structure you shared.</p>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Invoice Table Reference</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Scrollable input table based on the structure you shared.</p>
           </div>
-          <p className="text-xs text-slate-500">Click the Sent checkbox to mark entries for dispatch</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Click the Sent checkbox to mark entries for dispatch</p>
         </div>
 
-        <div className="flex items-center justify-end border-b border-slate-100 px-5 py-4">
+        <div className="flex items-center justify-end border-b border-slate-100 dark:border-slate-800 px-5 py-4">
           <div className="flex items-end gap-3">
             <div>
-              <label className="block text-xs text-slate-500">Month Filter</label>
+              <label className="block text-xs text-slate-500 dark:text-slate-400">Month Filter</label>
               <select
                 value={selectedMonthFilter}
                 onChange={(e) => setSelectedMonthFilter(e.target.value)}
-                className="mt-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                className="mt-1 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
               >
                 <option value="">All months</option>
                 {months.map((month) => (
@@ -518,11 +545,13 @@ export default function InvoicingClient() {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(({ row, originalIndex }) => (
+              {filteredRows.map(({ row, originalIndex }) => {
+                const display = deriveRowDisplay(row);
+                return (
                 <tr
                   key={`${row.invoiceNo}-${originalIndex}`}
                   className={
-                    `${originalIndex % 2 === 0 ? "bg-white" : "bg-slate-50/70"} cursor-pointer transition-colors hover:bg-[#eff5ff] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f3d7a]/30`
+                    `${originalIndex % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50/70 dark:bg-slate-800/40"} cursor-pointer transition-colors hover:bg-[#eff5ff] dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#0f3d7a]/30`
                   }
                   role="button"
                   tabIndex={0}
@@ -535,7 +564,7 @@ export default function InvoicingClient() {
                     }
                   }}
                 >
-                  <td className="border-b border-slate-200 px-4 py-3 text-center align-middle">
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 text-center align-middle">
                     <input
                       type="checkbox"
                       checked={!!row.sent}
@@ -545,27 +574,27 @@ export default function InvoicingClient() {
                     />
                   </td>
 
-                  <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900 whitespace-nowrap">{row.invoiceNo}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.invoiceType}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.dateIssued}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.poSoNumber}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.clientName}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.timesheetMonth}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.details}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-right text-slate-700">{formatCurrency(parseAmount(row.invoiceAmountWoSst)) || ""}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-right text-slate-700">{formatCurrency(parseAmount(row.invoiceAmountWithSst)) || ""}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-right text-slate-700">{formatCurrency(parseAmount(row.sstAmount)) || ""}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-right text-slate-700">{formatCurrency(parseAmount(row.paidAmount)) || ""}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-right text-slate-700">{formatCurrency(parseAmount(row.balance)) || row.balance}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">
-                    <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${statusClass(row.status)}`}>{row.status}</span>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">{row.invoiceNo}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.invoiceType}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.dateIssued}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.poSoNumber}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.clientName}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.timesheetMonth}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.details}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-right text-slate-700 dark:text-slate-300">{formatCurrency(parseAmount(row.invoiceAmountWoSst)) || ""}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-right text-slate-700 dark:text-slate-300">{formatCurrency(parseAmount(row.invoiceAmountWithSst)) || ""}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-right text-slate-700 dark:text-slate-300">{formatCurrency(parseAmount(row.sstAmount)) || ""}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-right text-slate-700 dark:text-slate-300">{formatCurrency(parseAmount(row.paidAmount)) || ""}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-right text-slate-700 dark:text-slate-300">{formatCurrency(parseAmount(display.balance)) || display.balance}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${statusClass(display.status)}`}>{display.status}</span>
                   </td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-center text-slate-500">{row.days}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.dueDate}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap text-slate-700">{row.paymentDate}</td>
-                  <td className="border-b border-slate-200 px-4 py-3 min-w-[260px] text-slate-700">{row.notes}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-center text-slate-500 dark:text-slate-400">{row.days}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.dueDate}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{row.paymentDate}</td>
+                  <td className="border-b border-slate-200 dark:border-slate-700 px-4 py-3 min-w-[260px] text-slate-700 dark:text-slate-300">{row.notes}</td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
@@ -574,13 +603,13 @@ export default function InvoicingClient() {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-hidden">
           <div className="absolute inset-0 bg-black/40" onClick={closeInvoiceModal} />
-          <div className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+          <div className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-5 py-4 sm:px-6">
               <div>
-                <h2 className="text-xl font-semibold text-[#0b1e3a]">{formMode === "edit" ? "Edit Invoice" : "Create Invoice"}</h2>
-                <p className="text-sm text-[#0e2b57]/70">Enter invoice details in a modal, similar to the timesheet flow.</p>
+                <h2 className="text-xl font-semibold text-[#0b1e3a] dark:text-slate-100">{formMode === "edit" ? "Edit Invoice" : "Create Invoice"}</h2>
+                <p className="text-sm text-[#0e2b57]/70 dark:text-slate-400">Enter invoice details in a modal, similar to the timesheet flow.</p>
               </div>
-              <button onClick={closeInvoiceModal} className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
+              <button onClick={closeInvoiceModal} className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
                 Close
               </button>
             </div>
@@ -610,12 +639,12 @@ export default function InvoicingClient() {
                   if (key === "dateIssued" || key === "dueDate" || key === "paymentDate") {
                     return (
                       <label key={key} className="space-y-1 text-sm">
-                        <span className="block font-medium text-[#0e2b57]">{label}</span>
+                        <span className="block font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                         <input
                           type="date"
                           value={form[key] || ""}
                           onChange={(e) => updateForm(key, e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                         />
                       </label>
                     );
@@ -625,11 +654,11 @@ export default function InvoicingClient() {
                   if (key === "invoiceType") {
                     return (
                       <label key={key} className="space-y-1 text-sm">
-                        <span className="block font-medium text-[#0e2b57]">{label}</span>
+                        <span className="block font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                         <select
                           value={form.invoiceType}
                           onChange={(e) => updateForm("invoiceType", e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                         >
                           <option value="PROFORMA">PROFORMA</option>
                           <option value="ACTUAL">ACTUAL</option>
@@ -645,11 +674,11 @@ export default function InvoicingClient() {
                   if (key === "invoiceAmountWithSst" || key === "sstAmount") {
                     return (
                       <label key={key} className="space-y-1 text-sm">
-                        <span className="block font-medium text-[#0e2b57]">{label}</span>
+                        <span className="block font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                         <input
                           value={form[key]}
                           readOnly
-                          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 outline-none"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 px-3 py-2 outline-none"
                           placeholder={label}
                         />
                       </label>
@@ -660,13 +689,13 @@ export default function InvoicingClient() {
                     return (
                       <div key={key} className="space-y-2 text-sm">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="block min-w-0 whitespace-nowrap overflow-hidden text-ellipsis font-medium text-[#0e2b57]">{label}</span>
+                          <span className="block min-w-0 whitespace-nowrap overflow-hidden text-ellipsis font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
                               onClick={setNoSst}
                               className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                                form.hasSst ? "bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-[#0f3d7a] text-white"
+                                form.hasSst ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700" : "bg-[#0f3d7a] text-white"
                               }`}
                             >
                               No SST
@@ -675,7 +704,7 @@ export default function InvoicingClient() {
                               type="button"
                               onClick={setWithSst}
                               className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                                form.hasSst ? "bg-[#0f3d7a] text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                form.hasSst ? "bg-[#0f3d7a] text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                               }`}
                             >
                               With SST
@@ -688,7 +717,7 @@ export default function InvoicingClient() {
                           onBlur={() => blurCurrencyInput(key)}
                           onChange={(e) => updateForm(key, e.target.value)}
                           inputMode="decimal"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                           placeholder={label}
                         />
                       </div>
@@ -699,11 +728,11 @@ export default function InvoicingClient() {
                   if (key === "clientName") {
                     return (
                       <label key={key} className="space-y-1 text-sm">
-                        <span className="block font-medium text-[#0e2b57]">{label}</span>
+                        <span className="block font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                         <select
                           value={form.clientName}
                           onChange={(e) => updateForm("clientName", e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                         >
                           <option value="">-- Select client --</option>
                           {clients.map((c) => (
@@ -719,11 +748,11 @@ export default function InvoicingClient() {
                     return (
                       <React.Fragment key={key}>
                         <label className="space-y-1 text-sm">
-                          <span className="block font-medium text-[#0e2b57]">Timesheet Month</span>
+                          <span className="block font-medium text-[#0e2b57] dark:text-slate-300">Timesheet Month</span>
                           <select
                             value={form.timesheetMonthName}
                             onChange={(e) => updateForm("timesheetMonthName", e.target.value)}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                           >
                             <option value="">-- Select month --</option>
                             {months.map((m) => (
@@ -732,11 +761,11 @@ export default function InvoicingClient() {
                           </select>
                         </label>
                         <label className="space-y-1 text-sm">
-                          <span className="block font-medium text-[#0e2b57]">Timesheet Year</span>
+                          <span className="block font-medium text-[#0e2b57] dark:text-slate-300">Timesheet Year</span>
                           <select
                             value={form.timesheetYear}
                             onChange={(e) => updateForm("timesheetYear", e.target.value)}
-                            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                            className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                           >
                             {timesheetYears.map((year) => (
                               <option key={year} value={String(year)}>{year}</option>
@@ -751,11 +780,11 @@ export default function InvoicingClient() {
                   if (key === "status") {
                     return (
                       <label key={key} className="space-y-1 text-sm">
-                        <span className="block font-medium text-[#0e2b57]">{label}</span>
+                        <span className="block font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                         <select
                           value={form.status}
                           onChange={(e) => updateForm("status", e.target.value)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                         >
                           <option value="DRAFT">DRAFT</option>
                           <option value="PAID">PAID</option>
@@ -771,11 +800,11 @@ export default function InvoicingClient() {
                   // default input
                   return (
                     <label key={key} className="space-y-1 text-sm">
-                      <span className="block font-medium text-[#0e2b57]">{label}</span>
+                      <span className="block font-medium text-[#0e2b57] dark:text-slate-300">{label}</span>
                       <input
                         value={form[key]}
                         onChange={(e) => updateForm(key, e.target.value)}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 outline-none transition focus:border-[#0f3d7a] focus:ring-2 focus:ring-[#0f3d7a]/10"
                         placeholder={label}
                       />
                     </label>
@@ -784,17 +813,17 @@ export default function InvoicingClient() {
 
               </div>
 
-              <div className={`mt-6 flex items-center border-t border-slate-200 pt-4 ${formMode === "edit" ? "justify-between" : "justify-end"}`}>
+              <div className={`mt-6 flex items-center border-t border-slate-200 dark:border-slate-700 pt-4 ${formMode === "edit" ? "justify-between" : "justify-end"}`}>
                 {formMode === "edit" && (
                   <button
                     onClick={handleDeleteRow}
-                    className="rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                    className="rounded-xl bg-rose-50 dark:bg-rose-950/40 px-4 py-2 text-sm font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/60"
                   >
                     Delete Invoice
                   </button>
                 )}
                 <div className="flex items-center gap-3">
-                  <button onClick={closeInvoiceModal} className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+                  <button onClick={closeInvoiceModal} className="rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
                     Cancel
                   </button>
                   <button onClick={handleAddRow} className="rounded-xl bg-[#0f3d7a] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0c3368]">

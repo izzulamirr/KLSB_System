@@ -93,6 +93,7 @@ export default function BDDashboardPage() {
           client: row.client || "-",
           personInCharge: formatPicString(row.personInCharge) || "-",
           picEmails: getPicEmails(row.personInCharge),
+          googleFolderLink: row.googleFolderLink || "",
         });
       }
     }

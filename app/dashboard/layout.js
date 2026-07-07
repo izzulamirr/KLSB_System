@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }) {
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Secure Access
           </p>
         </div>
-
+    
         <nav className="p-5 space-y-2 overflow-y-auto h-[calc(100vh-220px)]">
           {nav.map((item) => {
             const active = pathname === item.href || (item.href !== "/dashboard" && pathname?.startsWith(item.href));

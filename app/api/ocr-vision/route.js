@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import vision from "@google-cloud/vision";
+import path from "path";
+
+const localCredentialsPath = path.join(process.cwd(), "secrets", "klsb-service-account.json");
 
 // Initialize Google Cloud Vision client
 const client = new vision.ImageAnnotatorClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS || "./secrets/klsb-service-account.json",
+  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS || localCredentialsPath,
 });
 
 export async function POST(request) {

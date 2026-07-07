@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../../lib/firebaseAdmin";
-import { resolveUserRole } from "../../../../lib/roleResolver";
+import { resolveUserRole, isSysdevRole } from "../../../../lib/roleResolver";
+
+async function hasManpowerWriteAccess(admin, decoded, role) {
+  const email = String(decoded?.email || "").toLowerCase();
+  const allowedEmails = [
+    ...(process.env.MANPOWER_EDITOR_EMAILS || "").split(","),
+    ...(process.env.STAFF_ADMIN_EMAILS || "").split(","),
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (isSysdevRole(role) || allowedEmails.includes(email)) return true;
+
+  try {
+    const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+    const doc = await admin.firestore().collection(roleCollection).doc(decoded.uid).get();
+    if (doc.exists && doc.data()?.isAdmin) return true;
+  } catch {}
+
+  return false;
+}
 
 export async function GET(req) {
   try {
@@ -22,8 +42,11 @@ export async function GET(req) {
       if (doc.exists) isAdmin = Boolean(doc.data()?.isAdmin);
     } catch {}
 
-    return NextResponse.json({ role, email: decoded.email || null, uid: decoded.uid, isAdmin });
+    const canManageManpower = await hasManpowerWriteAccess(admin, decoded, role);
+
+    return NextResponse.json({ role, email: decoded.email || null, uid: decoded.uid, isAdmin, canManageManpower });
   } catch (error) {
+    console.error("/api/auth/role failed:", error && error.stack ? error.stack : error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

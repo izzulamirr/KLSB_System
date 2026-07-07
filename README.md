@@ -54,15 +54,20 @@ npm -v
 
 You should see version strings for both. If you see "The term 'node' is not recognized" or "The term 'npm' is not recognized", restart PowerShell, and if it persists, ensure the Node installation folder (for example `C:\Program Files\nodejs`) is on your PATH environment variable.
 
-3. From the project root (`d:\klsb-portal\klsb-portal`) install dependencies and start the dev server:
+3. From the project root (`C:\System Development\KLSB_System`) install dependencies and start the dev server:
 
 ```powershell
-cd d:\klsb-portal\klsb-portal
-npm install
-npm run dev
+cd "C:\System Development\KLSB_System"
+npm.cmd install
+npm.cmd run dev
 ```
 
 4. Open http://localhost:3000 in your browser. The terminal will show the exact URL and compilation status.
+
+Local Firebase note
+- The app uses the Firebase project from `firebase.js` by default.
+- To switch projects, set the matching `NEXT_PUBLIC_FIREBASE_*` variables for the browser app and `FIREBASE_SERVICE_ACCOUNT_JSON` or `GOOGLE_APPLICATION_CREDENTIALS` for the Admin SDK.
+- The frontend and backend must point to the same Firebase project, or `/api/auth/role` will return 500 during login.
 
 Troubleshooting tips
 - If `npm install` errors with incompatible Node version, install a compatible Node (Node 18+ is a safe choice for Next.js 15).

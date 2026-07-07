@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 function toIsoDate(date) {
@@ -42,6 +43,8 @@ export default function MondayDateInput({
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => parseIsoDate(value) || new Date());
   const wrapperRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [popoverStyle, setPopoverStyle] = useState(null);
 
   useEffect(() => {
     const parsed = parseIsoDate(value);
@@ -60,6 +63,47 @@ export default function MondayDateInput({
     window.addEventListener("mousedown", handleMouseDown);
     return () => window.removeEventListener("mousedown", handleMouseDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const updatePosition = () => {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      const popoverWidth = 304;
+      const popoverHeight = 360;
+      const gap = 8;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      let left = rect.left;
+      if (left + popoverWidth > viewportWidth - 8) {
+        left = Math.max(8, viewportWidth - popoverWidth - 8);
+      }
+
+      let top = rect.bottom + gap;
+      const openAbove = rect.bottom + gap + popoverHeight > viewportHeight - 8 && rect.top - gap - popoverHeight >= 8;
+      if (openAbove) {
+        top = rect.top - gap - popoverHeight;
+      }
+
+      setPopoverStyle({
+        position: "fixed",
+        left,
+        top,
+        width: popoverWidth,
+        zIndex: 9999,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, viewDate]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -93,6 +137,7 @@ export default function MondayDateInput({
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => {
@@ -109,8 +154,8 @@ export default function MondayDateInput({
         <span className="text-slate-400">📅</span>
       </button>
 
-      {open && !disabled && (
-        <div className="absolute left-0 top-full z-50 mt-2 w-[19rem] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
+      {open && !disabled && popoverStyle && typeof document !== "undefined" && createPortal(
+        <div style={popoverStyle} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
               type="button"
@@ -201,7 +246,8 @@ export default function MondayDateInput({
               Today
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

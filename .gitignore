@@ -7,6 +7,7 @@ node_modules/
 
 # Service account keys (do not commit)
 keys/*.json
+secrets/*.json
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies

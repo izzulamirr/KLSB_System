@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import { collection, onSnapshot } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { auth } from "../../firebase";
+import { auth, db } from "../../firebase";
 import { withBasePath } from "../../lib/apiPath";
+
+const MANPOWER_COLLECTION_NAME = process.env.NEXT_PUBLIC_MANPOWER_COLLECTION_NAME || "manpower";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -19,6 +22,123 @@ export default function DashboardPage() {
   const [dataChanged, setDataChanged] = useState(false);
   const previousTotalRef = useRef(0);
   const dataChangedTimerRef = useRef(null);
+
+  const applyDashboardData = useCallback((data, { isAutoRefresh = false } = {}) => {
+    const total = data.length;
+
+    const active = data.filter((r) => {
+      const statusColor = String(r.STATUS_COLOR || "").toLowerCase().trim();
+      return statusColor === "active" || statusColor === "ongoing" || statusColor === "green";
+    }).length;
+
+    const pending = data.filter((r) => {
+      const statusColor = String(r.STATUS_COLOR || "").toLowerCase().trim();
+      return statusColor === "pending" || statusColor === "yellow" || statusColor === "waiting";
+    }).length;
+
+    const monthly = data.filter((r) => {
+      const payType = String(r.PAY_TYPE || "").toUpperCase().trim();
+      return payType === "M" || payType === "MONTHLY";
+    }).length;
+
+    const hourly = data.filter((r) => {
+      const payType = String(r.PAY_TYPE || "").toUpperCase().trim();
+      return payType === "H" || payType === "HOURLY";
+    }).length;
+
+    if (isAutoRefresh && total !== previousTotalRef.current && previousTotalRef.current !== 0) {
+      setDataChanged(true);
+      if (dataChangedTimerRef.current) {
+        clearTimeout(dataChangedTimerRef.current);
+      }
+      dataChangedTimerRef.current = setTimeout(() => setDataChanged(false), 3000);
+    }
+
+    setStats({ total, active, pending, monthly, hourly });
+    previousTotalRef.current = total;
+
+    const projectMap = {};
+    data.forEach((record) => {
+      const poSo = record.PO_SO_No || "Unassigned";
+      if (!projectMap[poSo]) {
+        projectMap[poSo] = {
+          name: poSo,
+          count: 0,
+          active: 0,
+          pending: 0,
+          location: record.LOCATION || "N/A",
+          positions: new Set(),
+        };
+      }
+      projectMap[poSo].count++;
+
+      const statusColor = String(record.STATUS_COLOR || "").toLowerCase().trim();
+      if (statusColor === "active" || statusColor === "ongoing" || statusColor === "green") {
+        projectMap[poSo].active++;
+      }
+      if (statusColor === "pending" || statusColor === "yellow" || statusColor === "waiting") {
+        projectMap[poSo].pending++;
+      }
+      if (record.POSITION) {
+        projectMap[poSo].positions.add(record.POSITION);
+      }
+    });
+
+    const projects = Object.values(projectMap)
+      .map((p) => ({ ...p, positions: p.positions.size }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    setProjectSummary(projects);
+
+    const deadlines = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    data.forEach((record) => {
+      if (record.END_DATE_KLSB) {
+        try {
+          const endDate = new Date(record.END_DATE_KLSB);
+          endDate.setHours(0, 0, 0, 0);
+
+          const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+          if (daysRemaining >= 0 && daysRemaining <= 30) {
+            deadlines.push({
+              staff: record.STAFF_NAME || "Unknown",
+              position: record.POSITION || "N/A",
+              date: record.END_DATE_KLSB,
+              daysRemaining,
+              project: record.PO_SO_No || "N/A",
+              location: record.LOCATION || "N/A",
+              status: record.STATUS_COLOR || "Unknown",
+            });
+          }
+        } catch (err) {
+          console.warn(`Invalid date for record:`, record.END_DATE_KLSB);
+        }
+      }
+    });
+
+    setUpcomingDeadlines(deadlines.sort((a, b) => a.daysRemaining - b.daysRemaining).slice(0, 5));
+
+    const sortedData = [...data]
+      .filter((r) => r.STAFF_NAME)
+      .sort((a, b) => new Date(b.START_DATE || 0) - new Date(a.START_DATE || 0))
+      .slice(0, 5);
+
+    const activities = sortedData.map((record) => ({
+      staff: record.STAFF_NAME,
+      position: record.POSITION || "Position N/A",
+      location: record.LOCATION || "Location N/A",
+      status: record.STATUS_COLOR || "Unknown",
+      project: record.PO_SO_No || "Unassigned",
+      payType: record.PAY_TYPE || "N/A",
+      startDate: record.START_DATE_KLSB || null,
+    }));
+
+    setRecentActivity(activities);
+    setLastUpdated(new Date());
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -36,163 +156,11 @@ export default function DashboardPage() {
         setLoading(true);
       }
       
-      const res = await fetch(withBasePath("/api/manpower"));
+      const res = await fetch(withBasePath("/api/manpower"), { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        
         console.log(`Loaded ${data.length} total records from database`);
-        
-        // Check if data changed (for notifications)
-        const newTotal = data.length;
-        const oldTotal = previousTotalRef.current;
-        if (isAutoRefresh && newTotal !== oldTotal && oldTotal !== 0) {
-          setDataChanged(true);
-          if (dataChangedTimerRef.current) {
-            clearTimeout(dataChangedTimerRef.current);
-          }
-          dataChangedTimerRef.current = setTimeout(() => setDataChanged(false), 3000);
-        }
-        
-        // ===== DYNAMIC STATS COLLECTION =====
-        
-        // Total Staff - count all records
-        const total = data.length;
-        
-        // Active Staff - dynamic filter by STATUS_COLOR
-        const active = data.filter((r) => {
-          const statusColor = String(r.STATUS_COLOR || "").toLowerCase().trim();
-          return statusColor === "active" || statusColor === "ongoing" || statusColor === "green";
-        }).length;
-        
-        // Pending Staff - dynamic filter by STATUS_COLOR
-        const pending = data.filter((r) => {
-          const statusColor = String(r.STATUS_COLOR || "").toLowerCase().trim();
-          return statusColor === "pending" || statusColor === "yellow" || statusColor === "waiting";
-        }).length;
-        
-        // Monthly Pay - dynamic count by PAY_TYPE
-        const monthly = data.filter((r) => {
-          const payType = String(r.PAY_TYPE || "").toUpperCase().trim();
-          return payType === "M" || payType === "MONTHLY";
-        }).length;
-        
-        // Hourly Pay - dynamic count by PAY_TYPE
-        const hourly = data.filter((r) => {
-          const payType = String(r.PAY_TYPE || "").toUpperCase().trim();
-          return payType === "H" || payType === "HOURLY";
-        }).length;
-        
-        setStats({ total, active, pending, monthly, hourly });
-        previousTotalRef.current = total;
-
-        // ===== ACTIVE PROJECTS - Dynamic by PO/SO =====
-        const projectMap = {};
-        data.forEach((record) => {
-          const poSo = record.PO_SO_No || "Unassigned";
-          if (!projectMap[poSo]) {
-            projectMap[poSo] = { 
-              name: poSo, 
-              count: 0, 
-              active: 0, 
-              pending: 0,
-              location: record.LOCATION || "N/A",
-              positions: new Set()
-            };
-          }
-          projectMap[poSo].count++;
-          
-          // Count active staff in project
-          const statusColor = String(record.STATUS_COLOR || "").toLowerCase().trim();
-          if (statusColor === "active" || statusColor === "ongoing" || statusColor === "green") {
-            projectMap[poSo].active++;
-          }
-          
-          // Count pending staff in project
-          if (statusColor === "pending" || statusColor === "yellow" || statusColor === "waiting") {
-            projectMap[poSo].pending++;
-          }
-          
-          // Collect unique positions
-          if (record.POSITION) {
-            projectMap[poSo].positions.add(record.POSITION);
-          }
-        });
-        
-        // Sort projects by total staff count (most staff first)
-        const projects = Object.values(projectMap)
-          .map(p => ({
-            ...p,
-            positions: p.positions.size
-          }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 6);
-        
-        setProjectSummary(projects);
-
-        // ===== UPCOMING DEADLINES - Dynamic from END_DATE_KLSB =====
-        const deadlines = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        data.forEach((record) => {
-          if (record.END_DATE_KLSB) {
-            try {
-              const endDate = new Date(record.END_DATE_KLSB);
-              endDate.setHours(0, 0, 0, 0);
-              
-              const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-              
-              // Only include deadlines within next 30 days and not passed
-              if (daysRemaining >= 0 && daysRemaining <= 30) {
-                deadlines.push({
-                  staff: record.STAFF_NAME || "Unknown",
-                  position: record.POSITION || "N/A",
-                  date: record.END_DATE_KLSB,
-                  daysRemaining,
-                  project: record.PO_SO_No || "N/A",
-                  location: record.LOCATION || "N/A",
-                  status: record.STATUS_COLOR || "Unknown"
-                });
-              }
-            } catch (err) {
-              console.warn(`Invalid date for record:`, record.END_DATE_KLSB);
-            }
-          }
-        });
-        
-        // Sort by urgency (soonest first)
-        setUpcomingDeadlines(deadlines.sort((a, b) => a.daysRemaining - b.daysRemaining).slice(0, 5));
-
-        // ===== RECENT STAFF ADDITIONS - Dynamic by Start Date (newest first) =====
-        const sortedData = [...data]
-          .filter(r => r.STAFF_NAME) // Only records with staff names
-          .sort((a, b) => new Date(b.START_DATE || 0) - new Date(a.START_DATE || 0)) // Most recently started first
-          .slice(0, 5);
-
-        const activities = sortedData.map((record) => ({
-          staff: record.STAFF_NAME,
-          position: record.POSITION || "Position N/A",
-          location: record.LOCATION || "Location N/A",
-          status: record.STATUS_COLOR || "Unknown",
-          project: record.PO_SO_No || "Unassigned",
-          payType: record.PAY_TYPE || "N/A",
-          startDate: record.START_DATE_KLSB || null
-        }));
-        
-        setRecentActivity(activities);
-        
-        setLastUpdated(new Date());
-        
-        console.log('Dashboard Stats:', { 
-          total, 
-          active, 
-          pending, 
-          monthly, 
-          hourly,
-          projects: projects.length,
-          deadlines: deadlines.length,
-          recentAdditions: activities.length
-        });
+        applyDashboardData(data, { isAutoRefresh });
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
@@ -200,7 +168,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [applyDashboardData]);
 
   useEffect(() => {
     return () => {
@@ -213,11 +181,21 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) {
       fetchDashboardData();
+      const liveUnsub = onSnapshot(collection(db, MANPOWER_COLLECTION_NAME), (snapshot) => {
+        const liveData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        applyDashboardData(liveData);
+      }, (err) => {
+        console.error("Live dashboard listener failed:", err);
+      });
+
       // Auto-refresh every 30 seconds
       const interval = setInterval(() => {
         fetchDashboardData(true);
       }, 30000);
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+        liveUnsub();
+      };
     }
   }, [user, fetchDashboardData]);
 

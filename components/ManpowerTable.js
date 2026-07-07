@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef, memo } from "react";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import MondayDateInput from "./MondayDateInput";
 import { computeStatusColorFromDates, isEndDateExceeded, isRegularEndDateExceeded } from "../lib/manpowerStatus";
 
@@ -26,6 +26,11 @@ async function fetchWithAuth(url, opts = {}) {
     ...opts,
     headers: { "Content-Type": "application/json", ...headers },
   });
+}
+
+function notifyManpowerSummaryChange() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("manpower-summary-refresh"));
 }
 
 const STORAGE_KEY = "klsb:manpower:demo";
@@ -242,6 +247,8 @@ export default function ManpowerTable({ initial = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRow());
   const [editingIndex, setEditingIndex] = useState(-1);
+  const [canWriteRows, setCanWriteRows] = useState(false);
+  const [checkingWriteAccess, setCheckingWriteAccess] = useState(true);
   const [importing, setImporting] = useState(false);
   const [rawCsvRows, setRawCsvRows] = useState([]);
   const [showRawPreview, setShowRawPreview] = useState(false);
@@ -294,9 +301,46 @@ export default function ManpowerTable({ initial = [] }) {
     } catch {}
   }, [rows]);
 
+  useEffect(() => {
+    const auth = getAuth();
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setCanWriteRows(false);
+        setCheckingWriteAccess(false);
+        return;
+      }
+
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/auth/role", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+          setCanWriteRows(false);
+          return;
+        }
+
+        const data = await res.json().catch(() => ({}));
+        setCanWriteRows(Boolean(data?.canManageManpower));
+      } catch {
+        setCanWriteRows(false);
+      } finally {
+        setCheckingWriteAccess(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
   const submitForm = useCallback(
     (e) => {
       e?.preventDefault?.();
+      if (!canWriteRows) {
+        alert("You are not allowed to add or edit manpower rows.");
+        return;
+      }
       if (!form.STAFF_NAME) {
         alert("Please provide at least STAFF NAME");
         return;
@@ -304,6 +348,7 @@ export default function ManpowerTable({ initial = [] }) {
   // Use selected PAY_TYPE if set, otherwise compute
   const withPayType = { ...form, PAY_TYPE: form.PAY_TYPE || computePayType(form) };
       if (editingIndex >= 0) {
+        const snapshot = rows.map((row) => ({ ...row }));
         let targetId;
         setRows((r) => {
           const cp = r.map((x) => ({ ...x }));
@@ -318,14 +363,20 @@ export default function ManpowerTable({ initial = [] }) {
                 method: "PUT",
                 body: JSON.stringify({ id: targetId, ...withPayType }),
               });
+              if (!res.ok) {
+                const err = await safeJson(res);
+                throw new Error(err?.error || res.statusText || "Update failed");
+              }
               if (res.ok) {
                 const json = await res.json().catch(() => null);
                 if (json?.updatedBy || json?.updatedAt) {
                   setRows((r) => r.map((row) => (row.id === targetId ? { ...row, updatedBy: json.updatedBy, updatedAt: json.updatedAt } : row)));
+                  notifyManpowerSummaryChange();
                 }
               }
             } catch (err) {
               console.error("Update failed", err);
+              setRows(snapshot);
               alert("Update failed: " + (err.message || err));
             }
           })();
@@ -334,38 +385,98 @@ export default function ManpowerTable({ initial = [] }) {
         (async () => {
           const auth = getAuth();
           const user = auth.currentUser;
-          if (user) {
-            try {
-              const res = await fetchWithAuth("/api/manpower", {
-                method: "POST",
-                body: JSON.stringify(withPayType),
-              });
-              if (res.ok) {
-                const json = await res.json();
-                setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType, id: json.id, createdBy: json.createdBy, createdAt: json.createdAt, updatedBy: json.updatedBy, updatedAt: json.updatedAt }]));
-                closeForm();
-                return;
-              }
-            } catch (err) {
-              console.error("POST error", err);
-            }
+          if (!user) {
+            alert("You must be signed in to add manpower rows.");
+            return;
           }
-          // fallback local
-          setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType }]));
+
+          try {
+            const res = await fetchWithAuth("/api/manpower", {
+              method: "POST",
+              body: JSON.stringify(withPayType),
+            });
+            if (!res.ok) {
+              const err = await safeJson(res);
+              throw new Error(err?.error || res.statusText || "Create failed");
+            }
+
+            const json = await res.json();
+            setRows((r) => sortByLocationAndPoSoNoAsc([...r, { ...withPayType, id: json.id, createdBy: json.createdBy, createdAt: json.createdAt, updatedBy: json.updatedBy, updatedAt: json.updatedAt }]));
+            notifyManpowerSummaryChange();
+            closeForm();
+            return;
+          } catch (err) {
+            console.error("POST error", err);
+            alert("Add failed: " + (err.message || err));
+          }
         })();
       }
       closeForm();
     },
-    [editingIndex, form]
+    [canWriteRows, editingIndex, form, rows]
   );
 
+      useEffect(() => {
+        if (!canWriteRows || checkingWriteAccess) return;
+        return;
+
+
+      notifyManpowerSummaryChange();
+        const queuedRows = rows.filter((row) => !row?.id);
+        if (!queuedRows.length) return;
+
+        let cancelled = false;
+
+        (async () => {
+          try {
+            const res = await fetchWithAuth("/api/manpower", {
+              method: "POST",
+              body: JSON.stringify({
+                rows: queuedRows.map((row) => ({
+                  ...row,
+                  PAY_TYPE: row.PAY_TYPE || computePayType(row),
+                })),
+              }),
+            });
+
+            if (!res.ok) {
+              const err = await safeJson(res);
+              throw new Error(err?.error || res.statusText || "Queued row sync failed");
+            }
+
+            const json = await res.json().catch(() => ({}));
+            const createdRows = Array.isArray(json?.rows) ? json.rows : [];
+
+            if (!cancelled && createdRows.length) {
+              let createdIndex = 0;
+              setRows((currentRows) => currentRows.map((row) => {
+                if (row?.id) return row;
+                const nextCreated = createdRows[createdIndex++];
+                return nextCreated ? { ...row, ...nextCreated } : row;
+              }));
+              notifyManpowerSummaryChange();
+            }
+          } catch (err) {
+            console.error("Failed to sync queued manpower rows", err);
+          }
+        })();
+
+        return () => {
+          cancelled = true;
+        };
+      }, [canWriteRows, checkingWriteAccess, rows]);
+
   const openAddForm = useCallback((prefill = null) => {
+    if (!canWriteRows) {
+      alert("You are not allowed to add manpower rows.");
+      return;
+    }
     const base = emptyRow();
     if (prefill) Object.assign(base, prefill);
     setForm(base);
     setEditingIndex(-1);
     setShowForm(true);
-  }, []);
+  }, [canWriteRows]);
 
   // Allow row update for status change without opening modal
   const openEditForm = useCallback(
@@ -391,6 +502,10 @@ export default function ManpowerTable({ initial = [] }) {
 
   const remove = useCallback(
     async (idx) => {
+      if (!canWriteRows) {
+        alert("You are not allowed to delete manpower rows.");
+        return;
+      }
       const row = rows[idx];
       if (!row?.id) {
         setRows((r) => r.filter((_, i) => i !== idx));
@@ -416,11 +531,12 @@ export default function ManpowerTable({ initial = [] }) {
         alert("Delete failed: " + (e.message || e));
       }
     },
-    [rows]
+    [canWriteRows, rows]
   );
 
   // Auto-update all statuses based on END_DATE and END_DATE_KLSB
   const updateAllStatuses = useCallback(async () => {
+    if (!canWriteRows) return;
     const auth = getAuth();
     const user = auth.currentUser;
     setStatusSyncing(true);
@@ -462,6 +578,7 @@ export default function ManpowerTable({ initial = [] }) {
           const err = await safeJson(res);
           throw new Error(err?.error || "Bulk status update failed");
         }
+        notifyManpowerSummaryChange();
       }
 
       if (localChanged) {
@@ -473,7 +590,7 @@ export default function ManpowerTable({ initial = [] }) {
     } finally {
       setStatusSyncing(false);
     }
-  }, [rows]);
+  }, [canWriteRows, rows]);
 
   // Keep statuses automatically synchronized in the background.
   useEffect(() => {
@@ -489,6 +606,11 @@ export default function ManpowerTable({ initial = [] }) {
   const onFileChange = useCallback((e) => {
     const file = e.target?.files?.[0];
     if (!file) return;
+    if (!canWriteRows) {
+      alert("You are not allowed to import manpower rows.");
+      e.target.value = "";
+      return;
+    }
     setImporting(true);
     const reader = new FileReader();
     reader.onload = () => {
@@ -511,11 +633,16 @@ export default function ManpowerTable({ initial = [] }) {
       }
     };
     reader.readAsText(file);
-  }, [rows]);
+  }, [canWriteRows, rows]);
 
   // User confirmed import of the previously parsed raw CSV rows
   const confirmRawImport = useCallback(async () => {
     if (!rawCsvRows?.length) {
+      setShowRawPreview(false);
+      return;
+    }
+    if (!canWriteRows) {
+      alert("You are not allowed to import manpower rows.");
       setShowRawPreview(false);
       return;
     }
@@ -635,6 +762,7 @@ export default function ManpowerTable({ initial = [] }) {
           const createdRows = Array.isArray(json?.rows) ? json.rows : [];
           successes.push(...createdRows);
           setRows((r) => sortByLocationAndPoSoNoAsc([...r, ...createdRows]));
+            notifyManpowerSummaryChange();
         } catch (err) {
           console.error("Bulk import failed", err);
           failures.push(...normalized.map((row) => ({ row, error: err })));
@@ -662,7 +790,7 @@ export default function ManpowerTable({ initial = [] }) {
       setRawCsvRows([]);
       setShowRawPreview(false);
     }
-  }, [rawCsvRows, rows]);
+  }, [canWriteRows, rawCsvRows, rows]);
 
   // Derive unique sorted location list from all rows for the dropdown
   const projectOptions = Array.from(
@@ -724,7 +852,8 @@ export default function ManpowerTable({ initial = [] }) {
 
             <button
               onClick={() => openAddForm()}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0f3d7a] text-white font-semibold shadow-sm hover:bg-[#0c3368] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40"
+              disabled={checkingWriteAccess || !canWriteRows}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0f3d7a] text-white font-semibold shadow-sm hover:bg-[#0c3368] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M12 5v14M5 12h14" strokeWidth="1.8" strokeLinecap="round" />
@@ -734,9 +863,9 @@ export default function ManpowerTable({ initial = [] }) {
 
             <input ref={fileInputRef} type="file" accept=".csv" onChange={onFileChange} className="hidden" />
             <button
-              disabled={importing}
+              disabled={importing || checkingWriteAccess || !canWriteRows}
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40 disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0f3d7a]/40 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M12 16v-8m0 0-3 3m3-3 3 3M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -751,8 +880,22 @@ export default function ManpowerTable({ initial = [] }) {
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                 <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span>{statusSyncing ? "Auto-syncing status..." : "Status auto-sync on"}</span>
-              <span className="text-[11px] font-medium text-emerald-700/80 dark:text-emerald-400/80">{formatRelativeTime(statusLastSyncedAt)}</span>
+              <span>
+                {checkingWriteAccess
+                  ? "Checking access..."
+                  : statusSyncing
+                  ? "Auto-syncing status..."
+                  : canWriteRows
+                  ? "Status auto-sync on"
+                  : "Read-only"}
+              </span>
+              <span className="text-[11px] font-medium text-emerald-700/80 dark:text-emerald-400/80">
+                {checkingWriteAccess
+                  ? "..."
+                  : canWriteRows
+                  ? formatRelativeTime(statusLastSyncedAt)
+                  : "no sync access"}
+              </span>
             </div>
 
             <button
@@ -1053,7 +1196,7 @@ export default function ManpowerTable({ initial = [] }) {
 
               <div className="flex gap-2">
                 <button type="button" onClick={closeForm} className="px-3 py-2 border rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Cancel</button>
-                <button type="submit" className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white font-medium shadow hover:brightness-110">Save</button>
+                <button type="submit" disabled={!canWriteRows || checkingWriteAccess} className="px-3 py-2 rounded-lg bg-[#0e2b57] text-white font-medium shadow hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">Save</button>
               </div>
             </div>
           </form>

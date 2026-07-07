@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../lib/firebaseAdmin";
+import { resolveUserRole, isSysdevRole } from "../../../lib/roleResolver";
 
 async function getAdminAndDb() {
   const admin = await initAdmin();
@@ -19,6 +20,28 @@ async function verifyToken(req, admin) {
 // back to the uid only if no email/name claim is present on the token.
 function getActorIdentity(decoded) {
   return decoded?.email || decoded?.name || decoded?.uid || "unknown";
+}
+
+async function hasManpowerWriteAccess(admin, decoded, role) {
+  const email = String(decoded?.email || "").toLowerCase();
+  const allowedEmails = [
+    ...(process.env.MANPOWER_EDITOR_EMAILS || "").split(","),
+    ...(process.env.STAFF_ADMIN_EMAILS || "").split(","),
+  ]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (isSysdevRole(role) || allowedEmails.includes(email)) return true;
+
+  try {
+    const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";
+    const doc = await admin.firestore().collection(roleCollection).doc(decoded.uid).get();
+    if (doc.exists && doc.data()?.isAdmin) return true;
+  } catch {
+    // Ignore role lookup failures and fall back to denied.
+  }
+
+  return false;
 }
 
 function getCollectionName() {
@@ -123,7 +146,11 @@ export async function POST(req) {
   try {
     const { admin, db } = await getAdminAndDb();
     const decoded = await verifyToken(req, admin);
-    // basic auth check, allow any authenticated user for now
+    const requesterRole = await resolveUserRole(admin, decoded);
+    if (!(await hasManpowerWriteAccess(admin, decoded, requesterRole))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     const collectionName = getCollectionName();
 
@@ -184,6 +211,11 @@ export async function PUT(req) {
   try {
     const { admin, db } = await getAdminAndDb();
     const decoded = await verifyToken(req, admin);
+    const requesterRole = await resolveUserRole(admin, decoded);
+    if (!(await hasManpowerWriteAccess(admin, decoded, requesterRole))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     const collectionName = getCollectionName();
 
@@ -234,6 +266,11 @@ export async function DELETE(req) {
   try {
     const { admin, db } = await getAdminAndDb();
     const decoded = await verifyToken(req, admin);
+    const requesterRole = await resolveUserRole(admin, decoded);
+    if (!(await hasManpowerWriteAccess(admin, decoded, requesterRole))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
     const collectionName = getCollectionName();

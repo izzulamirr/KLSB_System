@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import MondayDateInput from "./MondayDateInput";
 import { computeStatusColorFromDates, isEndDateExceeded, isRegularEndDateExceeded } from "../lib/manpowerStatus";
+import { withBasePath } from "../lib/apiPath";
 
 /**
  * Modern blue-themed manpower table
@@ -22,7 +23,7 @@ async function fetchWithAuth(url, opts = {}) {
     const token = await user.getIdToken();
     headers["Authorization"] = `Bearer ${token}`;
   }
-  return fetch(url, {
+  return fetch(withBasePath(url), {
     ...opts,
     headers: { "Content-Type": "application/json", ...headers },
   });

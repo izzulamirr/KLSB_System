@@ -304,31 +304,11 @@ export default function ManpowerTable({ initial = [] }) {
   useEffect(() => {
     const auth = getAuth();
 
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setCanWriteRows(false);
-        setCheckingWriteAccess(false);
-        return;
-      }
-
-      try {
-        const token = await user.getIdToken();
-        const res = await fetch("/api/auth/role", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!res.ok) {
-          setCanWriteRows(false);
-          return;
-        }
-
-        const data = await res.json().catch(() => ({}));
-        setCanWriteRows(Boolean(data?.canManageManpower));
-      } catch {
-        setCanWriteRows(false);
-      } finally {
-        setCheckingWriteAccess(false);
-      }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      // Portal access itself is already gated by role at login/account level,
+      // so any signed-in user reaching this page can edit the PO/SO database.
+      setCanWriteRows(Boolean(user));
+      setCheckingWriteAccess(false);
     });
 
     return () => unsub();

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../../lib/firebaseAdmin";
-import { resolveUserRole, isSysdevRole } from "../../../../lib/roleResolver";
+import { resolveUserRole, isSysdevRole, isHrRole } from "../../../../lib/roleResolver";
 
 async function hasManpowerWriteAccess(admin, decoded, role) {
   const email = String(decoded?.email || "").toLowerCase();
@@ -11,7 +11,7 @@ async function hasManpowerWriteAccess(admin, decoded, role) {
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
 
-  if (isSysdevRole(role) || allowedEmails.includes(email)) return true;
+  if (isSysdevRole(role) || isHrRole(role) || allowedEmails.includes(email)) return true;
 
   try {
     const roleCollection = process.env.USER_ROLES_COLLECTION || "user_roles";

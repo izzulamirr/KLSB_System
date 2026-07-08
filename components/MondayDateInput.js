@@ -44,6 +44,7 @@ export default function MondayDateInput({
   const [viewDate, setViewDate] = useState(() => parseIsoDate(value) || new Date());
   const wrapperRef = useRef(null);
   const buttonRef = useRef(null);
+  const popoverRef = useRef(null);
   const [popoverStyle, setPopoverStyle] = useState(null);
 
   useEffect(() => {
@@ -55,7 +56,9 @@ export default function MondayDateInput({
     if (!open) return undefined;
 
     const handleMouseDown = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+      const insideWrapper = wrapperRef.current && wrapperRef.current.contains(event.target);
+      const insidePopover = popoverRef.current && popoverRef.current.contains(event.target);
+      if (!insideWrapper && !insidePopover) {
         setOpen(false);
       }
     };
@@ -155,7 +158,7 @@ export default function MondayDateInput({
       </button>
 
       {open && !disabled && popoverStyle && typeof document !== "undefined" && createPortal(
-        <div style={popoverStyle} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
+        <div ref={popoverRef} style={popoverStyle} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
               type="button"

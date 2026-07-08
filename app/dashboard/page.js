@@ -5,7 +5,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { auth, db } from "../../firebase";
-import { withBasePath } from "../../lib/apiPath";
+import { fetchWithAuth } from "../../lib/fetchWithAuth";
 
 const MANPOWER_COLLECTION_NAME = process.env.NEXT_PUBLIC_MANPOWER_COLLECTION_NAME || "manpower";
 
@@ -156,7 +156,7 @@ export default function DashboardPage() {
         setLoading(true);
       }
       
-      const res = await fetch(withBasePath("/api/manpower"), { cache: "no-store" });
+      const res = await fetchWithAuth("/api/manpower", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         console.log(`Loaded ${data.length} total records from database`);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { withBasePath } from "../lib/apiPath";
+import { fetchWithAuth } from "../lib/fetchWithAuth";
 import { effectiveStatusColor } from "../lib/manpowerStatus";
 
 function buildSummary(rows) {
@@ -24,7 +24,7 @@ function buildSummaryUrl({ poFilter, companyFilter }) {
   const params = new URLSearchParams({ summary: "1" });
   if (poFilter) params.set("po", String(poFilter));
   if (companyFilter) params.set("location", String(companyFilter));
-  return withBasePath(`/api/manpower?${params.toString()}`);
+  return `/api/manpower?${params.toString()}`;
 }
 
 export default function ManpowerSummaryCards({ poFilter = null, companyFilter = null, initialRows = [] }) {
@@ -32,7 +32,7 @@ export default function ManpowerSummaryCards({ poFilter = null, companyFilter = 
 
   const refreshSummary = useCallback(async () => {
     try {
-      const res = await fetch(buildSummaryUrl({ poFilter, companyFilter }), { cache: "no-store" });
+      const res = await fetchWithAuth(buildSummaryUrl({ poFilter, companyFilter }), { cache: "no-store" });
       if (!res.ok) throw new Error(`Summary request failed: ${res.status}`);
       const json = await res.json().catch(() => ({}));
       setSummary({

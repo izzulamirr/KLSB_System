@@ -5,6 +5,7 @@ import firebaseApp from "../firebase";
 import { getAuth } from "firebase/auth";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { withBasePath } from "../lib/apiPath";
+import { fetchWithAuth } from "../lib/fetchWithAuth";
 
 // Dates in this component are stored as plain "YYYY-MM-DD" strings; parsing
 // them with `new Date(str)` reads them as UTC midnight, which shifts the
@@ -109,7 +110,7 @@ export default function TimesheetMonthlyManualClient() {
   }
 
   useEffect(() => {
-    fetch(withBasePath("/api/manpower?limit=2000"))
+    fetchWithAuth("/api/manpower?limit=2000")
       .then((r) => r.json())
       .then((rows) => {
         const arr = Array.isArray(rows) ? rows : [];

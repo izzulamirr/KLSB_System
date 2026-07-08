@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import initAdmin from "../../../lib/firebaseAdmin";
+import { effectiveStatusColor } from "../../../lib/manpowerStatus";
 
 async function getAdminAndDb() {
   const admin = await initAdmin();
@@ -25,6 +26,18 @@ function getCollectionName() {
   return process.env.MANPOWER_COLLECTION_NAME || "manpower";
 }
 
+function timestampToMillis(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value._seconds === "number") {
+    return value._seconds * 1000 + Math.round((value._nanoseconds || 0) / 1e6);
+  }
+  if (typeof value.seconds === "number") {
+    return value.seconds * 1000 + Math.round((value.nanoseconds || 0) / 1e6);
+  }
+  return null;
+}
+
 function applyOptionalFilters(queryRef, params) {
   const po = params.get("po");
   const location = params.get("location");
@@ -36,7 +49,8 @@ function applyOptionalFilters(queryRef, params) {
 
 export async function GET(req) {
   try {
-    const { db } = await getAdminAndDb();
+    const { admin, db } = await getAdminAndDb();
+    await verifyToken(req, admin);
     const collectionName = getCollectionName();
     const collectionNameNormalized = collectionName.toLowerCase();
 
@@ -94,7 +108,7 @@ export async function GET(req) {
       snap.forEach((d) => {
         total += 1;
         const row = d.data() || {};
-        const status = String(row.STATUS_COLOR || row.STATUS || "").toLowerCase();
+        const status = String(effectiveStatusColor(row)).toLowerCase();
         if (status.includes("active") || status.includes("ongoing")) active += 1;
         else if (status.includes("pending")) pending += 1;
         else if (status.includes("completed") || status.includes("terminated")) closed += 1;
@@ -115,7 +129,8 @@ export async function GET(req) {
     }
     return NextResponse.json(rows);
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    const status = e.message && e.message.includes("No ID token") ? 401 : 500;
+    return NextResponse.json({ error: e.message }, { status });
   }
 }
 
@@ -219,7 +234,21 @@ export async function PUT(req) {
     }
 
     if (!body.id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-    const { id, ...data } = body;
+    const { id, expectedUpdatedAt, ...data } = body;
+
+    if (expectedUpdatedAt !== undefined) {
+      const existingDoc = await db.collection(collectionName).doc(id).get();
+      if (!existingDoc.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      const currentMillis = timestampToMillis(existingDoc.data()?.updatedAt);
+      const expectedMillis = timestampToMillis(expectedUpdatedAt);
+      if (currentMillis !== null && expectedMillis !== null && currentMillis !== expectedMillis) {
+        return NextResponse.json(
+          { error: "This record was updated by someone else. Reload and try again.", code: "CONFLICT" },
+          { status: 409 }
+        );
+      }
+    }
+
     const cleaned = stripEmpty(data);
     const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
     const nowIso = new Date().toISOString();

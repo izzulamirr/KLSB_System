@@ -51,7 +51,9 @@ function buildRemarksAudit(payload, existingDoc, decoded, admin) {
 
 function normalizePayload(body) {
   const numericFields = ["bidValidity", "valueRM"];
-  const ignoredFields = ["maturityDays"];
+  // createdBy/createdAt are server-assigned provenance fields — never accept
+  // them from the client, on either create or update.
+  const ignoredFields = ["maturityDays", "createdBy", "createdAt"];
   const out = {};
 
   for (const [key, value] of Object.entries(body || {})) {
@@ -60,12 +62,15 @@ function normalizePayload(body) {
       out[key] = String(value || "").trim();
       continue;
     }
-    if (value === "" || value === null || value === undefined) continue;
+    if (value === null || value === undefined) continue;
     if (numericFields.includes(key)) {
+      if (value === "") { out[key] = null; continue; }
       const num = Number(value);
       if (!Number.isNaN(num)) out[key] = num;
       continue;
     }
+    // Keep explicit empty strings (rather than skipping them) so clearing a
+    // field in the edit form actually persists the clear via merge:true.
     out[key] = value;
   }
 

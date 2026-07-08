@@ -44,12 +44,16 @@ function normalizeStatus(status) {
   return String(status || "PENDING").trim().toUpperCase() || "PENDING";
 }
 
+// Kept in sync with BD_STATUS_OPTIONS (components/bd/options.js) — every
+// status in that list should have an explicit case here instead of falling
+// back to the generic slate color.
 function getOutcomeColor(status) {
   if (status === "WON") return "from-emerald-500 to-lime-400";
   if (status === "LOST") return "from-rose-500 to-red-400";
   if (status === "DECLINED") return "from-slate-500 to-slate-400";
   if (status === "PENDING") return "from-indigo-500 to-indigo-400";
-  if (status === "SUBMITTED") return "from-amber-500 to-yellow-300";
+  if (status === "ON-GOING") return "from-blue-500 to-sky-400";
+  if (status === "CANCELLED") return "from-slate-500 to-slate-400";
   return "from-slate-400 to-slate-300";
 }
 
@@ -58,7 +62,8 @@ function getOutcomeSoftColor(status) {
   if (status === "LOST") return "bg-rose-100 text-rose-700 border-rose-200";
   if (status === "DECLINED") return "bg-slate-100 text-slate-700 border-slate-200";
   if (status === "PENDING") return "bg-indigo-100 text-indigo-700 border-indigo-200";
-  if (status === "SUBMITTED") return "bg-amber-100 text-amber-700 border-amber-200";
+  if (status === "ON-GOING") return "bg-blue-100 text-blue-700 border-blue-200";
+  if (status === "CANCELLED") return "bg-slate-200 text-slate-700 border-slate-300";
   return "bg-slate-100 text-slate-600 border-slate-200";
 }
 

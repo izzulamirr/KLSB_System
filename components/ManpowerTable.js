@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import MondayDateInput from "./MondayDateInput";
 import { computeStatusColorFromDates, isEndDateExceeded, isRegularEndDateExceeded } from "../lib/manpowerStatus";
-import { withBasePath } from "../lib/apiPath";
+import { fetchWithAuth } from "../lib/fetchWithAuth";
 
 /**
  * Modern blue-themed manpower table
@@ -14,20 +14,6 @@ import { withBasePath } from "../lib/apiPath";
  * - Safe debounced sync to /api/manpower with Firebase ID token
  * - CSV import (basic) – .csv with headers matching keys
  */
-
-async function fetchWithAuth(url, opts = {}) {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  const headers = opts.headers || {};
-  if (user) {
-    const token = await user.getIdToken();
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  return fetch(withBasePath(url), {
-    ...opts,
-    headers: { "Content-Type": "application/json", ...headers },
-  });
-}
 
 function notifyManpowerSummaryChange() {
   if (typeof window === "undefined") return;
@@ -182,19 +168,21 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
             try {
               const res = await fetchWithAuth("/api/manpower", {
                 method: "PUT",
-                body: JSON.stringify(updatedRow),
+                body: JSON.stringify({ ...updatedRow, expectedUpdatedAt: r.updatedAt }),
               });
               if (res.ok) {
                 const json = await res.json().catch(() => null);
                 if (json?.updatedBy || json?.updatedAt) {
                   onEdit(i, { ...updatedRow, updatedBy: json.updatedBy, updatedAt: json.updatedAt });
                 }
+              } else if (res.status === 409) {
+                alert("This record was updated elsewhere. Refresh and try again.");
               }
             } catch (err) {
               // Optionally show error
               console.error("Failed to update status color", err);
             }
-          }} 
+          }}
         />
       </Cell>
       <Cell>{r.LOCATION || "-"}</Cell>
@@ -342,7 +330,7 @@ export default function ManpowerTable({ initial = [] }) {
             try {
               const res = await fetchWithAuth("/api/manpower", {
                 method: "PUT",
-                body: JSON.stringify({ id: targetId, ...withPayType }),
+                body: JSON.stringify({ id: targetId, expectedUpdatedAt: snapshot[editingIndex]?.updatedAt, ...withPayType }),
               });
               if (!res.ok) {
                 const err = await safeJson(res);
@@ -397,55 +385,52 @@ export default function ManpowerTable({ initial = [] }) {
     [canWriteRows, editingIndex, form, rows]
   );
 
-      useEffect(() => {
-        if (!canWriteRows || checkingWriteAccess) return;
-        return;
+  useEffect(() => {
+    if (!canWriteRows || checkingWriteAccess) return;
 
+    const queuedRows = rows.filter((row) => !row?.id);
+    if (!queuedRows.length) return;
 
-      notifyManpowerSummaryChange();
-        const queuedRows = rows.filter((row) => !row?.id);
-        if (!queuedRows.length) return;
+    let cancelled = false;
 
-        let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchWithAuth("/api/manpower", {
+          method: "POST",
+          body: JSON.stringify({
+            rows: queuedRows.map((row) => ({
+              ...row,
+              PAY_TYPE: row.PAY_TYPE || computePayType(row),
+            })),
+          }),
+        });
 
-        (async () => {
-          try {
-            const res = await fetchWithAuth("/api/manpower", {
-              method: "POST",
-              body: JSON.stringify({
-                rows: queuedRows.map((row) => ({
-                  ...row,
-                  PAY_TYPE: row.PAY_TYPE || computePayType(row),
-                })),
-              }),
-            });
+        if (!res.ok) {
+          const err = await safeJson(res);
+          throw new Error(err?.error || res.statusText || "Queued row sync failed");
+        }
 
-            if (!res.ok) {
-              const err = await safeJson(res);
-              throw new Error(err?.error || res.statusText || "Queued row sync failed");
-            }
+        const json = await res.json().catch(() => ({}));
+        const createdRows = Array.isArray(json?.rows) ? json.rows : [];
 
-            const json = await res.json().catch(() => ({}));
-            const createdRows = Array.isArray(json?.rows) ? json.rows : [];
+        if (!cancelled && createdRows.length) {
+          let createdIndex = 0;
+          setRows((currentRows) => currentRows.map((row) => {
+            if (row?.id) return row;
+            const nextCreated = createdRows[createdIndex++];
+            return nextCreated ? { ...row, ...nextCreated } : row;
+          }));
+          notifyManpowerSummaryChange();
+        }
+      } catch (err) {
+        console.error("Failed to sync queued manpower rows", err);
+      }
+    })();
 
-            if (!cancelled && createdRows.length) {
-              let createdIndex = 0;
-              setRows((currentRows) => currentRows.map((row) => {
-                if (row?.id) return row;
-                const nextCreated = createdRows[createdIndex++];
-                return nextCreated ? { ...row, ...nextCreated } : row;
-              }));
-              notifyManpowerSummaryChange();
-            }
-          } catch (err) {
-            console.error("Failed to sync queued manpower rows", err);
-          }
-        })();
-
-        return () => {
-          cancelled = true;
-        };
-      }, [canWriteRows, checkingWriteAccess, rows]);
+    return () => {
+      cancelled = true;
+    };
+  }, [canWriteRows, checkingWriteAccess, rows]);
 
   const openAddForm = useCallback((prefill = null) => {
     if (!canWriteRows) {
@@ -537,16 +522,19 @@ export default function ManpowerTable({ initial = [] }) {
         const currentStatusColor = row.STATUS_COLOR || "";
 
         // Update only STATUS_COLOR (work situation), keep STATUS (employment type) unchanged
-        const updatedRow = { 
-          ...row, 
+        const updatedRow = {
+          ...row,
           STATUS_COLOR: newStatusColor
         };
         updatedRows.push(updatedRow);
 
-        // Only update when status color actually changed
+        // Only update when status color actually changed. Send just the
+        // changed field (not the whole cached row) so this periodic sync
+        // can't clobber other fields a concurrent edit changed in the
+        // meantime.
         if (newStatusColor !== currentStatusColor) {
           localChanged = true;
-          if (row.id) changedRows.push(updatedRow);
+          if (row.id) changedRows.push({ id: row.id, STATUS_COLOR: newStatusColor });
         }
       }
 
@@ -573,15 +561,26 @@ export default function ManpowerTable({ initial = [] }) {
     }
   }, [canWriteRows, rows]);
 
+  // updateAllStatuses's identity changes on every row edit (it closes over
+  // `rows`), but the interval below should only reset when rows go from
+  // empty to non-empty (or access changes) — not on every keystroke/edit —
+  // so route calls through a ref that always points at the latest version.
+  const updateAllStatusesRef = useRef(updateAllStatuses);
+  useEffect(() => {
+    updateAllStatusesRef.current = updateAllStatuses;
+  }, [updateAllStatuses]);
+
+  const hasRows = rows.length > 0;
+
   // Keep statuses automatically synchronized in the background.
   useEffect(() => {
-    if (!rows.length) return;
-    updateAllStatuses();
+    if (!hasRows) return;
+    updateAllStatusesRef.current();
     const id = setInterval(() => {
-      updateAllStatuses();
+      updateAllStatusesRef.current();
     }, 60000);
     return () => clearInterval(id);
-  }, [rows.length, updateAllStatuses]);
+  }, [hasRows]);
 
   // Basic CSV import (expects headers matching keys)
   const onFileChange = useCallback((e) => {

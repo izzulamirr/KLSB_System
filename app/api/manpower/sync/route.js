@@ -1,6 +1,13 @@
 import initAdmin from '../../../../lib/firebaseAdmin';
 import { NextResponse } from 'next/server';
 
+async function verifyToken(req, admin) {
+  const auth = req.headers.get('authorization') || '';
+  const idToken = auth.replace('Bearer ', '');
+  if (!idToken) throw new Error('No ID token provided');
+  return admin.auth().verifyIdToken(idToken);
+}
+
 async function getSheetsClient() {
   const { google } = await import('googleapis');
   const { GoogleAuth } = google.auth;
@@ -34,8 +41,14 @@ function headerToFieldValue(header, doc) {
   if (h.includes('end')) return doc.END_DATE ?? '';
   if (h.includes('extension') || h.includes('ext')) return doc.EXTENSION_STATUS ?? '';
   if (h.includes('nh') || h.includes('night')) return (doc.NH !== undefined && doc.NH !== null) ? String(doc.NH) : '';
+  // Rate headers (e.g. "KLSB OT Rate", "KLSB Rate") must be checked before the
+  // plain OT-hours check below, since they also contain the substring "ot".
+  if (h.includes('rate')) {
+    if (h.includes('ot')) return (doc.KLSB_RATE_OT !== undefined && doc.KLSB_RATE_OT !== null) ? String(doc.KLSB_RATE_OT) : '';
+    if (h.includes('nh') || h.includes('normal')) return (doc.KLSB_RATE_NORMAL !== undefined && doc.KLSB_RATE_NORMAL !== null) ? String(doc.KLSB_RATE_NORMAL) : '';
+    return (doc.Rate !== undefined && doc.Rate !== null) ? String(doc.Rate) : '';
+  }
   if (h.includes('ot') || h.includes('overtime')) return (doc.OT !== undefined && doc.OT !== null) ? String(doc.OT) : '';
-  if (h.includes('rate') && !h.includes('nh') && !h.includes('ot')) return (doc.Rate !== undefined && doc.Rate !== null) ? String(doc.Rate) : '';
   return (doc[header] !== undefined && doc[header] !== null) ? String(doc[header]) : '';
 }
 
@@ -45,6 +58,7 @@ export async function POST(req) {
       const a = await initAdmin();
       return { admin: a, db: a.firestore() };
     })();
+    await verifyToken(req, admin);
 
     const body = await req.json();
     if (!body || !body.id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
@@ -94,7 +108,8 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('Sync endpoint error:', err && err.stack ? err.stack : err);
-    return NextResponse.json({ error: String(err && err.message ? err.message : err) }, { status: 500 });
+    const status = err && err.message && err.message.includes('No ID token') ? 401 : 500;
+    return NextResponse.json({ error: String(err && err.message ? err.message : err) }, { status });
   }
 }
 

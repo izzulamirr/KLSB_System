@@ -134,7 +134,7 @@ export default function ControlClient() {
         endpoints.map(async (ep) => {
           const start = Date.now();
           try {
-            const res = await fetch(withBasePath(ep.url));
+            const res = await fetchWithAuth(withBasePath(ep.url));
             const responseTime = Date.now() - start;
             return { ...ep, status: res.ok ? "healthy" : "degraded", responseTime: `${responseTime}ms`, lastCheck: "now" };
           } catch (err) {
@@ -162,7 +162,7 @@ export default function ControlClient() {
         setLoading(true);
       }
       const [manpowerRes, timesheetRes] = await Promise.all([
-        fetch(withBasePath("/api/manpower?summary=1")),
+        fetchWithAuth(withBasePath("/api/manpower?summary=1")),
         fetch(withBasePath("/api/timesheet?countOnly=1")),
       ]);
 
@@ -205,7 +205,7 @@ export default function ControlClient() {
 
   const fetchRecentActivities = async (isAutoRefresh = false) => {
     try {
-      const res = await fetch(withBasePath("/api/manpower?limit=5&sortBy=updatedAt&sortDir=desc"));
+      const res = await fetchWithAuth(withBasePath("/api/manpower?limit=5&sortBy=updatedAt&sortDir=desc"));
       if (res.ok) {
         const data = await res.json();
         const recentData = Array.isArray(data) ? data : [];
@@ -321,7 +321,7 @@ export default function ControlClient() {
 
   const handleBackupDatabase = async () => {
     try {
-      const manpowerRes = await fetch(withBasePath("/api/manpower"));
+      const manpowerRes = await fetchWithAuth(withBasePath("/api/manpower"));
       const timesheetRes = await fetch(withBasePath("/api/timesheet"));
 
       const backup = {

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { getAuth, onAuthStateChanged, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { withBasePath } from "../lib/apiPath";
+import { fetchWithAuth } from "../lib/fetchWithAuth";
 import { applyTheme, THEME_STORAGE_KEY } from "../lib/theme";
 
 export default function SettingsClient() {
@@ -196,7 +197,7 @@ export default function SettingsClient() {
   const handleExportData = async (format) => {
     setLoading(true);
     try {
-      const res = await fetch(withBasePath("/api/manpower"));
+      const res = await fetchWithAuth("/api/manpower");
       if (!res.ok) throw new Error("Failed to fetch data");
       const data = await res.json();
       

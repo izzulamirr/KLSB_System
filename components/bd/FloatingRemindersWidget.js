@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
 import { withBasePath } from "../../lib/apiPath";
@@ -46,6 +46,7 @@ function formatDisplayDate(date) {
 
 export default function FloatingRemindersWidget() {
   const pathname = usePathname();
+  const router = useRouter();
   const isBdRoute = /^\/bd(\/|$)/.test(pathname || "");
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
@@ -99,6 +100,10 @@ export default function FloatingRemindersWidget() {
 
     const items = [];
     for (const row of rows) {
+      // Outcome is already known once a proposal is Won/Lost — nothing left to remind about.
+      const status = String(row.status || "").trim().toUpperCase();
+      if (status === "WON" || status === "LOST") continue;
+
       const targets = [
         { type: "Submission", dateValue: row.submissionDate },
         { type: "Maturation", dateValue: row.maturityOnDate },
@@ -114,6 +119,7 @@ export default function FloatingRemindersWidget() {
 
         items.push({
           id: `${row.id}-${target.type}`,
+          proposalId: row.id,
           type: target.type,
           daysLeft,
           dueDate: targetDay,
@@ -170,7 +176,16 @@ export default function FloatingRemindersWidget() {
               <p className="text-sm text-slate-500">No reminders in next 7 days.</p>
             ) : (
               preview.map((item) => (
-                <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <div
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/bd/proposals/${item.proposalId}/edit`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") router.push(`/bd/proposals/${item.proposalId}/edit`);
+                  }}
+                  className="cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition-colors hover:bg-slate-100"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -187,6 +202,7 @@ export default function FloatingRemindersWidget() {
                         href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-indigo-700 underline decoration-indigo-400 decoration-2 underline-offset-2 hover:text-indigo-900"
                       >
                         <HighlightNumbers text={item.refNo} />

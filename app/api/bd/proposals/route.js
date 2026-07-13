@@ -50,7 +50,7 @@ function buildRemarksAudit(payload, existingDoc, decoded, admin) {
 }
 
 function normalizePayload(body) {
-  const numericFields = ["bidValidity", "valueRM"];
+  const numericFields = ["bidValidity", "valueRM", "year"];
   // createdBy/createdAt are server-assigned provenance fields — never accept
   // them from the client, on either create or update.
   const ignoredFields = ["maturityDays", "createdBy", "createdAt"];

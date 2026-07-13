@@ -109,3 +109,27 @@ export function validateProposalForm(form) {
   if (!String(form.client || "").trim()) return "Client is required.";
   return null;
 }
+
+// Dropdown options for the proposal "Year" field: current year plus a
+// range of past years (for backfilling older proposals) and one year ahead.
+export function getProposalYearOptions() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let year = currentYear + 1; year >= currentYear - 10; year -= 1) {
+    years.push(year);
+  }
+  return years;
+}
+
+// Proposals created before the "year" field existed don't have it stored, so
+// fall back to the year embedded in one of the existing date fields.
+export function deriveProposalYear(data = {}) {
+  if (data.year !== undefined && data.year !== null && data.year !== "") {
+    const parsed = Number(data.year);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  const dateStr = data.submissionDate || data.dateReceived || data.deadline || data.awardedDate || "";
+  const match = String(dateStr).match(/^(\d{4})/);
+  return match ? Number(match[1]) : new Date().getFullYear();
+}

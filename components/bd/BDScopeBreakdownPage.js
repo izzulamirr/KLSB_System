@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { bdFetch } from "./api";
 import { formatPicString } from "../../lib/picEmailMap";
 import BDSummaryOverview from "./BDSummaryOverview";
+import { deriveProposalYear } from "./proposalFormHelpers";
 
 export default function BDScopeBreakdownPage() {
   const [rows, setRows] = useState([]);
@@ -11,6 +12,7 @@ export default function BDScopeBreakdownPage() {
   const [error, setError] = useState("");
   const [selectedScope, setSelectedScope] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedYear, setSelectedYear] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -28,8 +30,18 @@ export default function BDScopeBreakdownPage() {
     load();
   }, []);
 
+  const yearOptions = useMemo(() => {
+    const years = new Set(rows.map((row) => deriveProposalYear(row)));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (!selectedYear) return rows;
+    return rows.filter((row) => deriveProposalYear(row) === Number(selectedYear));
+  }, [rows, selectedYear]);
+
   const distribution = useMemo(() => {
-    const grouped = rows.reduce((acc, row) => {
+    const grouped = filteredRows.reduce((acc, row) => {
       const scope = String(row.scopeBusiness || "Unspecified").trim() || "Unspecified";
       acc[scope] = (acc[scope] || 0) + 1;
       return acc;
@@ -39,20 +51,20 @@ export default function BDScopeBreakdownPage() {
       .map(([scope, count]) => ({ scope, count }))
       .sort((a, b) => b.count - a.count);
 
-    const total = rows.length;
+    const total = filteredRows.length;
     return sorted.map((item) => ({
       ...item,
       percentage: total > 0 ? Math.round((item.count / total) * 100) : 0,
     }));
-  }, [rows]);
+  }, [filteredRows]);
 
   const totalWinning = useMemo(() => {
-    return rows.reduce((sum, r) => {
+    return filteredRows.reduce((sum, r) => {
       if (!r || String((r.status || "")).toUpperCase() !== "WON") return sum;
       const val = Number(r.valueRM || 0);
       return sum + (Number.isNaN(val) ? 0 : val);
     }, 0);
-  }, [rows]);
+  }, [filteredRows]);
 
   const formattedTotalWinning = useMemo(() => {
     try {
@@ -90,12 +102,30 @@ export default function BDScopeBreakdownPage() {
 
   const selectedProposals = useMemo(() => {
     if (!selectedScope) return [];
-    return rows.filter((row) => (String(row.scopeBusiness || "Unspecified").trim() || "Unspecified") === selectedScope);
-  }, [rows, selectedScope]);
+    return filteredRows.filter((row) => (String(row.scopeBusiness || "Unspecified").trim() || "Unspecified") === selectedScope);
+  }, [filteredRows, selectedScope]);
 
   return (
     <div className="space-y-6">
-      <BDSummaryOverview rows={rows} error={error} />
+      <div className="flex justify-end">
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block">Year</span>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="w-full min-w-[140px] rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">All years</option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <BDSummaryOverview rows={filteredRows} error={error} />
 
       {error && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-sm text-rose-700">{error}</section>
@@ -110,7 +140,7 @@ export default function BDScopeBreakdownPage() {
           </div>
           <div className="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
             <span className="h-2 w-2 rounded-full bg-indigo-500" />
-            {rows.length} total proposals
+            {filteredRows.length} total proposals
           </div>
         </div>
 
@@ -155,7 +185,7 @@ export default function BDScopeBreakdownPage() {
                     <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
                     {item.count} proposals
                   </span>
-                  <span className="font-medium text-slate-400">of {rows.length} total</span>
+                  <span className="font-medium text-slate-400">of {filteredRows.length} total</span>
                 </div>
               </button>
             ))}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { bdFetch, statusClass } from "./api";
 import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
 import HighlightNumbers from "../HighlightNumbers";
@@ -42,6 +43,7 @@ function formatDisplayDate(date) {
 }
 
 export default function BDDashboardPage() {
+  const router = useRouter();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,6 +72,10 @@ export default function BDDashboardPage() {
     const items = [];
 
     for (const row of rows) {
+      // Outcome is already known once a proposal is Won/Lost — nothing left to remind about.
+      const status = String(row.status || "").trim().toUpperCase();
+      if (status === "WON" || status === "LOST") continue;
+
       const targets = [
         { type: "Submission", dateValue: row.submissionDate },
         { type: "Maturation", dateValue: row.maturityOnDate },
@@ -85,6 +91,7 @@ export default function BDDashboardPage() {
 
         items.push({
           id: `${row.id}-${target.type}`,
+          proposalId: row.id,
           type: target.type,
           daysLeft,
           dueDate: targetDay,
@@ -145,7 +152,11 @@ export default function BDDashboardPage() {
               </thead>
               <tbody>
                 {reminders.map((item) => (
-                  <tr key={item.id} className="border-t border-slate-200">
+                  <tr
+                    key={item.id}
+                    className="cursor-pointer border-t border-slate-200 transition-colors hover:bg-slate-50"
+                    onClick={() => router.push(`/bd/proposals/${item.proposalId}/edit`)}
+                  >
                     <td className="px-3 py-2 text-slate-700">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -163,6 +174,7 @@ export default function BDDashboardPage() {
                           href={/^https?:\/\//i.test(item.googleFolderLink) ? item.googleFolderLink : `https://${item.googleFolderLink}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 font-semibold text-blue-800 underline decoration-blue-500 decoration-2 underline-offset-2 shadow-sm transition-colors hover:bg-blue-200 hover:text-blue-900"
                         >
                           <HighlightNumbers text={item.refNo || "-"} />

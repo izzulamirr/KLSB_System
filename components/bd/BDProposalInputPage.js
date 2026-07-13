@@ -5,11 +5,12 @@ import { bdFetch } from "./api";
 import PicSelector from "../PicSelector";
 import { formatPicString } from "../../lib/picEmailMap";
 import { BD_SCOPE_OPTIONS, BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
-import { Field, calculateMaturityOnDate, validateProposalForm } from "./proposalFormHelpers";
+import { Field, calculateMaturityOnDate, getProposalYearOptions, validateProposalForm } from "./proposalFormHelpers";
 
 const initialForm = {
   submitted: true,
   refNo: "",
+  year: new Date().getFullYear(),
   dateReceived: "",
   submissionDate: "",
   titleProjectName: "",
@@ -94,6 +95,20 @@ export default function BDProposalInputPage() {
         </label>
 
         <Field label="Ref No." value={form.refNo} onChange={(value) => setForm((current) => ({ ...current, refNo: value }))} />
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block">Year</span>
+          <select
+            value={form.year}
+            onChange={(e) => setForm((current) => ({ ...current, year: Number(e.target.value) }))}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            {getProposalYearOptions().map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </label>
         <Field label="Date Received" type="date" value={form.dateReceived} onChange={(value) => setForm((current) => ({ ...current, dateReceived: value }))} />
         <Field label="Submission Date" type="date" value={form.submissionDate} onChange={(value) => setForm((current) => ({ ...current, submissionDate: value }))} />
         <Field label="Title / Project" value={form.titleProjectName} onChange={(value) => setForm((current) => ({ ...current, titleProjectName: value }))} />

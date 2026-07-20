@@ -96,9 +96,9 @@ export default function BDEditProposalPage({ proposalId, returnTo = "" }) {
   const isReady = useMemo(() => Boolean(form.id), [form.id]);
 
   useEffect(() => {
-    const maturityOnDate = calculateMaturityOnDate(form.submissionDate, form.bidValidity);
+    const maturityOnDate = calculateMaturityOnDate(form.deadline, form.bidValidity);
     setForm((current) => (current.maturityOnDate === maturityOnDate ? current : { ...current, maturityOnDate }));
-  }, [form.submissionDate, form.bidValidity]);
+  }, [form.deadline, form.bidValidity]);
 
   const handlePersonInChargeChange = useCallback(
     (value) => setForm((current) => ({ ...current, personInCharge: value })),

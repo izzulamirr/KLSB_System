@@ -109,6 +109,36 @@ function getInitialTrackerState() {
   return urlState;
 }
 
+// Builds a windowed list of page numbers with "..." gaps (e.g. [1, "...", 8, 9, 10, "...", 41])
+// instead of rendering every page button, which overflows on large result sets.
+function getPaginationRange(currentPage, totalPages, siblingCount = 1) {
+  const totalVisible = siblingCount * 2 + 5; // first + last + current + siblings + 2 dots
+
+  if (totalPages <= totalVisible) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const leftSibling = Math.max(currentPage - siblingCount, 1);
+  const rightSibling = Math.min(currentPage + siblingCount, totalPages);
+
+  const showLeftDots = leftSibling > 2;
+  const showRightDots = rightSibling < totalPages - 1;
+
+  if (!showLeftDots && showRightDots) {
+    const leftRange = Array.from({ length: 3 + siblingCount * 2 }, (_, i) => i + 1);
+    return [...leftRange, "...", totalPages];
+  }
+
+  if (showLeftDots && !showRightDots) {
+    const rightCount = 3 + siblingCount * 2;
+    const rightRange = Array.from({ length: rightCount }, (_, i) => totalPages - rightCount + i + 1);
+    return [1, "...", ...rightRange];
+  }
+
+  const middleRange = Array.from({ length: rightSibling - leftSibling + 1 }, (_, i) => leftSibling + i);
+  return [1, "...", ...middleRange, "...", totalPages];
+}
+
 export default function BDProposalTrackerPage() {
   const initialState = getInitialTrackerState();
   const hasHydratedRef = useRef(false);
@@ -220,48 +250,19 @@ export default function BDProposalTrackerPage() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  function getMaturationDays(deadline, submission) {
-    if (!deadline) return "-";
+  // Live countdown (from today) to the maturity date. maturityOnDate is left
+  // empty whenever bid validity isn't set, so this naturally shows "-" too.
+  function getMaturationDays(maturityOnDate) {
+    if (!maturityOnDate) return "-";
 
-    let targetDate = null;
-    if (typeof deadline === "string") {
-      const trimmed = deadline.trim();
+    const targetDate = parseDeadline(maturityOnDate);
+    if (!targetDate) return "-";
 
-      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        const [year, month, day] = trimmed.split("-").map(Number);
-        targetDate = new Date(year, month - 1, day);
-      } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
-        const [day, month, year] = trimmed.split("/").map(Number);
-        targetDate = new Date(year, month - 1, day);
-      } else {
-        targetDate = new Date(trimmed);
-      }
-    } else {
-      targetDate = new Date(deadline);
-    }
-
-    if (Number.isNaN(targetDate.getTime())) return "-";
-
-    // Common date math
     const dayMs = 1000 * 60 * 60 * 24;
     const startOfTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
     const today = new Date();
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-    // If maturation already passed relative to today => show 0
-    if (startOfTarget <= startOfToday) return "0 days";
-
-    // If submission provided, compute maturation days relative to submission date
-    if (submission) {
-      const submissionDate = parseDeadline(submission);
-      if (!submissionDate) return "-";
-      const startOfSubmission = new Date(submissionDate.getFullYear(), submissionDate.getMonth(), submissionDate.getDate());
-      const daysBetween = Math.ceil((startOfTarget - startOfSubmission) / dayMs);
-      if (daysBetween <= 0) return "0 days";
-      return `${daysBetween} day${daysBetween === 1 ? "" : "s"}`;
-    }
-
-    // Fallback: compute days from today
     const daysRemaining = Math.ceil((startOfTarget - startOfToday) / dayMs);
     if (daysRemaining <= 0) return "0 days";
     return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
@@ -506,6 +507,10 @@ export default function BDProposalTrackerPage() {
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIdx = startIdx + ITEMS_PER_PAGE;
   const paginatedRows = filteredRows.slice(startIdx, endIdx);
+  const paginationItems = useMemo(
+    () => getPaginationRange(currentPage, totalPages),
+    [currentPage, totalPages]
+  );
 
   useEffect(() => {
     if (!selectedProposal) return;
@@ -800,7 +805,7 @@ export default function BDProposalTrackerPage() {
                   <td className="px-3 py-2 max-w-[280px] truncate" title={item.titleProjectName || ""}>{item.titleProjectName || "-"}</td>
                   <td className="px-3 py-2">{item.client || "-"}</td>
                   <td className="px-3 py-2">{item.deadline || "-"}</td>
-                  <td className="px-3 py-2">{getMaturationDays(item.maturityOnDate, item.submissionDate)}</td>
+                  <td className="px-3 py-2">{getMaturationDays(item.maturityOnDate)}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>
                       {item.status || "PENDING"}
@@ -950,22 +955,31 @@ export default function BDProposalTrackerPage() {
             </button>
 
             <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => {
-                    saveTrackerState(getCurrentTrackerState({ currentPage: page }));
-                    setCurrentPage(page);
-                  }}
-                  className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${
-                    currentPage === page
-                      ? "bg-[#0f3d7a] text-white"
-                      : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
+              {paginationItems.map((page, index) =>
+                page === "..." ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-8 w-8 items-center justify-center text-sm text-slate-400"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    onClick={() => {
+                      saveTrackerState(getCurrentTrackerState({ currentPage: page }));
+                      setCurrentPage(page);
+                    }}
+                    className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === page
+                        ? "bg-[#0f3d7a] text-white"
+                        : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
             </div>
 
             <button

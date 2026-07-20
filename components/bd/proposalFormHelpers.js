@@ -64,19 +64,19 @@ export function formatCurrencyDisplay(value) {
   }).format(numericValue);
 }
 
-export function calculateMaturityOnDate(submissionDate, bidValidity) {
-  if (!submissionDate || bidValidity === "" || bidValidity === null || bidValidity === undefined) {
+export function calculateMaturityOnDate(deadline, bidValidity) {
+  if (!deadline || bidValidity === "" || bidValidity === null || bidValidity === undefined) {
     return "";
   }
 
   const days = Number(bidValidity);
   if (!Number.isFinite(days)) return "";
 
-  const parsedSubmission = new Date(`${submissionDate}T00:00:00`);
-  if (Number.isNaN(parsedSubmission.getTime())) return "";
+  const parsedDeadline = new Date(`${deadline}T00:00:00`);
+  if (Number.isNaN(parsedDeadline.getTime())) return "";
 
-  parsedSubmission.setDate(parsedSubmission.getDate() + days);
-  return parsedSubmission.toISOString().split("T")[0];
+  parsedDeadline.setDate(parsedDeadline.getDate() + days);
+  return parsedDeadline.toISOString().split("T")[0];
 }
 
 export function formatAuditDate(value) {

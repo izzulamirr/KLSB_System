@@ -33,6 +33,19 @@ function startOfCalendarGrid(year, month) {
   return new Date(year, month, 1 - mondayOffset);
 }
 
+const MONTH_NAMES = Array.from({ length: 12 }, (_, index) =>
+  new Intl.DateTimeFormat("en-GB", { month: "long" }).format(new Date(2000, index, 1))
+);
+
+function buildYearOptions() {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let year = currentYear + 10; year >= currentYear - 100; year -= 1) {
+    years.push(year);
+  }
+  return years;
+}
+
 export default function MondayDateInput({
   value,
   onChange,
@@ -73,7 +86,7 @@ export default function MondayDateInput({
     const updatePosition = () => {
       if (!buttonRef.current) return;
       const rect = buttonRef.current.getBoundingClientRect();
-      const popoverWidth = 304;
+      const popoverWidth = 320;
       const popoverHeight = 360;
       const gap = 8;
       const viewportWidth = window.innerWidth;
@@ -118,6 +131,8 @@ export default function MondayDateInput({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open]);
+
+  const yearOptions = useMemo(() => buildYearOptions(), []);
 
   const grid = useMemo(() => {
     const year = viewDate.getFullYear();
@@ -171,8 +186,37 @@ export default function MondayDateInput({
               ←
             </button>
 
-            <div className="text-sm font-semibold text-slate-900">
-              {new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(viewDate)}
+            <div className="flex items-center gap-1">
+              <select
+                value={viewDate.getMonth()}
+                onChange={(event) => {
+                  const month = Number(event.target.value);
+                  setViewDate((current) => new Date(current.getFullYear(), month, 1));
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-sm font-semibold text-slate-900 outline-none hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                aria-label="Select month"
+              >
+                {MONTH_NAMES.map((name, index) => (
+                  <option key={name} value={index}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={viewDate.getFullYear()}
+                onChange={(event) => {
+                  const year = Number(event.target.value);
+                  setViewDate((current) => new Date(year, current.getMonth(), 1));
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-sm font-semibold text-slate-900 outline-none hover:bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                aria-label="Select year"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button

@@ -13,9 +13,7 @@
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.4",
-    "admin": "^1.4.1",
     "bootstrap": "^5.3.8",
-    "canvas": "^3.2.0",
     "dotenv": "^17.2.3",
     "firebase": "^12.4.0",
     "firebase-admin": "^12.7.0",
@@ -29,7 +27,7 @@
     "react-firebase-hooks": "^5.1.1",
     "recharts": "^3.2.1",
     "tesseract.js": "^6.0.1",
-    "sharp": "^0.30.0"
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

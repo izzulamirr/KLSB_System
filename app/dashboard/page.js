@@ -86,8 +86,8 @@ export default function DashboardPage() {
 
     const projects = Object.values(projectMap)
       .map((p) => ({ ...p, positions: p.positions.size }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
+      .filter((p) => p.active > 0)
+      .sort((a, b) => b.count - a.count);
 
     setProjectSummary(projects);
 
@@ -96,30 +96,47 @@ export default function DashboardPage() {
     today.setHours(0, 0, 0, 0);
 
     data.forEach((record) => {
-      if (record.END_DATE_KLSB) {
+      // A record can have two end dates (contractual End Date and End Date
+      // KLSB) — whichever one falls sooner is the more urgent deadline, so
+      // that's the one shown here.
+      const candidates = [
+        { field: "END_DATE", label: "End Date", value: record.END_DATE },
+        { field: "END_DATE_KLSB", label: "End Date (KLSB)", value: record.END_DATE_KLSB },
+      ].filter((c) => c.value);
+
+      let soonest = null;
+      for (const candidate of candidates) {
         try {
-          const endDate = new Date(record.END_DATE_KLSB);
+          const endDate = new Date(candidate.value);
           endDate.setHours(0, 0, 0, 0);
 
           const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-          if (daysRemaining >= 0 && daysRemaining <= 30) {
-            deadlines.push({
-              staff: record.STAFF_NAME || "Unknown",
-              position: record.POSITION || "N/A",
-              date: record.END_DATE_KLSB,
-              daysRemaining,
-              project: record.PO_SO_No || "N/A",
-              location: record.LOCATION || "N/A",
-              status: record.STATUS_COLOR || "Unknown",
-            });
+          if (daysRemaining >= 0 && daysRemaining <= 60) {
+            if (!soonest || daysRemaining < soonest.daysRemaining) {
+              soonest = { ...candidate, daysRemaining };
+            }
           }
         } catch (err) {
-          console.warn(`Invalid date for record:`, record.END_DATE_KLSB);
+          console.warn(`Invalid date for record:`, candidate.value);
         }
+      }
+
+      if (soonest) {
+        deadlines.push({
+          id: record.id || "",
+          staff: record.STAFF_NAME || "Unknown",
+          position: record.POSITION || "N/A",
+          date: soonest.value,
+          dateLabel: soonest.label,
+          daysRemaining: soonest.daysRemaining,
+          project: record.PO_SO_No || "N/A",
+          location: record.LOCATION || "N/A",
+          status: record.STATUS_COLOR || "Unknown",
+        });
       }
     });
 
-    setUpcomingDeadlines(deadlines.sort((a, b) => a.daysRemaining - b.daysRemaining).slice(0, 5));
+    setUpcomingDeadlines(deadlines.sort((a, b) => a.daysRemaining - b.daysRemaining));
 
     const sortedData = [...data]
       .filter((r) => r.STAFF_NAME)
@@ -278,7 +295,7 @@ export default function DashboardPage() {
               <span className="text-2xl">📊</span>
               Active Projects
             </h2>
-            <div className="space-y-3">
+            <div className="thin-scrollbar space-y-3 max-h-[520px] overflow-y-auto overflow-x-hidden pr-1">
               {loading ? (
                 <div className="text-center py-8 text-slate-500 dark:text-slate-400">Loading projects...</div>
               ) : projectSummary.length === 0 ? (
@@ -286,17 +303,17 @@ export default function DashboardPage() {
               ) : (
                 projectSummary.map((project, idx) => (
                   <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
-                    <div className="flex-1">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        {project.name}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-slate-900 dark:text-slate-100 flex flex-wrap items-center gap-2">
+                        <span className="min-w-0 break-words">{project.name}</span>
                         {project.pending > 0 && (
                           <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-xs rounded-full font-medium">
                             {project.pending} pending
                           </span>
                         )}
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-2">
-                        <span>📍 {project.location}</span>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="min-w-0 break-words">📍 {project.location}</span>
                         <span>•</span>
                         <span className="text-emerald-600 dark:text-emerald-400 font-medium">{project.active} active</span>
                         <span>of {project.count} total</span>
@@ -400,7 +417,7 @@ export default function DashboardPage() {
               <span className="text-2xl">⏰</span>
               Upcoming Deadlines
             </h2>
-            <div className="space-y-3">
+            <div className="thin-scrollbar space-y-3 max-h-[520px] overflow-y-auto overflow-x-hidden pr-1">
               {loading ? (
                 <div className="text-center py-4 text-slate-500 dark:text-slate-400 text-sm">Loading...</div>
               ) : upcomingDeadlines.length === 0 ? (
@@ -409,7 +426,9 @@ export default function DashboardPage() {
                 upcomingDeadlines.map((deadline, idx) => (
                   <a
                     key={idx}
-                    href={`/dashboard/manpower?po=${encodeURIComponent(deadline.project || "")}`}
+                    href={`/dashboard/manpower?po=${encodeURIComponent(deadline.project || "")}${
+                      deadline.id ? `&edit=${encodeURIComponent(deadline.id)}` : ""
+                    }`}
                     className={`block p-3 border-l-4 rounded transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer ${
                     deadline.daysRemaining === 0 ? "border-red-500 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60" :
                     deadline.daysRemaining <= 3 ? "border-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60" :
@@ -434,17 +453,17 @@ export default function DashboardPage() {
                          `${deadline.daysRemaining} days`}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 flex items-center gap-2">
-                      <span>🏗️ {deadline.project}</span>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="min-w-0 break-words">🏗️ {deadline.project}</span>
                       {deadline.location && deadline.location !== "N/A" && (
                         <>
                           <span>•</span>
-                          <span>📍 {deadline.location}</span>
+                          <span className="min-w-0 break-words">📍 {deadline.location}</span>
                         </>
                       )}
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Due: {new Date(deadline.date).toLocaleDateString()}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{deadline.dateLabel || "Due"}: {new Date(deadline.date).toLocaleDateString()}</span>
                       <span className={`text-xs px-1.5 py-0.5 rounded ${
                         deadline.status.toLowerCase() === "active" || deadline.status.toLowerCase() === "green" ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400" :
                         deadline.status.toLowerCase() === "pending" || deadline.status.toLowerCase() === "yellow" ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400" :

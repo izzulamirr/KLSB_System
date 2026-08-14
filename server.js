@@ -21,4 +21,9 @@ app.prepare().then(() => {
     if (err) throw err;
     console.log(`> Ready on http://localhost:${port}`);
   });
+}).catch((err) => {
+  // Without this, a missing .next build fails as an unhandled rejection
+  // and Passenger reports a bare 503 with no explanation in the logs.
+  console.error('> Failed to start Next.js server:', err);
+  process.exit(1);
 });

@@ -1,0 +1,60 @@
+name: Build deploy artifact
+
+# The cPanel host has a 1 GB physical-memory limit, which is not enough to run
+# `npm install` (457 packages) or `next build` there. So we build on GitHub's
+# runners and ship the finished output; extracting a tarball on the server uses
+# almost no memory.
+#
+# Produces two artifacts:
+#   node_modules  - only changes when dependencies change, upload rarely
+#   next-build    - changes every deploy, much smaller
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, zul]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.2
+
+      # Not `npm ci` - package.json and package-lock.json are currently out of
+      # sync, which would make ci fail outright.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # next build sets NODE_ENV=production itself, which is what makes
+      # next.config.ts apply basePath '/klsb-portal'.
+      - name: Build
+        run: npm run build
+
+      # devDependencies are needed to build but not to run server.js.
+      - name: Drop dev dependencies
+        run: npm prune --omit=dev
+
+      # tar, not zip: zip does not preserve the node_modules/.bin symlinks that
+      # npm relies on, which is what broke the previous manual upload.
+      - name: Package
+        run: |
+          tar czf node_modules.tar.gz node_modules
+          tar czf next-build.tar.gz .next
+          ls -lh node_modules.tar.gz next-build.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: node_modules
+          path: node_modules.tar.gz
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: next-build.tar.gz
+          retention-days: 7

@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback, useRef, memo } from "react";
+import { useSearchParams } from "next/navigation";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import firebaseApp from "../firebase";
 import MondayDateInput from "./MondayDateInput";
 import { computeStatusColorFromDates, isEndDateExceeded, isRegularEndDateExceeded } from "../lib/manpowerStatus";
 import { fetchWithAuth } from "../lib/fetchWithAuth";
@@ -31,6 +34,8 @@ function emptyRow() {
     LOCATION: "", // Client name (historical field name; displayed as "Client")
     SITE: "", // Physical work location/site, displayed as "Location"
     PO_SO_No: "",
+    PO_RECEIVED_DATE: "",
+    PO_SIGNED_RETURNED_DATE: "",
     START_DATE: "",
     END_DATE: "",
     END_DATE_KLSB: "",
@@ -40,6 +45,7 @@ function emptyRow() {
     OT: "",
     KLSB_RATE_NORMAL: "", // Rate KLSB pays the personnel per normal hour — used for cost calc on the Timesheet page, separate from the client invoice amount.
     KLSB_RATE_OT: "", // Rate KLSB pays the personnel per OT hour.
+    ATTACHMENTS: [], // PO document PDFs: [{ name, url }]
   };
 }
 
@@ -102,6 +108,47 @@ function StatusPill({ value, onChange, displayText, colorStatus, isExpired, expi
 function Cell({ children, className = "", onClick }) {
   return (
     <td className={`px-4 py-3 align-top text-[13px] leading-5 text-slate-700 dark:text-slate-300 ${className}`} onClick={onClick}>{children}</td>
+  );
+}
+
+// A date plus a small "N days left" / "Overdue by N days" remark underneath.
+function DateWithRemaining({ value }) {
+  const label = getDaysRemainingLabel(value);
+  return (
+    <div>
+      <div>{formatDate(value)}</div>
+      {label && (
+        <div className={`text-[11px] font-medium ${label.overdue ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}`}>
+          {label.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Text input for numeric fields (NH, OT, KLSB rates): shows the raw value
+// while focused so typing isn't interrupted, and reformats to Excel-style
+// "1,234.56" once you click away.
+function NumberField({ label, value, onChange, className = "" }) {
+  const [focused, setFocused] = useState(false);
+  const displayValue = focused ? (value ?? "") : formatNumberDisplay(value);
+
+  return (
+    <label className="flex flex-col">
+      <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={displayValue}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onChange={(e) => onChange(parseNumberInput(e.target.value))}
+        className={
+          "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30 " +
+          className
+        }
+      />
+    </label>
   );
 }
 
@@ -189,18 +236,18 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
       <Cell>{r.SITE || "-"}</Cell>
       <Cell>{r.PO_SO_No || "-"}</Cell>
   <Cell>{formatDate(r.START_DATE)}</Cell>
-  <Cell>{formatDate(r.END_DATE)}</Cell>
-  <Cell>{formatDate(r.END_DATE_KLSB)}</Cell>
+  <Cell><DateWithRemaining value={r.END_DATE} /></Cell>
+  <Cell><DateWithRemaining value={r.END_DATE_KLSB} /></Cell>
   <Cell>{r.EXTENSION_STATUS || "-"}</Cell>
       <Cell>{
         (computePayType(r) === 'M') ? 'Monthly'
         : (computePayType(r) === 'H') ? 'Hourly'
         : (computePayType(r) || '-')
       }</Cell>
-      <Cell>{r.NH || "-"}</Cell>
-      <Cell>{r.OT || "-"}</Cell>
-      <Cell>{r.KLSB_RATE_NORMAL || "-"}</Cell>
-      <Cell>{r.KLSB_RATE_OT || "-"}</Cell>
+      <Cell>{formatNumberDisplay(r.NH) || "-"}</Cell>
+      <Cell>{formatNumberDisplay(r.OT) || "-"}</Cell>
+      <Cell>{formatNumberDisplay(r.KLSB_RATE_NORMAL) || "-"}</Cell>
+      <Cell>{formatNumberDisplay(r.KLSB_RATE_OT) || "-"}</Cell>
       {/* Action buttons intentionally removed from rows.
           Use the detail sidebar's "Edit Record" button instead. */}
     </tr>
@@ -210,6 +257,8 @@ function Row({ r, i, onEdit, onRemove, onSelect }) {
 const MemoRow = memo(Row);
 
 export default function ManpowerTable({ initial = [] }) {
+  const searchParams = useSearchParams();
+  const autoOpenedEditRef = useRef(false);
   const [rows, setRows] = useState(() => {
     // On initial load, ensure PAY_TYPE is set according to Rate
     return initial.map(row => ({
@@ -236,6 +285,7 @@ export default function ManpowerTable({ initial = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRow());
   const [editingIndex, setEditingIndex] = useState(-1);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [canWriteRows, setCanWriteRows] = useState(false);
   const [checkingWriteAccess, setCheckingWriteAccess] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -318,10 +368,14 @@ export default function ManpowerTable({ initial = [] }) {
   const withPayType = { ...form, PAY_TYPE: form.PAY_TYPE || computePayType(form) };
       if (editingIndex >= 0) {
         const snapshot = rows.map((row) => ({ ...row }));
-        let targetId;
+        // Read the target id from `rows` directly rather than as a side
+        // effect inside the setRows updater below — React doesn't guarantee
+        // that updater runs before the next line, so relying on it here
+        // silently skipped the PUT request entirely (optimistic UI update
+        // still applied, so the save looked successful until a refresh).
+        const targetId = rows[editingIndex]?.id;
         setRows((r) => {
           const cp = r.map((x) => ({ ...x }));
-          targetId = cp[editingIndex]?.id;
           cp[editingIndex] = { ...cp[editingIndex], ...withPayType };
           return cp;
         });
@@ -460,11 +514,65 @@ export default function ManpowerTable({ initial = [] }) {
     [rows]
   );
 
+  // Deep-link support: ?edit=<recordId> (e.g. from the dashboard's Upcoming
+  // Deadlines widget) opens that record's edit form directly, once, as soon
+  // as its row has loaded.
+  useEffect(() => {
+    if (autoOpenedEditRef.current) return;
+    const editId = searchParams?.get("edit");
+    if (!editId || !rows.length) return;
+
+    const idx = rows.findIndex((row) => row.id === editId);
+    if (idx >= 0) {
+      autoOpenedEditRef.current = true;
+      openEditForm(idx);
+    }
+  }, [rows, searchParams, openEditForm]);
+
   const closeForm = useCallback(() => {
     setShowForm(false);
     setForm(emptyRow());
     setEditingIndex(-1);
   }, []);
+
+  async function uploadAttachments(files) {
+    if (!files || !files.length) return { uploaded: [], failed: [] };
+    setUploadingAttachment(true);
+    const storage = getStorage(firebaseApp);
+    const uploaded = [];
+    const failed = [];
+    for (const f of Array.from(files)) {
+      try {
+        const key = `manpower-attachments/${Date.now()}_${f.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
+        const ref = storageRef(storage, key);
+        await uploadBytes(ref, f);
+        const url = await getDownloadURL(ref);
+        uploaded.push({ name: f.name, url });
+      } catch (e) {
+        console.error("Attachment upload failed", e);
+        failed.push({ name: f.name, error: e?.message || String(e) });
+      }
+    }
+    setUploadingAttachment(false);
+    return { uploaded, failed };
+  }
+
+  async function handleAttachmentChange(e) {
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    const { uploaded, failed } = await uploadAttachments(files);
+    if (uploaded.length) {
+      setForm((current) => ({ ...current, ATTACHMENTS: [...(current.ATTACHMENTS || []), ...uploaded] }));
+    }
+    if (failed.length) {
+      alert(`Failed to upload: ${failed.map((f) => f.name).join(", ")} — ${failed[0].error}`);
+    }
+    e.target.value = "";
+  }
+
+  function removeAttachment(idx) {
+    setForm((current) => ({ ...current, ATTACHMENTS: (current.ATTACHMENTS || []).filter((_, i) => i !== idx) }));
+  }
 
   const remove = useCallback(
     async (idx) => {
@@ -979,9 +1087,25 @@ export default function ManpowerTable({ initial = [] }) {
           </thead>
           <tbody>
             {paginated.length ? (
-              paginated.map((r, i) => (
-                <MemoRow key={r.id ?? `${r.PO_SO_No || "row"}-${(page-1)*PAGE_SIZE + i}`} r={r} i={(page-1)*PAGE_SIZE + i} onEdit={openEditForm} onRemove={remove} onSelect={setSelectedRow} />
-              ))
+              paginated.map((r, i) => {
+                // `paginated` is a filtered/sorted view of `rows`, so its position
+                // here does NOT match the row's real index in `rows`. Editing
+                // (StatusPill quick-edit, delete, etc.) writes back into `rows`
+                // by index, so we must resolve the true index there — otherwise,
+                // whenever a filter/search/view is active, an edit silently
+                // overwrites a different record than the one the user clicked.
+                const masterIndex = rows.indexOf(r);
+                return (
+                  <MemoRow
+                    key={r.id ?? `${r.PO_SO_No || "row"}-${(page-1)*PAGE_SIZE + i}`}
+                    r={r}
+                    i={masterIndex}
+                    onEdit={openEditForm}
+                    onRemove={remove}
+                    onSelect={setSelectedRow}
+                  />
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={15} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
@@ -1038,15 +1162,17 @@ export default function ManpowerTable({ initial = [] }) {
                 ["Client", selectedRow.LOCATION],
                 ["Location", selectedRow.SITE],
                 ["PO/SO", selectedRow.PO_SO_No],
+                ["Date PO Received", formatDate(selectedRow.PO_RECEIVED_DATE)],
+                ["Date Sign & Return to Client", formatDate(selectedRow.PO_SIGNED_RETURNED_DATE)],
                 ["Start Date", formatDate(selectedRow.START_DATE)],
-                ["End Date", formatDate(selectedRow.END_DATE)],
-                ["End Date KLSB", formatDate(selectedRow.END_DATE_KLSB)],
+                ["End Date", formatDateWithRemaining(selectedRow.END_DATE)],
+                ["End Date KLSB", formatDateWithRemaining(selectedRow.END_DATE_KLSB)],
                 ["Remarks", selectedRow.EXTENSION_STATUS],
                 ["Pay Type", computePayType(selectedRow) === "M" ? "Monthly" : "Hourly"],
-                ["NH", selectedRow.NH],
-                ["OT", selectedRow.OT],
-                ["KLSB Rate", selectedRow.KLSB_RATE_NORMAL],
-                ["KLSB OT Rate", selectedRow.KLSB_RATE_OT],
+                ["NH", formatNumberDisplay(selectedRow.NH)],
+                ["OT", formatNumberDisplay(selectedRow.OT)],
+                ["KLSB Rate", formatNumberDisplay(selectedRow.KLSB_RATE_NORMAL)],
+                ["KLSB OT Rate", formatNumberDisplay(selectedRow.KLSB_RATE_OT)],
                 ["Last Updated By", selectedRow.updatedBy || selectedRow.createdBy || "-"],
                 ["Last Updated", formatTimestamp(selectedRow.updatedAt || selectedRow.createdAt)],
               ].map(([label, value]) => (
@@ -1056,6 +1182,25 @@ export default function ManpowerTable({ initial = [] }) {
                 </div>
               ))}
             </div>
+
+            {(selectedRow.ATTACHMENTS || []).length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 mb-2">PO Attachment</p>
+                <div className="space-y-2">
+                  {selectedRow.ATTACHMENTS.map((file, index) => (
+                    <a
+                      key={`${file.url || file.name}-${index}`}
+                      href={file.url || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-[#0f3d7a] dark:text-blue-400 hover:underline truncate"
+                    >
+                      📄 {file.name || `Attachment ${index + 1}`}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 flex gap-2">
               <button
@@ -1112,6 +1257,8 @@ export default function ManpowerTable({ initial = [] }) {
               {renderInput("Client", "LOCATION")}
               {renderInput("Location", "SITE")}
               {renderInput("PO/SO No", "PO_SO_No")}
+              {renderInput("Date PO Received", "PO_RECEIVED_DATE", "date")}
+              {renderInput("Date Sign & Return to Client", "PO_SIGNED_RETURNED_DATE", "date")}
               {renderInput("Start Date", "START_DATE", "date")}
               {/* Editable PAY_TYPE */}
               <label className="flex flex-col">
@@ -1126,16 +1273,7 @@ export default function ManpowerTable({ initial = [] }) {
                   <option value="H">Hourly</option>
                 </select>
               </label>
-              {/* Editable END_DATE */}
-              <label className="flex flex-col">
-                <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">End Date</span>
-                <input
-                  type="date"
-                  value={form.END_DATE || ""}
-                  onChange={e => setForm({ ...form, END_DATE: e.target.value })}
-                  className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
-                />
-              </label>
+              {renderInput("End Date", "END_DATE", "date")}
               {/* Editable EXTENSION_STATUS (displayed as "Remarks") */}
               <label className="flex flex-col">
                 <span className="text-xs text-slate-500 dark:text-slate-400 mb-1">Remarks</span>
@@ -1146,11 +1284,42 @@ export default function ManpowerTable({ initial = [] }) {
                   className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
                 />
               </label>
-              {renderInput("NH", "NH")}
-              {renderInput("OT", "OT")}
-              {renderInput("KLSB Rate", "KLSB_RATE_NORMAL")}
-              {renderInput("KLSB OT Rate", "KLSB_RATE_OT")}
+              {renderInput("NH", "NH", "number")}
+              {renderInput("OT", "OT", "number")}
+              {renderInput("KLSB Rate", "KLSB_RATE_NORMAL", "number")}
+              {renderInput("KLSB OT Rate", "KLSB_RATE_OT", "number")}
               {renderInput("End Date (KLSB)", "END_DATE_KLSB", "date")}
+            </div>
+
+            <div className="mt-4 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">PO Attachment</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Attach the PO document (PDF).</p>
+                </div>
+                {uploadingAttachment && <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Uploading...</span>}
+              </div>
+              <input
+                type="file"
+                multiple
+                accept=".pdf"
+                onChange={handleAttachmentChange}
+                className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-[#0e2b57] file:px-4 file:py-2 file:text-white hover:file:bg-[#123568]"
+              />
+              {(form.ATTACHMENTS || []).length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {form.ATTACHMENTS.map((file, index) => (
+                    <div key={`${file.url || file.name}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm">
+                      <a href={file.url || "#"} target="_blank" rel="noreferrer" className="truncate text-[#0f3d7a] dark:text-blue-400 hover:underline">
+                        📄 {file.name || `Attachment ${index + 1}`}
+                      </a>
+                      <button type="button" onClick={() => removeAttachment(index)} className="shrink-0 rounded bg-red-50 dark:bg-red-950/40 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/60">
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 justify-between mt-6">
@@ -1257,6 +1426,7 @@ export default function ManpowerTable({ initial = [] }) {
                           <option value="">(skip)</option>
                           {[
                             'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'SITE', 'PO_SO_No',
+                            'PO_RECEIVED_DATE', 'PO_SIGNED_RETURNED_DATE',
                             'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT',
                             'KLSB_RATE_NORMAL', 'KLSB_RATE_OT'
                           ].map(col => (
@@ -1294,6 +1464,16 @@ export default function ManpowerTable({ initial = [] }) {
             className="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0e2b57]/30"
           />
         </label>
+      );
+    }
+
+    if (type === "number") {
+      return (
+        <NumberField
+          label={label}
+          value={val}
+          onChange={(nextValue) => setForm({ ...form, [key]: nextValue })}
+        />
       );
     }
 
@@ -1352,6 +1532,50 @@ function formatDate(v) {
   const d = new Date(v);
   if (isNaN(d.getTime())) return String(v);
   return d.toISOString().slice(0, 10);
+}
+
+// "3 days left" / "Today" / "Overdue by 3 days" relative to a date value.
+function getDaysRemainingLabel(v) {
+  const ts = parseTimestamp(v);
+  if (ts == null) return null;
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const target = new Date(ts);
+  const startOfTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((startOfTarget - startOfToday) / dayMs);
+
+  if (days < 0) return { text: `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`, overdue: true };
+  if (days === 0) return { text: "Today", overdue: false };
+  if (days === 1) return { text: "1 day left", overdue: false };
+  return { text: `${days} days left`, overdue: false };
+}
+
+function formatDateWithRemaining(v) {
+  const label = getDaysRemainingLabel(v);
+  return label ? `${formatDate(v)} (${label.text})` : formatDate(v);
+}
+
+// Strips a display-formatted number (e.g. "1,234.56") back to a plain
+// numeric string ("1234.56") suitable for storage, capped at 2 decimals.
+function parseNumberInput(value) {
+  if (value === null || value === undefined) return "";
+  const digitsOnly = String(value).replace(/[^\d.]/g, "");
+  const [wholePart, ...fractionParts] = digitsOnly.split(".");
+  const fractionPart = fractionParts.join("").replace(/\./g, "").slice(0, 2);
+  return fractionParts.length > 0 ? `${wholePart || "0"}.${fractionPart}` : wholePart;
+}
+
+// Excel-style number display: thousand separators + exactly 2 decimals.
+function formatNumberDisplay(value) {
+  if (value === "" || value === null || value === undefined) return "";
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return String(value);
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numericValue);
 }
 
 // Handles a Firestore Timestamp serialized as {_seconds, _nanoseconds}
@@ -1534,6 +1758,7 @@ function guessMapping(headers) {
   // Make every CSV column available for mapping to any table header, and vice versa
   const tableHeaders = [
     'STAFF_NAME', 'POSITION', 'STATUS', 'STATUS_COLOR', 'LOCATION', 'SITE', 'PO_SO_No',
+    'PO_RECEIVED_DATE', 'PO_SIGNED_RETURNED_DATE',
     'START_DATE', 'END_DATE', 'END_DATE_KLSB', 'EXTENSION_STATUS', 'PAY_TYPE', 'NH', 'OT',
     'KLSB_RATE_NORMAL', 'KLSB_RATE_OT'
   ];
@@ -1576,8 +1801,8 @@ function isRowInView(row, viewMode) {
     const klsbTs = parseTimestamp(row?.END_DATE_KLSB);
     if (klsbTs == null) return false;
     const now = Date.now();
-    const in14Days = now + 14 * 24 * 60 * 60 * 1000;
-    return klsbTs >= now && klsbTs <= in14Days;
+    const in2Months = now + 60 * 24 * 60 * 60 * 1000;
+    return klsbTs >= now && klsbTs <= in2Months;
   }
 
   return true;

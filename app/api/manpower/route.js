@@ -28,6 +28,10 @@ function getCollectionName() {
 
 function timestampToMillis(value) {
   if (!value) return null;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
   if (typeof value.toMillis === "function") return value.toMillis();
   if (typeof value._seconds === "number") {
     return value._seconds * 1000 + Math.round((value._nanoseconds || 0) / 1e6);
@@ -150,7 +154,9 @@ export async function POST(req) {
 
       const colRef = db.collection(collectionName);
       const created = [];
-      const nowServer = admin.firestore.FieldValue.serverTimestamp();
+      // Written value must exactly match what's returned to the client — a
+      // separate FieldValue.serverTimestamp() would resolve a few ms later,
+      // so a subsequent edit's optimistic-lock check could spuriously fail.
       const nowIso = new Date().toISOString();
 
       for (let i = 0; i < rows.length; i += 400) {
@@ -165,9 +171,9 @@ export async function POST(req) {
           batch.set(docRef, {
             ...payload,
             createdBy: actor,
-            createdAt: nowServer,
+            createdAt: nowIso,
             updatedBy: actor,
-            updatedAt: nowServer,
+            updatedAt: nowIso,
           });
         });
 
@@ -183,9 +189,9 @@ export async function POST(req) {
     const doc = await db.collection(collectionName).add({
       ...payload,
       createdBy: actor,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: nowIso,
       updatedBy: actor,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: nowIso,
     });
     return NextResponse.json({ id: doc.id, createdBy: actor, createdAt: nowIso, updatedBy: actor, updatedAt: nowIso }, { status: 201 });
   } catch (e) {
@@ -222,7 +228,7 @@ export async function PUT(req) {
             {
               ...payload,
               updatedBy: actor,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: nowIso,
             },
             { merge: true }
           );
@@ -252,7 +258,7 @@ export async function PUT(req) {
     const cleaned = stripEmpty(data);
     const payload = collectionName === "staff" ? mapManpowerToStaff(cleaned) : cleaned;
     const nowIso = new Date().toISOString();
-    await db.collection(collectionName).doc(id).set({ ...payload, updatedBy: actor, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await db.collection(collectionName).doc(id).set({ ...payload, updatedBy: actor, updatedAt: nowIso }, { merge: true });
     return NextResponse.json({ ok: true, updated: 1, updatedBy: actor, updatedAt: nowIso });
   } catch (e) {
     const status = e.message && e.message.includes("No ID token") ? 401 : 500;

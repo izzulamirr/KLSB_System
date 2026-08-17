@@ -424,11 +424,22 @@ export default function DashboardPage() {
                 <div className="text-center py-4 text-slate-500 dark:text-slate-400 text-sm">No upcoming deadlines</div>
               ) : (
                 upcomingDeadlines.map((deadline, idx) => (
-                  <a
+                  <Link
                     key={idx}
-                    href={`/dashboard/manpower?po=${encodeURIComponent(deadline.project || "")}${
-                      deadline.id ? `&edit=${encodeURIComponent(deadline.id)}` : ""
-                    }`}
+                    // Must be next/link, not a raw <a>: only next/link applies
+                    // basePath, and without it this navigates to /dashboard/...
+                    // outside the app's mount point and never reaches the server.
+                    //
+                    // Send ?edit alone when we have the record id: ?po makes the
+                    // page pre-filter to a single PO, which leaves the table
+                    // showing "1/1" instead of the full database behind the
+                    // modal. ?po is only the fallback for locating a record we
+                    // have no id for.
+                    href={
+                      deadline.id
+                        ? `/dashboard/manpower?edit=${encodeURIComponent(deadline.id)}`
+                        : `/dashboard/manpower?po=${encodeURIComponent(deadline.project || "")}`
+                    }
                     className={`block p-3 border-l-4 rounded transition-all hover:shadow-md hover:scale-[1.02] cursor-pointer ${
                     deadline.daysRemaining === 0 ? "border-red-500 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60" :
                     deadline.daysRemaining <= 3 ? "border-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60" :
@@ -472,7 +483,7 @@ export default function DashboardPage() {
                         {deadline.status}
                       </span>
                     </div>
-                  </a>
+                  </Link>
                 ))
               )}
             </div>

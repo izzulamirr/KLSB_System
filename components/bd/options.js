@@ -30,3 +30,10 @@ export const BD_STATUS_OPTIONS = [
   "CANCELLED",
   "ON-GOING",
 ];
+
+// Only these statuses are still live enough to remind anyone about. Every other
+// status (WON/LOST/DECLINED/CANCELLED) is a settled outcome. This mirrors the
+// query in lib/reminderScheduler.js, which decides who actually gets emailed -
+// keep the two in sync so the dashboard never shows a reminder that no email
+// would ever be sent for.
+export const BD_ACTIVE_STATUSES = ["PENDING", "ON-GOING"];

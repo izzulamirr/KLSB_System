@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
 import { withBasePath } from "../../lib/apiPath";
 import { formatPicString, getPicEmails } from "../../lib/picEmailMap";
+import { BD_ACTIVE_STATUSES } from "./options";
 import HighlightNumbers from "../HighlightNumbers";
 
 function parseDateInput(value) {
@@ -100,9 +101,10 @@ export default function FloatingRemindersWidget() {
 
     const items = [];
     for (const row of rows) {
-      // Outcome is already known once a proposal is Won/Lost — nothing left to remind about.
+      // Only remind about proposals that are still live. A settled outcome
+      // (WON/LOST/DECLINED/CANCELLED) has nothing left to chase.
       const status = String(row.status || "").trim().toUpperCase();
-      if (status === "WON" || status === "LOST") continue;
+      if (!BD_ACTIVE_STATUSES.includes(status)) continue;
 
       const targets = [
         { type: "Submission", dateValue: row.submissionDate },

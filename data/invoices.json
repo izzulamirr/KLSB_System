@@ -32,7 +32,7 @@
       "invoiceAmountWoSst": "896.03",
       "invoiceAmountWithSst": "RM 896.03",
       "sstAmount": "RM 0.00",
-      "paidAmount": "800",
+      "paidAmount": "",
       "balance": "RM 96.03",
       "status": "PENDING",
       "days": "30",
@@ -61,5 +61,5 @@
       "notes": ""
     }
   ],
-  "updatedAt": "2026-06-29T09:00:00.396Z"
+  "updatedAt": "2026-08-14T07:22:13.259Z"
 }

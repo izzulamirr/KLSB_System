@@ -61,11 +61,12 @@ export default function LoginForm() {
     >
       <div className="flex flex-col items-center gap-3 mb-6 text-center">
         <Image
-          src="/KLSB_icon.png"
+          src={withBasePath("/KLSB_icon.png")}
           alt="KLSB Icon"
           width={84}
           height={84}
           priority
+          unoptimized
           className="object-contain mx-auto"
         />
       </div>

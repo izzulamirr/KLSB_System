@@ -7,6 +7,16 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "fire
 import { withBasePath } from "../lib/apiPath";
 import { fetchWithAuth } from "../lib/fetchWithAuth";
 
+// Table styling mirrored from the PO Database table (components/ManpowerTable.js)
+// so both pages read as one system. Keep these in sync if that table changes.
+const TH_CLASS =
+  "text-left px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-600 font-semibold text-[11px] uppercase tracking-[0.1em] first:rounded-tl-xl last:rounded-tr-xl";
+const TD_CLASS = "px-4 py-3 align-top text-[13px] leading-5 text-slate-700 dark:text-slate-300";
+const rowClass = (i) =>
+  `border-t border-slate-200/90 dark:border-slate-700/60 ${
+    i % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50/45 dark:bg-slate-800/40"
+  } hover:bg-[#eef4fd] dark:hover:bg-slate-800 transition-colors`;
+
 // Dates in this component are stored as plain "YYYY-MM-DD" strings; parsing
 // them with `new Date(str)` reads them as UTC midnight, which shifts the
 // local year/month near midnight for timezones behind UTC. Parse the
@@ -617,27 +627,31 @@ export default function TimesheetMonthlyManualClient() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow p-4">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-700 dark:text-slate-300">
-                <th className="py-3 px-4">Name</th>
-                <th className="py-3 px-4">Month</th>
-                <th className="py-3 px-4">Client</th>
-                <th className="py-3 px-4">Normal Hours</th>
-                <th className="py-3 px-4">OT Hours</th>
-                <th className="py-3 px-4">Total Hours</th>
-                <th className="py-3 px-4">KLSB Cost</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Submitted Date</th>
-                <th className="py-3 px-4">Actions</th>
+      <div className="rounded-2xl bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/40 ring-1 ring-slate-200 dark:ring-slate-700 overflow-hidden">
+        <div className="overflow-auto bg-white dark:bg-slate-900">
+          <table className="w-full min-w-[1100px] table-auto text-sm">
+            <thead className="sticky top-0 z-10 shadow-sm">
+              <tr>
+                {[
+                  "Name",
+                  "Month",
+                  "Client",
+                  "Normal Hours",
+                  "OT Hours",
+                  "Total Hours",
+                  "KLSB Cost",
+                  "Status",
+                  "Submitted Date",
+                  "Actions",
+                ].map((h) => (
+                  <th key={h} className={TH_CLASS}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {(!timesheetList || timesheetList.length === 0) ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-slate-500 dark:text-slate-400">No timesheets found</td>
+                  <td colSpan={10} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">No timesheets found</td>
                 </tr>
               ) : (
                 timesheetList
@@ -651,7 +665,7 @@ export default function TimesheetMonthlyManualClient() {
                     const clientValue = (t.location || t.sample?.location || "").toString().trim();
                     return clientValue === selectedClient;
                   })
-                  .map((t) => {
+                  .map((t, rowIndex) => {
                     const parts = t.date ? parseDateOnlyParts(t.date) : null;
                     const monthLabel = parts ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parts.month - 1]} ${parts.year}` : "-";
                     const name = t.staffName || t.sample?.staffName || "-";
@@ -663,21 +677,21 @@ export default function TimesheetMonthlyManualClient() {
                     const status = t.sample?.status || "submitted";
                     const submitted = t.sample?.uploadedAt ? new Date(t.sample.uploadedAt).toLocaleString() : "-";
                     return (
-                      <tr key={t.parentId || name || Math.random()} className="border-t">
-                        <td className="py-3 px-4">{name}</td>
-                        <td className="py-3 px-4">{monthLabel}</td>
-                        <td className="py-3 px-4">{client}</td>
-                        <td className="py-3 px-4">{normal}</td>
-                        <td className="py-3 px-4">{ot}</td>
-                        <td className="py-3 px-4">{total}</td>
-                        <td className="py-3 px-4">{klsbCost}</td>
-                        <td className="py-3 px-4">
+                      <tr key={t.parentId || name || Math.random()} className={rowClass(rowIndex)}>
+                        <td className={`${TD_CLASS} font-medium text-slate-900 dark:text-slate-100`}>{name}</td>
+                        <td className={TD_CLASS}>{monthLabel}</td>
+                        <td className={TD_CLASS}>{client}</td>
+                        <td className={TD_CLASS}>{normal}</td>
+                        <td className={TD_CLASS}>{ot}</td>
+                        <td className={TD_CLASS}>{total}</td>
+                        <td className={TD_CLASS}>{klsbCost}</td>
+                        <td className={TD_CLASS}>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusBadgeClass(status)}`}>
                             {statusBadgeLabel(status)}
                           </span>
                         </td>
-                        <td className="py-3 px-4">{submitted}</td>
-                        <td className="py-3 px-4">
+                        <td className={TD_CLASS}>{submitted}</td>
+                        <td className={TD_CLASS}>
                           <div className="flex items-center gap-2">
                             {status === "rejected" ? (
                               <button onClick={() => loadParentTimesheet(t.parentId || t.sample?.id || t.sample?._id)} className="text-sm px-2 py-1 bg-gray-100 dark:bg-slate-800 rounded">Edit</button>
@@ -766,29 +780,35 @@ export default function TimesheetMonthlyManualClient() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
-                <th className="py-3 px-4">Month</th>
-                <th className="py-3 px-4">Year</th>
-                <th className="py-3 px-4">Timesheets</th>
-                <th className="py-3 px-4">Normal Hours</th>
-                <th className="py-3 px-4">OT Hours</th>
-                <th className="py-3 px-4">Total Hours</th>
-                <th className="py-3 px-4">KLSB Cost</th>
+        {/* Negative margins pull the table flush to the card edge, past the
+            card's p-4, so it matches the PO Database table. */}
+        <div className="-mx-4 -mb-4 mt-4 overflow-auto border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-b-lg">
+          <table className="w-full table-auto text-sm">
+            <thead className="sticky top-0 z-10 shadow-sm">
+              <tr>
+                {[
+                  "Month",
+                  "Year",
+                  "Timesheets",
+                  "Normal Hours",
+                  "OT Hours",
+                  "Total Hours",
+                  "KLSB Cost",
+                ].map((h) => (
+                  <th key={h} className={TH_CLASS}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {monthlyReportingRows.map((row) => (
-                <tr key={`${row.month}-${row.year}`} className="border-t border-slate-200 dark:border-slate-700 bg-blue-50/70 dark:bg-blue-950/30">
-                  <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">{row.month}</td>
-                  <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.year}</td>
-                  <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.timesheets}</td>
-                  <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.normalHours.toFixed(1)}</td>
-                  <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.otHours.toFixed(1)}</td>
-                  <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.totalHours.toFixed(1)}</td>
-                  <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{formatKlsbCost(row.klsbCost)}</td>
+              {monthlyReportingRows.map((row, i) => (
+                <tr key={`${row.month}-${row.year}`} className={rowClass(i)}>
+                  <td className={`${TD_CLASS} font-medium text-slate-900 dark:text-slate-100`}>{row.month}</td>
+                  <td className={TD_CLASS}>{row.year}</td>
+                  <td className={TD_CLASS}>{row.timesheets}</td>
+                  <td className={TD_CLASS}>{row.normalHours.toFixed(1)}</td>
+                  <td className={TD_CLASS}>{row.otHours.toFixed(1)}</td>
+                  <td className={TD_CLASS}>{row.totalHours.toFixed(1)}</td>
+                  <td className={TD_CLASS}>{formatKlsbCost(row.klsbCost)}</td>
                 </tr>
               ))}
             </tbody>

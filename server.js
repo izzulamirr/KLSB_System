@@ -10,13 +10,27 @@ const handle = app.getRequestHandler();
 // Define the port, defaulting to cPanel's assigned port
 const port = process.env.PORT || 3000;
 
+// Must match the basePath next.config.ts applies in production. Passenger
+// mounts the app at this path and strips it from req.url before Node sees it,
+// but Next expects incoming URLs to still contain basePath - so without this
+// every route 404s. Prepending is a no-op if the prefix is already present.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || (dev ? '' : '/klsb-portal');
+
 app.prepare().then(() => {
   createServer((req, res) => {
+    if (basePath && !(req.url === basePath || req.url.startsWith(basePath + '/'))) {
+      req.url = basePath + req.url;
+    }
+
+    if (process.env.DEBUG_URL) {
+      console.log('> incoming:', req.url);
+    }
+
     const parsedUrl = parse(req.url, true);
-    
+
     // Let Next.js handle all the routing and redirects automatically
     handle(req, res, parsedUrl);
-    
+
   }).listen(port, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://localhost:${port}`);

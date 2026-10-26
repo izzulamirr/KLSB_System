@@ -4,7 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { bdFetch, statusClass } from "./api";
-import { BD_STATUS_OPTIONS } from "./options";
+import { BD_STAGE_OPTIONS, BD_STATUS_OPTIONS } from "./options";
+import { deriveProposalYear } from "./proposalFormHelpers";
 import { formatPicString } from "../../lib/picEmailMap";
 const EDIT_RETURN_URL_KEY = "bd:editReturnUrl";
 const TRACKER_PAGE_KEY = "bd:proposalTrackerPage";
@@ -22,6 +23,8 @@ function readTrackerStateFromUrl() {
     refNoSort: "",
     scopeQuery: "",
     maturationSort: "",
+    stageFilter: "",
+    yearFilter: "",
   };
 
   if (typeof window === "undefined") return defaults;
@@ -44,6 +47,8 @@ function readTrackerStateFromUrl() {
     refNoSort: refNoSort === "asc" || refNoSort === "desc" ? refNoSort : "",
     scopeQuery,
     maturationSort,
+    stageFilter: params.get("stage") || "",
+    yearFilter: params.get("year") || "",
   };
 }
 
@@ -60,6 +65,8 @@ function buildTrackerQuery(state) {
   if (state.refNoSort) params.set("refNoSort", state.refNoSort);
   if (state.scopeQuery) params.set("scope", state.scopeQuery);
   if (state.maturationSort) params.set("maturationSort", state.maturationSort);
+  if (state.stageFilter) params.set("stage", state.stageFilter);
+  if (state.yearFilter) params.set("year", state.yearFilter);
 
   return params.toString();
 }
@@ -76,6 +83,8 @@ function getInitialTrackerState() {
     refNoSort: "",
     scopeQuery: "",
     maturationSort: "",
+    stageFilter: "",
+    yearFilter: "",
   };
 
   if (typeof window === "undefined") return defaults;
@@ -162,6 +171,8 @@ export default function BDProposalTrackerPage() {
   const [refNoSort, setRefNoSort] = useState(initialState.refNoSort);
   const [scopeQuery, setScopeQuery] = useState(initialState.scopeQuery);
   const [maturationSort, setMaturationSort] = useState(initialState.maturationSort);
+  const [stageFilter, setStageFilter] = useState(initialState.stageFilter || "");
+  const [yearFilter, setYearFilter] = useState(initialState.yearFilter || "");
   const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const [selectedProposal, setSelectedProposal] = useState(null);
   const ITEMS_PER_PAGE = 15;
@@ -179,6 +190,8 @@ export default function BDProposalTrackerPage() {
     setRefNoSort(nextState.refNoSort);
     setScopeQuery(nextState.scopeQuery || "");
     setMaturationSort(nextState.maturationSort || "");
+    setStageFilter(nextState.stageFilter || "");
+    setYearFilter(nextState.yearFilter || "");
   }
 
   function saveTrackerState(nextState) {
@@ -205,6 +218,8 @@ export default function BDProposalTrackerPage() {
       refNoSort,
       scopeQuery,
       maturationSort,
+      stageFilter,
+      yearFilter,
       ...overrides,
     };
   }
@@ -393,6 +408,11 @@ export default function BDProposalTrackerPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }, [rows]);
 
+  const yearOptions = useMemo(() => {
+    const years = new Set((rows || []).map((r) => deriveProposalYear(r)));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const normalizedTitle = titleQuery.trim().toLowerCase();
     const normalizedClient = clientQuery.trim().toLowerCase();
@@ -413,8 +433,10 @@ export default function BDProposalTrackerPage() {
       const refMatch = !normalizedRef || String(item.refNo || "").toLowerCase().includes(normalizedRef);
       const scope = String(item.scopeBusiness || "").toLowerCase();
       const scopeMatch = !normalizedScope || scope.includes(normalizedScope);
+      const stageMatch = !stageFilter || String(item.stage || "").trim() === stageFilter;
+      const yearMatch = !yearFilter || deriveProposalYear(item) === Number(yearFilter);
 
-      return titleMatch && clientMatch && picMatch && statusMatch && refMatch && scopeMatch;
+      return titleMatch && clientMatch && picMatch && statusMatch && refMatch && scopeMatch && stageMatch && yearMatch;
     });
 
     let sorted = [...filtered];
@@ -462,7 +484,7 @@ export default function BDProposalTrackerPage() {
     }
 
     return sorted;
-  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery, scopeQuery, maturationSort]);
+  }, [rows, titleQuery, clientQuery, picQuery, statusFilter, deadlineSort, refNoSort, refQuery, scopeQuery, maturationSort, stageFilter, yearFilter]);
 
   const trackerQuery = useMemo(() => buildTrackerQuery({
     currentPage,
@@ -475,7 +497,9 @@ export default function BDProposalTrackerPage() {
     refNoSort,
     scopeQuery,
     maturationSort,
-  }), [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort, scopeQuery, maturationSort]);
+    stageFilter,
+    yearFilter,
+  }), [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort, scopeQuery, maturationSort, stageFilter, yearFilter]);
 
   // Update URL when tracker state changes.
   useEffect(() => {
@@ -499,9 +523,11 @@ export default function BDProposalTrackerPage() {
         refNoSort,
         scopeQuery,
         maturationSort,
+        stageFilter,
+        yearFilter,
       });
     }
-  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort, scopeQuery, maturationSort]);
+  }, [currentPage, titleQuery, clientQuery, picQuery, refQuery, statusFilter, deadlineSort, refNoSort, scopeQuery, maturationSort, stageFilter, yearFilter]);
 
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -719,6 +745,48 @@ export default function BDProposalTrackerPage() {
             <option value="">Default (deadline sort)</option>
             <option value="asc">Nearest maturation first</option>
             <option value="desc">Farthest maturation first</option>
+          </select>
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Filter stage</span>
+          <select
+            value={stageFilter}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ stageFilter: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setStageFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">All stages</option>
+            {BD_STAGE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm text-slate-700">
+          <span className="mb-1 block font-medium text-slate-600">Filter year</span>
+          <select
+            value={yearFilter}
+            onChange={(e) => {
+              const nextState = getCurrentTrackerState({ yearFilter: e.target.value, currentPage: 1 });
+              saveTrackerState(nextState);
+              setYearFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">All years</option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
           </select>
         </label>
       </div>
